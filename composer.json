@@ -2,10 +2,12 @@
     "name": "audriga/jmap-icalendar_vcard",
     "type": "library",
     "description": "Converts between iCalendar and JSCalendar or between vCard and JSContact",
-    "keywords": ["jmap", "groupware"],
+    "keywords": [
+        "jmap",
+        "groupware"
+    ],
     "homepage": "https://github.com/audriga/jmap-php-icalendar_vcard",
     "license": "MIT",
-    "version": "0.0.1",
     "authors": [
         {
             "name": "Stanimir Bozhilov",
@@ -16,13 +18,6 @@
             "email": "joris@audriga.com"
         }
     ],
-    "repositories": [
-        {
-            "type": "artifact",
-            "url": "/tmp/openxport_archives/"
-        }
-    ],
-
     "require": {
         "php": ">=5.6",
         "sabre/vobject": ">=4.2",
@@ -33,10 +28,16 @@
         "squizlabs/php_codesniffer": ">=3"
     },
     "autoload": {
-        "classmap": ["src/"]
+        "classmap": [
+            "src/"
+        ]
     },
     "archive": {
         "name": "jmap-icalendar_vcard",
-        "exclude": ["/tests", "/build", "/README.md"]
+        "exclude": [
+            "/tests",
+            "/build",
+            "/README.md"
+        ]
     }
 }
