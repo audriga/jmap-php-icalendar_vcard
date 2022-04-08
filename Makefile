@@ -2,6 +2,8 @@ build_tools_directory=build/tools
 composer=$(shell ls $(build_tools_directory)/composer_fresh.phar 2> /dev/null)
 composer_lts=$(shell ls $(build_tools_directory)/composer_lts.phar 2> /dev/null)
 
+all: init
+
 # Remove all temporary build files
 .PHONY: clean
 clean:
@@ -50,7 +52,7 @@ php70_mode: composer_lts
 	rm $(build_tools_directory)/composer.phar || true
 	ln $(build_tools_directory)/composer_lts.phar $(build_tools_directory)/composer.phar
 	php $(build_tools_directory)/composer.phar require sabre/vobject:'<4.3' sabre/uri:'<2.2' sabre/xml:'<2.2'
-	php $(build_tools_directory)/composer.phar install --prefer-dist --no-dev
+	php $(build_tools_directory)/composer.phar update --prefer-dist --no-dev
 
 	# Lint for PHP 7.0
 	podman run --rm --name php70  -v "$(PWD)":"$(PWD)" -w "$(PWD)" docker.io/jetpulp/php70-cli sh -c "! (find . -type f -name \"*.php\" -not -path \"./tests/*\" $1 -exec php -l -n {} \; | grep -v \"No syntax errors detected\")"
@@ -61,6 +63,7 @@ php70_mode: composer_lts
 php81_mode: composer
 	git checkout composer.json composer.lock
 	make init
+	php $(build_tools_directory)/composer.phar update --prefer-dist --no-dev
 
 	# Lint for installed PHP version (should be 8.1)
 	sh -c "! (find . -type f -name \"*.php\" -not -path \"./build/*\" $1 -exec php -l -n {} \; | grep -v \"No syntax errors detected\")"
@@ -79,15 +82,6 @@ lint:
 unit_test:
 	php $(build_tools_directory)/composer.phar install --prefer-dist
 	vendor/bin/phpunit -c tests/phpunit.xml --testdox
-
-# Build a ZIP for deploying
-.PHONY: zip
-zip:
-	php $(build_tools_directory)/composer.phar install --prefer-dist --no-dev
-	php $(build_tools_directory)/composer.phar archive -f zip --dir=build/archives
-	mkdir /tmp/openxport_archives/ || true
-	cp build/archives/* /tmp/openxport_archives/
-
 
 .PHONY: fulltest
 fulltest: lint unit_test
