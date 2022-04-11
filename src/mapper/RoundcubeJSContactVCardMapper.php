@@ -79,10 +79,7 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
 
                 $adapter->setRev($jsContactCard->updated);
 
-                $adapter->setUid($jsContactCard->uid);
-
                 $adapter->setXMaidenName($jsContactCard->{"audriga.eu/roundcube:maidenName"});
-
 
                 array_push($map, array($creationId => $adapter->getVCard()));
             } catch (InvalidArgumentException $e) {
@@ -128,7 +125,10 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
             $jsContactCard->setNotes($adapter->getNotes());
             $jsContactCard->setProdId($adapter->getProdId());
             $jsContactCard->setUpdated($adapter->getUpdated());
-            $jsContactCard->setUid($adapter->getUid());
+
+            // Currently we wish to set uid = id in JSContact
+            // See: https://web.audriga.com/mantis/view.php?id=5734#c28523
+            $jsContactCard->setUid($contactId);
 
             // Map Roundcube-specific vCard properties to audriga-defined JSContact properties
             // Note: X-DEPARTMENT is currently mapped to "organizations"

@@ -71,9 +71,6 @@ class JSContactVCardMapper extends AbstractMapper
 
                 $adapter->setRev($jsContactCard->updated);
 
-                $adapter->setUid($jsContactCard->uid);
-
-
                 array_push($map, array($creationId => $adapter->getVCard()));
             } catch (InvalidArgumentException $e) {
                 $this->logger = Logger::getInstance();
@@ -118,7 +115,10 @@ class JSContactVCardMapper extends AbstractMapper
             $jsContactCard->setNotes($adapter->getNotes());
             $jsContactCard->setProdId($adapter->getProdId());
             $jsContactCard->setUpdated($adapter->getUpdated());
-            $jsContactCard->setUid($adapter->getUid());
+
+            // Currently we wish to set uid = id in JSContact
+            // See: https://web.audriga.com/mantis/view.php?id=5734#c28523
+            $jsContactCard->setUid($contactId);
 
             array_push($list, $jsContactCard);
         }
