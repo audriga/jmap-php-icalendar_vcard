@@ -116,8 +116,10 @@ class JSContactVCardMapper extends AbstractMapper
             $jsContactCard->setProdId($adapter->getProdId());
             $jsContactCard->setUpdated($adapter->getUpdated());
 
-            // Currently we wish to set uid = id in JSContact
-            // See: https://web.audriga.com/mantis/view.php?id=5734#c28523
+            // Currently assume uid = id in OXP Core
+            // WARNING: This will disregard UID from vCards
+            // replace with the following to support UIDs:
+            // $jsContactCard->setUid($adapter->getUid());
             $jsContactCard->setUid($contactId);
 
             array_push($list, $jsContactCard);
