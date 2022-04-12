@@ -2968,7 +2968,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                             }
                         }
                     } else { // In case that $jsContactPhoneContexts is null, we set the vCard type to be 'other'
-                        $vCardTelParams['type'] = 'other';
+                        $vCardTelParams['type'][] = 'other';
                     }
 
                     if (isset($jsContactPhoneFeatures) && !empty($jsContactPhoneFeatures)) {
@@ -3116,7 +3116,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                             }
                         }
                     } else { // In case that $jsContactEmailContexts is null, we set the vCard type to be 'other'
-                        $vCardEmailParams['type'] = 'other';
+                        $vCardEmailParams['type'][] = 'other';
                     }
 
                     if (isset($jsContactEmailPref)) {

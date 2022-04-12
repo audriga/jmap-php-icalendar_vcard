@@ -6,8 +6,7 @@ namespace OpenXPort\Test\VCard;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject;
 
-use function PHPUnit\Framework\assertEquals;
-
+// TODO: Finish rewriting all of this file's test cases in JSContactVCardAdapterTest
 final class VCardAdapterTest extends TestCase
 {
     /**
@@ -37,6 +36,8 @@ final class VCardAdapterTest extends TestCase
 
     public function setUp(): void
     {
+        // Skip this test class, since it's obsolete, as it relates to the older JMAP for Contacts standard
+        $this->markTestSkipped();
         $this->vCard = VObject\Reader::read(
             fopen(__DIR__ . '/../resources/test_vcard.vcf', 'r')
         );

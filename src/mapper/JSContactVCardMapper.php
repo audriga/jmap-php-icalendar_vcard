@@ -71,9 +71,6 @@ class JSContactVCardMapper extends AbstractMapper
 
                 $adapter->setRev($jsContactCard->updated);
 
-                $adapter->setUid($jsContactCard->uid);
-
-
                 array_push($map, array($creationId => $adapter->getVCard()));
             } catch (InvalidArgumentException $e) {
                 $this->logger = Logger::getInstance();
@@ -118,7 +115,12 @@ class JSContactVCardMapper extends AbstractMapper
             $jsContactCard->setNotes($adapter->getNotes());
             $jsContactCard->setProdId($adapter->getProdId());
             $jsContactCard->setUpdated($adapter->getUpdated());
-            $jsContactCard->setUid($adapter->getUid());
+
+            // Currently assume uid = id in OXP Core
+            // WARNING: This will disregard UID from vCards
+            // replace with the following to support UIDs:
+            // $jsContactCard->setUid($adapter->getUid());
+            $jsContactCard->setUid($contactId);
 
             array_push($list, $jsContactCard);
         }
