@@ -37,6 +37,8 @@ final class VCardAdapterTest extends TestCase
 
     public function setUp(): void
     {
+        // Skip this test class, since it's obsolete, as it relates to the older JMAP for Contacts standard
+        $this->markTestSkipped();
         $this->vCard = VObject\Reader::read(
             fopen(__DIR__ . '/../resources/test_vcard.vcf', 'r')
         );
