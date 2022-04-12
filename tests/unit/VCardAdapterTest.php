@@ -6,8 +6,7 @@ namespace OpenXPort\Test\VCard;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject;
 
-use function PHPUnit\Framework\assertEquals;
-
+// TODO: Finish rewriting all of this file's test cases in JSContactVCardAdapterTest
 final class VCardAdapterTest extends TestCase
 {
     /**

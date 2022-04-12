@@ -1,0 +1,23 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Gump;Forrest;MiddleName;Mr.;Suffix
+FN:Forrest Gump
+ORG:Bubba Gump Shrimp Co.
+TITLE:Shrimp Man
+BDAY;VALUE=date:19950505T000000Z
+ANNIVERSARY;VALUE=date:20051010T000000Z
+NICKNAME:forresty
+PHOTO;TYPE=PNG:https://homepages.cae.wisc.edu/~ece533/images/airplane.png
+TEL;TYPE=work:(111) 555-1212
+TEL;TYPE=home:(404) 555-1212
+TEL;TYPE=home;TYPE=pager;TYPE=blabla;TYPE=blabla2:(123) 555-1357
+ADR;TYPE=work:;;100 Waters Edge;Baytown;LA;30314;United States of America
+ADR;TYPE=home:;;42 Plantation St.;Baytown;LA;30314;United States of America
+EMAIL;TYPE=home:forrestgump@example.com
+EMAIL;TYPE=work:forrestgump-work@example.com
+REV:20080424T195243Z
+X-Prop;X-Param=Test-Param:Some text bla
+URL:http://forrestgump.org/
+IMPP:xmpp:forrestgump@example.org
+GENDER:M
+END:VCARD
