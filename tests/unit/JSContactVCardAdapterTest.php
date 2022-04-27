@@ -27,7 +27,7 @@ final class JSContactVCardAdapterTest extends TestCase
     public function setUp(): void
     {
         $this->vCard = Reader::read(
-            fopen(__DIR__ . '/../resources/test_vcard.vcf', 'r')
+            fopen(__DIR__ . '/../resources/test_vcard_v3.vcf', 'r')
         );
 
         $this->adapter = new JSContactVCardAdapter();
@@ -179,5 +179,14 @@ final class JSContactVCardAdapterTest extends TestCase
     public function testIdEqualsUid()
     {
         $this->assertEquals($this->jsContactCard->getId(), $this->jsContactCard->getUid());
+    }
+
+    public function testCorrectNotesMapping()
+    {
+        $this->vCardData = array("1" => $this->vCard->serialize());
+        $this->jsContactCard = $this->mapper->mapToJmap($this->vCardData, $this->adapter)[0];
+
+        // Assert that the value of the JSContact "notes" property is the one we expect
+        $this->assertEquals($this->jsContactCard->getNotes(), "Some text \n\n some more text");
     }
 }

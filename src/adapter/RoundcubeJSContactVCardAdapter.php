@@ -387,7 +387,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
                                         break;
 
                                     case 'other':
-                                        $jsContactPhoneContexts = null;
+                                        $jsContactPhoneContexts['other'] = true;
                                         break;
 
                                     case 'text':
@@ -461,6 +461,84 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
         }
 
         return $jsContactPhonesProperty;
+    }
+
+    /**
+     * This function maps the JSContact "phones" property to the vCard TEL property
+     *
+     * @param array<string, Phone>|null $jsContactPhones
+     * The "phones" JSContact property as a map of strings to Phone objects
+     */
+    public function setTel($jsContactPhones)
+    {
+        if (!isset($jsContactPhones) || empty($jsContactPhones)) {
+            return;
+        }
+
+        foreach ($jsContactPhones as $id => $jsContactPhone) {
+            if (isset($jsContactPhone) && !empty($jsContactPhone)) {
+                $jsContactPhoneValue = $jsContactPhone->phone;
+                $jsContactPhoneContexts = $jsContactPhone->contexts;
+                $jsContactPhoneFeatures = $jsContactPhone->features;
+                $jsContactPhoneLabels = $jsContactPhone->label;
+                $jsContactPhonePref = $jsContactPhone->pref;
+
+                $vCardTelParams = [];
+
+                if (isset($jsContactPhoneValue) && !empty($jsContactPhoneValue)) {
+                    if (isset($jsContactPhoneContexts) && !empty($jsContactPhoneContexts)) {
+                        foreach ($jsContactPhoneContexts as $jsContactPhoneContext => $booleanValue) {
+                            switch ($jsContactPhoneContext) {
+                                case 'private':
+                                    $vCardTelParams['type'][] = 'home';
+                                    break;
+
+                                case 'work':
+                                    $vCardTelParams['type'][] = 'work';
+                                    break;
+
+                                // In the case of Roundcube, we don't set 'other' as value for 'type' when
+                                // 'contexts' is null, but rather only when 'other' is set as value in 'contexts'
+                                case 'other':
+                                    $vCardTelParams['type'][] = 'other';
+                                    break;
+
+                                default:
+                                    throw new InvalidArgumentException(
+                                        "Unknown value encountered for the \"contexts\"
+                                        JSContact property of a JSContact Phone object during conversion from
+                                        JSContact's \"phones\" property to vCard's TEL property.
+                                        Encountered value is: " . $jsContactPhoneContext
+                                    );
+                                    break;
+                            }
+                        }
+                    }
+
+                    if (isset($jsContactPhoneFeatures) && !empty($jsContactPhoneFeatures)) {
+                        foreach ($jsContactPhoneFeatures as $jsContactPhoneFeature => $booleanValue) {
+                            $vCardTelParams['type'][] = $jsContactPhoneFeature;
+                        }
+                    }
+
+                    if (isset($jsContactPhoneLabels) && !empty($jsContactPhoneLabels)) {
+                        // Since $jsContactPhoneLabels is a string that contains one or more values separated
+                        // by a comma, we need to turn it into an array by calling explode() with comma as delimiter
+                        $jsContactPhoneLabels = explode(',', $jsContactPhoneLabels);
+
+                        foreach ($jsContactPhoneLabels as $jsContactPhoneLabel) {
+                            $vCardTelParams['type'][] = $jsContactPhoneLabel;
+                        }
+                    }
+
+                    if (isset($jsContactPhonePref)) {
+                        $vCardTelParams['pref'] = $jsContactPhonePref;
+                    }
+
+                    $this->vCard->add("TEL", $jsContactPhoneValue, $vCardTelParams);
+                }
+            }
+        }
     }
 
     /**

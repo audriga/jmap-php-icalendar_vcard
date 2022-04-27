@@ -20,4 +20,5 @@ X-Prop;X-Param=Test-Param:Some text bla
 URL:http://forrestgump.org/
 IMPP:xmpp:forrestgump@example.org
 GENDER:M
+NOTE:Some text \n\n some more text
 END:VCARD
