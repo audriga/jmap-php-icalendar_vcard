@@ -387,7 +387,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
                                         break;
 
                                     case 'other':
-                                        $jsContactPhoneContexts = null;
+                                        $jsContactPhoneContexts['other'] = true;
                                         break;
 
                                     case 'text':
