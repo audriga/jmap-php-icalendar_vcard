@@ -3963,15 +3963,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        // Since multiple vCard NOTE instances are condensed into a single JSContact "notes"
-        // property, separated by "\n", we explode "notes" by the "\n" character
-        $jsContactNotes = explode("\n", $jsContactNotes);
-
-        foreach ($jsContactNotes as $jsContactNote) {
-            if (isset($jsContactNote) && !empty($jsContactNote)) {
-                $this->vCard->add("NOTE", $jsContactNote);
-            }
-        }
+        $this->vCard->add("NOTE", $jsContactNotes);
     }
 
     /**
