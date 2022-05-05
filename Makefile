@@ -15,7 +15,7 @@ composer:
 ifeq (, $(composer))
 	@echo "No composer command available, downloading a copy from the web"
 	mkdir -p $(build_tools_directory)
-	curl -sS https://getcomposer.org/installer | php
+	./get_composer.sh
 	mv composer.phar $(build_tools_directory)/composer_fresh.phar
 endif
 
@@ -27,7 +27,7 @@ composer_lts:
 ifeq (, $(composer_lts))
 	@echo "No composer LTS command available, downloading a copy from the web"
 	mkdir -p $(build_tools_directory)
-	curl -sS https://getcomposer.org/installer | php -- --version 2.2.11
+	./get_composer.sh --2.2
 	mv composer.phar $(build_tools_directory)/composer_lts.phar
 endif
 
@@ -51,7 +51,7 @@ php70_mode: composer_lts
 	git checkout composer.json composer.lock
 	rm $(build_tools_directory)/composer.phar || true
 	ln $(build_tools_directory)/composer_lts.phar $(build_tools_directory)/composer.phar
-	php $(build_tools_directory)/composer.phar require sabre/vobject:'<4.3' sabre/uri:'<2.2' sabre/xml:'<2.2'
+	php $(build_tools_directory)/composer.phar require sabre/vobject:'<4.3' sabre/uri:'<2.2' sabre/xml:'<2.2' psr/log:'<2'
 	php $(build_tools_directory)/composer.phar update --prefer-dist --no-dev
 
 	# Lint for PHP 7.0
