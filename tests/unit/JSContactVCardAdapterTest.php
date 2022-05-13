@@ -29,15 +29,8 @@ final class JSContactVCardAdapterTest extends TestCase
 
     public function setUp(): void
     {
-        $this->vCard = Reader::read(
-            fopen(__DIR__ . '/../resources/test_vcard_v3.vcf', 'r')
-        );
-
         $this->adapter = new JSContactVCardAdapter();
         $this->mapper = new JSContactVCardMapper();
-
-        $this->vCardData = array("1" => $this->vCard->serialize());
-        $this->jsContactCard = $this->mapper->mapToJmap($this->vCardData, $this->adapter)[0];
     }
 
     public function tearDown(): void
@@ -49,13 +42,27 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->jsContactCard = null;
     }
 
+    private function mapVCard()
+    {
+        $this->vCard = Reader::read(
+            fopen(__DIR__ . '/../resources/test_vcard_v3.vcf', 'r')
+        );
+
+        $this->vCardData = array("1" => $this->vCard->serialize());
+        $this->jsContactCard = $this->mapper->mapToJmap($this->vCardData, $this->adapter)[0];
+    }
+
     public function testCorrectJSContactObjectTypeMapping()
     {
+        $this->mapVCard();
+
         $this->assertInstanceOf('OpenXPort\Jmap\JSContact\Card', $this->jsContactCard);
     }
 
     public function testCorrectAddressMapping()
     {
+        $this->mapVCard();
+
         $jsContactAddressIndices = array_keys($this->jsContactCard->getAddresses());
         $jsContactWorkAddress = $this->jsContactCard->getAddresses()[$jsContactAddressIndices[0]];
         $jsContactHomeAddress = $this->jsContactCard->getAddresses()[$jsContactAddressIndices[1]];
@@ -102,6 +109,8 @@ final class JSContactVCardAdapterTest extends TestCase
 
     public function testCorrectEmailMapping()
     {
+        $this->mapVCard();
+
         $jsContactEmailIndices = array_keys($this->jsContactCard->getEmails());
         $jsContactHomeEmail = $this->jsContactCard->getEmails()[$jsContactEmailIndices[0]];
         $jsContactWorkEmail = $this->jsContactCard->getEmails()[$jsContactEmailIndices[1]];
@@ -131,6 +140,8 @@ final class JSContactVCardAdapterTest extends TestCase
 
     public function testCorrectPhoneMapping()
     {
+        $this->mapVCard();
+
         $jsContactPhoneIndices = array_keys($this->jsContactCard->getPhones());
         $jsContactWorkPhone = $this->jsContactCard->getPhones()[$jsContactPhoneIndices[0]];
         $jsContactHomePhone = $this->jsContactCard->getPhones()[$jsContactPhoneIndices[1]];
@@ -160,6 +171,8 @@ final class JSContactVCardAdapterTest extends TestCase
 
     public function testDifferentPhoneTypes()
     {
+        $this->mapVCard();
+
         $jsContactPhoneIndices = array_keys($this->jsContactCard->getPhones());
         $jsContactCardSpecialPhone = $this->jsContactCard->getPhones()[$jsContactPhoneIndices[2]];
 
@@ -181,15 +194,29 @@ final class JSContactVCardAdapterTest extends TestCase
 
     public function testIdEqualsUid()
     {
+        $this->mapVCard();
+
         $this->assertEquals($this->jsContactCard->getId(), $this->jsContactCard->getUid());
     }
 
     public function testCorrectNotesMapping()
     {
-        $this->vCardData = array("1" => $this->vCard->serialize());
-        $this->jsContactCard = $this->mapper->mapToJmap($this->vCardData, $this->adapter)[0];
+        $this->mapVCard();
 
         // Assert that the value of the JSContact "notes" property is the one we expect
         $this->assertEquals($this->jsContactCard->getNotes(), "Some text \n\n some more text");
+    }
+
+    public function testRoundtrip()
+    {
+        $jsContactData = json_decode(file_get_contents(__DIR__ . '/../resources/jscontact_basic.json'));
+
+        $vCardData = $this->mapper->mapFromJmap(array("c1" => $jsContactData), $this->adapter);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap(reset($vCardData), $this->adapter)[0];
+
+        // Assert that the value of notes is still the same
+        // TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+        $this->assertEquals($jsContactData->notes, $jsContactDataAfter->getNotes());
     }
 }

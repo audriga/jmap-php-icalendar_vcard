@@ -1,0 +1,168 @@
+{
+   "@type" : "Card",
+   "addresses" : {
+      "3bab34e047e67e16a9b491adc3982060" : {
+         "@type" : "Address",
+         "contexts" : {
+            "private" : true
+         },
+         "country" : "United States of America",
+         "locality" : "Baytown",
+         "postcode" : "30314",
+         "region" : "LA",
+         "street" : [
+            {
+               "@type" : "StreetComponent",
+               "type" : "name",
+               "value" : "42 Plantation St."
+            }
+         ]
+      },
+      "dabe102fbe3f4a582a71a20f4fcb7336" : {
+         "@type" : "Address",
+         "contexts" : {
+            "work" : true
+         },
+         "country" : "United States of America",
+         "locality" : "Baytown",
+         "postcode" : "30314",
+         "region" : "LA",
+         "street" : [
+            {
+               "@type" : "StreetComponent",
+               "type" : "name",
+               "value" : "100 Waters Edge"
+            }
+         ]
+      }
+   },
+   "anniversaries" : {
+      "1ee491b390a8abd10e990facd3e2f1e7" : {
+         "@type" : "Anniversary",
+         "date" : "2005-10-10",
+         "label" : "anniversary"
+      },
+      "6aa5ba56bc3854d04dde19e3d7b600a2" : {
+         "@type" : "Anniversary",
+         "date" : "1995-05-05",
+         "type" : "birth"
+      }
+   },
+   "emails" : {
+      "404619330242b05e13fb2c1d55b344e7" : {
+         "@type" : "EmailAddress",
+         "contexts" : {
+            "work" : true
+         },
+         "email" : "forrestgump-work@example.com"
+      },
+      "a7683405b87b2df799183f8663bd981f" : {
+         "@type" : "EmailAddress",
+         "contexts" : {
+            "private" : true
+         },
+         "email" : "forrestgump@example.com"
+      }
+   },
+   "fullName" : "Forrest Gump",
+   "id" : 1,
+   "name" : {
+      "@type" : "Name",
+      "components" : [
+         {
+            "@type" : "NameComponent",
+            "type" : "prefix",
+            "value" : "Mr."
+         },
+         {
+            "@type" : "NameComponent",
+            "type" : "given",
+            "value" : "Forrest"
+         },
+         {
+            "@type" : "NameComponent",
+            "type" : "surname",
+            "value" : "Gump"
+         },
+         {
+            "@type" : "NameComponent",
+            "type" : "additional",
+            "value" : "MiddleName"
+         },
+         {
+            "@type" : "NameComponent",
+            "type" : "suffix",
+            "value" : "Suffix"
+         }
+      ]
+   },
+   "nickNames" : [
+      "forresty"
+   ],
+   "notes" : "Some text \n\n some more text",
+   "online" : {
+      "46ec8a44a18c88d3cc298af974a4e56e" : {
+         "@type" : "Resource",
+         "label" : "url",
+         "resource" : "http://forrestgump.org/",
+         "type" : "uri"
+      },
+      "b30aab96a38907207f24a122244b2484" : {
+         "@type" : "Resource",
+         "label" : "XMPP",
+         "resource" : "xmpp:forrestgump@example.org",
+         "type" : "username"
+      }
+   },
+   "organizations" : {
+      "9d5ed678fe57bcca610140957afab571" : {
+         "@type" : "Organization",
+         "name" : "Bubba Gump Shrimp Co."
+      }
+   },
+   "phones" : {
+      "551c1cab59b316ece08a6e32add88eb8" : {
+         "@type" : "Phone",
+         "contexts" : {
+            "work" : true
+         },
+         "phone" : "(111) 555-1212"
+      },
+      "639f9f67140a450ea878654c6f5b8128" : {
+         "@type" : "Phone",
+         "contexts" : {
+            "private" : true
+         },
+         "phone" : "(404) 555-1212"
+      },
+      "b1c7d9acea019e8b53cbbff8612041a4" : {
+         "@type" : "Phone",
+         "contexts" : {
+            "private" : true
+         },
+         "features" : {
+            "pager" : true
+         },
+         "label" : "blabla,blabla2",
+         "phone" : "(123) 555-1357"
+      }
+   },
+   "photos" : {
+      "ca80fd849d1ceafd352ccaecf726a311" : {
+         "@type" : "File",
+         "href" : "https//homepagescaewiscedu/ece533/images/airplanepng"
+      }
+   },
+   "speakToAs" : {
+      "@type" : "SpeakToAs",
+      "grammaticalGender" : "male"
+   },
+   "titles" : {
+      "d41f7668a9479978409ed1da975844a1" : {
+         "@type" : "Title",
+         "title" : "Shrimp Man"
+      }
+   },
+   "uid" : 1,
+   "updated" : "2008-04-24T19:52:43Z"
+}
