@@ -9,6 +9,9 @@ use OpenXPort\Mapper\RoundcubeJSContactVCardMapper;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Reader;
 
+/**
+ * Roundcube-specific converting between vCard <-> JSContact
+ */
 final class RoundcubeJSContactVCardAdapterTest extends TestCase
 {
     /** @var \Sabre\VObject\Component\VCard */

@@ -5,6 +5,9 @@ namespace Test\VObject;
 use Sabre\VObject;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Using VObject for vCards and iCalendar files
+ */
 final class VObjectTest extends TestCase
 {
     public function testReadVcard(): void

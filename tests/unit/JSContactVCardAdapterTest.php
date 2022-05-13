@@ -7,6 +7,9 @@ use OpenXPort\Mapper\JSContactVCardMapper;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Reader;
 
+/**
+ * Generic converting between vCard <-> JSContact
+ */
 final class JSContactVCardAdapterTest extends TestCase
 {
     /** @var \Sabre\VObject\Component\VCard */
