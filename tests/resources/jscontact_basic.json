@@ -99,7 +99,7 @@
    "nickNames" : [
       "forresty"
    ],
-   "notes" : "Some text \n\n some more text",
+   "notes" : "START OF NOTES\n\nThis is a comma, and a semicolon;DONE\n\nEND OF NOTES",
    "online" : {
       "46ec8a44a18c88d3cc298af974a4e56e" : {
          "@type" : "Resource",
