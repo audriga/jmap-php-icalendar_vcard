@@ -48,6 +48,10 @@
          "type" : "birth"
       }
    },
+   "categories" : {
+      "aCategory" : true,
+      "anotherCategory" : true
+   },
    "emails" : {
       "404619330242b05e13fb2c1d55b344e7" : {
          "@type" : "EmailAddress",

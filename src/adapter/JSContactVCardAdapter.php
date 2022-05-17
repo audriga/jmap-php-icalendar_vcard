@@ -22,6 +22,10 @@ use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
 
+/**
+ * Generic adapter to convert between vCard <-> JSContact.
+ * Strictly follows the "JSContact: Converting from and to vCard" spec
+ */
 class JSContactVCardAdapter extends AbstractAdapter
 {
     protected $logger;
@@ -3893,7 +3897,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
         }
 
-        $this->vCard->add("CATEGORIES", implode(',', $vCardCategoriesValues));
+        $this->vCard->add("CATEGORIES", $vCardCategoriesValues);
     }
 
     /**

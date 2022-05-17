@@ -13,6 +13,10 @@ use OpenXPort\Jmap\JSContact\SpeakToAs;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\Logger;
 
+/**
+ * Roundcube-specific adapter to convert between vCard <-> JSContact.
+ * Overrides methods of the generic adapter if Roundcube deviates.
+ */
 class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 {
     /**

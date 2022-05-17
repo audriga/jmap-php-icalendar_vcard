@@ -207,6 +207,10 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertEquals($this->jsContactCard->getNotes(), "Some text \n\n some more text");
     }
 
+    /* *
+     * Map JSContact -> vCard -> JSContact
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
     public function testRoundtrip()
     {
         $jsContactData = json_decode(file_get_contents(__DIR__ . '/../resources/jscontact_basic.json'));
@@ -216,7 +220,7 @@ final class JSContactVCardAdapterTest extends TestCase
         $jsContactDataAfter = $this->mapper->mapToJmap(reset($vCardData), $this->adapter)[0];
 
         // Assert that the value of notes is still the same
-        // TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
         $this->assertEquals($jsContactData->notes, $jsContactDataAfter->getNotes());
+        $this->assertEquals((array) $jsContactData->categories, $jsContactDataAfter->getCategories());
     }
 }
