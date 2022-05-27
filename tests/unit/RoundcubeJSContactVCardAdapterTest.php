@@ -6,9 +6,13 @@ use OpenXPort\Adapter\RoundcubeJSContactVCardAdapter;
 use OpenXPort\Jmap\JSContact\Audriga\Card;
 use OpenXPort\Jmap\JSContact\Phone;
 use OpenXPort\Mapper\RoundcubeJSContactVCardMapper;
+use OpenXPort\Test\VCard\TestUtils;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Reader;
 
+/**
+ * Roundcube-specific converting between vCard <-> JSContact
+ */
 final class RoundcubeJSContactVCardAdapterTest extends TestCase
 {
     /** @var \Sabre\VObject\Component\VCard */
@@ -28,6 +32,8 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
     public function setUp(): void
     {
+        require_once("TestUtils.php");
+
         $this->adapter = new RoundcubeJSContactVCardAdapter();
         $this->mapper = new RoundcubeJSContactVCardMapper();
     }
@@ -56,13 +62,11 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $pagerOtherPhoneEntry = new Phone();
         $pagerOtherPhoneEntry->setAtType("Phone");
-        $pagerOtherPhoneEntry->setPhone("123-pager-other");
-        $pagerOtherPhoneEntry->setFeatures(["pager" => true]);
-        $pagerOtherPhoneEntry->setContexts(["other" => true]);
+        $pagerOtherPhoneEntry->setPhone("123-other");
 
         $this->jsContactCard->setPhones([
             "123-pager" => $pagerPhoneEntry,
-            "123-pager-other" => $pagerOtherPhoneEntry
+            "123-other" => $pagerOtherPhoneEntry
         ]);
 
         $jsContactData = array("c1" => json_decode(json_encode($this->jsContactCard)));

@@ -13,6 +13,10 @@ use OpenXPort\Jmap\JSContact\SpeakToAs;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\Logger;
 
+/**
+ * Roundcube-specific adapter to convert between vCard <-> JSContact.
+ * Overrides methods of the generic adapter if Roundcube deviates.
+ */
 class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 {
     /**
@@ -387,7 +391,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
                                         break;
 
                                     case 'other':
-                                        $jsContactPhoneContexts['other'] = true;
+                                        $jsContactPhoneContexts = null;
                                         break;
 
                                     case 'text':
@@ -463,6 +467,14 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
         return $jsContactPhonesProperty;
     }
 
+    // TODO: Everywhere here setLabel() needs to be replaced by setType()
+    // by following the specs here:
+    // https://datatracker.ietf.org/doc/html/draft-ietf-calext-jscontact-02#section-2.3.3
+    // and here:
+    // https://datatracker.ietf.org/doc/html/draft-ietf-calext-jscontact-vcard-01#section-3.5.2
+    // This TODO also affects all setter methods in this adapter that map JSContact's "online"
+    // property to various vCard properties (hint: look at this method's docstring to
+    // find the affected vCard property names)
     /**
      * This function maps the JSContact "phones" property to the vCard TEL property
      *

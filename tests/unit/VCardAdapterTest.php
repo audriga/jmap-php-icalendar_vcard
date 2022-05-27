@@ -1,12 +1,15 @@
 <?php
 
-# TODO run against JSContact instead of JMAP for Contacts
 namespace OpenXPort\Test\VCard;
 
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject;
 
-// TODO: Finish rewriting all of this file's test cases in JSContactVCardAdapterTest
+/**
+ * LEGACY generic converting between vCard <-> JMAP for Contacts
+ * TODO: Finish rewriting all of this file's test cases in JSContactVCardAdapterTest to run against JSContact instead
+ *   of JMAP for Contacts
+ */
 final class VCardAdapterTest extends TestCase
 {
     /**
