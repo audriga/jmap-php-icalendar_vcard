@@ -11,8 +11,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
     {
         $map = [];
 
-        foreach ($jmapData as $creationId => $jsCalendarEvent)
-        {
+        foreach ($jmapData as $creationId => $jsCalendarEvent) {
             $adapter->setSummary($jsCalendarEvent->title);
             $adapter->setCreated($jsCalendarEvent->created);
             $adapter->setUpdated($jsCalendarEvent->updated);
@@ -21,7 +20,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $adapter->setDTStart($jsCalendarEvent->start, $jsCalendarEvent->timeZone);
             $adapter->setDTEnd($jsCalendarEvent->start, $jsCalendarEvent->duration, $jsCalendarEvent->timeZone);
-            
+
 
             array_push($map, array($creationId => $adapter->getICalEvent()));
         }
@@ -33,7 +32,6 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $list = [];
 
         foreach ($data as $calendarFolderId => $iCalEvents) {
-
             $adapter->setICalEvent($iCalEvents);
 
             $jsEvent = new CalendarEvent();
@@ -43,14 +41,11 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $jsEvent->setUpdated($adapter->getUpdated());
 
             $jsEvent->setUid($adapter->getUid());
-        
 
             // TODO: implement time zone
             $jsEvent->setStart($adapter->getDTStart());
             $jsEvent->setDuration($adapter->getDuration());
-            //$jsEvent->setTimezone($adapter->getTimezone());
-
-            
+            $jsEvent->setTimezone($adapter->getTimezone());
 
             array_push($list, $jsEvent);
         }

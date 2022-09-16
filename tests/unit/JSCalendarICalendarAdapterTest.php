@@ -60,9 +60,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarEvent->getStart(), "2014-01-02T11:00:00");
         $this->assertEquals($this->jsCalendarEvent->getDuration(), "PT1H");
         $this->assertEquals($this->jsCalendarEvent->getUpdated(), "2014-01-07T12:15:03Z");
-        //$this->assertEquals($this->jsCalendarEvent->getTimezone(), "Europe/Berlin");
-
-        
+        $this->assertEquals($this->jsCalendarEvent->getTimezone(), "Europe/Berlin");
     }
     
     /* *
@@ -79,11 +77,12 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
 
-        // Assert that the value of title is still the same
+        // Assert that the value of the properties is still the same
         $this->assertEquals($jsCalendarData->title, $jsCalendarDataAfter->getTitle());
         $this->assertEquals($jsCalendarData->updated, $jsCalendarDataAfter->getUpdated());
         $this->assertEquals($jsCalendarData->uid, $jsCalendarDataAfter->getUid());
         $this->assertEquals($jsCalendarData->start, $jsCalendarDataAfter->getStart());
         $this->assertEquals($jsCalendarData->duration, $jsCalendarDataAfter->getDuration());
-    }
+        $this->assertEquals($jsCalendarData->timeZone, $jsCalendarDataAfter->getTimezone());
+        }
 }

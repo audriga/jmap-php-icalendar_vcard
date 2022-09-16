@@ -34,9 +34,9 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent = VObject\Reader::read($iCalEvent);
     }
 
-    public function getSummary() 
+    public function getSummary()
     {
-        return $this->iCalEvent->VEVENT->SUMMARY; 
+        return $this->iCalEvent->VEVENT->SUMMARY;
     }
 
     public function setSummary($summary)
@@ -47,13 +47,13 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     public function getCreated()
     {
         $created = $this->iCalEvent->VEVENT->CREATED;
-        
+
         if (!AdapterUtil::isSetNotNullAndNotEmpty($created)) {
             return null;
         }
 
         $createdDateTime = $created->getDateTime();
-        
+
         $jmapFormat = "Y-m-d\TH:i:s\Z";
 
         $jmapCreated = $createdDateTime->format($jmapFormat);
@@ -63,11 +63,9 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function setCreated($created)
     {
-
         if (!AdapterUtil::isSetNotNullAndNotEmpty($created)) {
-            return null;
+            return;
         }
-
 
         $jmapFormat = "Y-m-d\TH:i:s\Z";
         $iCalFormat = "Ymd\THis\Z";
@@ -89,9 +87,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     public function setDTStart($start, $timeZone)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($start)) {
+            return;
         }
 
-        // The following checks for the right DateTime Format and creates a new DAteTime in the jmap format.
+        // The following checks for the right DateTime Format and creates a new DateTime in the jmap format.
         $jmapFormat = "Y-m-d\TH:i:s\Z";
         $iCalFormat = "Ymd\THis\Z";
 
@@ -119,22 +118,24 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         } else {
             $iCalStartDateTime = \DateTime::createFromFormat($iCalFormat, $iCalStart, new \DateTimeZone($timeZone));
         }
-        
+
         $this->iCalEvent->VEVENT->add('DTSTART', $iCalStartDateTime);
     }
 
     public function setDTEnd($start, $duration, $timeZone)
     {
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($start) 
-            || !AdapterUtil::isSetNotNullAndNotEmpty($duration)) {
-            return null;
+        if (
+            !AdapterUtil::isSetNotNullAndNotEmpty($start)
+            || !AdapterUtil::isSetNotNullAndNotEmpty($duration)
+        ) {
+            return;
         }
 
         $interval = new \DateInterval($duration);
 
         // 'DTEND' must be strictly greater than 'DTSTART' if it is set.
         if ($interval->format("%y%m%d%h%i%s") == "000000") {
-            return null;
+            return;
         }
 
         // Use the existing 'DTSTART' value.
@@ -148,15 +149,15 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $this->iCalEvent->VEVENT->add('DTEND', $iCalDateTimeEnd);
     }
-        
 
-    public function getDuration() 
+
+    public function getDuration()
     {
         $start = $this->iCalEvent->VEVENT->DTSTART;
         $end = $this->iCalEvent->VEVENT->DTEND;
 
         // Default value in jmap is 'PT0S'.
-        if ($end == null) {
+        if (is_null($end)) {
             return 'PT0S';
         }
 
@@ -164,12 +165,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $dtEnd = $end->getDateTime();
 
         $interval = $dtStart->diff($dtEnd);
-        
+
         // Create a pattern to return the duration in the correct format.
         $outputFormat = 'P';
         //TODO: Check whether months/years need to be added.
         if ($interval->format('%d') != 0) {
-
             $outputFormat .= '%dD';
         }
 
@@ -195,19 +195,34 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function getTimeZone()
     {
-        //TODO: implement me.
+        $dtStart = $this->iCalEvent->VEVENT->DTSTART;
+
+        // Check if DTSTART exists.
+        if ($dtStart == null) {
+            return null;
+        }
+
+        $timeZone = $dtStart->getDateTime()->getTimezone();
+
+        // Check if there is a time zone connected to the DTSTART property
+        if ($timeZone == null) {
+            return null;
+        }
+
+        return $timeZone->getName();
     }
 
     //TODO: this might need to be revamped to accomodate for scheduling and non-scheduling properties
     public function getUpdated()
     {
-        // Get both the "LAST-MODIFIED" and "DTSTAMP" properties, as only one of them is converted into the "updated" jmap property.
+        // Get both the "LAST-MODIFIED" and "DTSTAMP" properties, as only one of
+        // them is converted into the "updated" jmap property.
         $lastModified = $this->iCalEvent->VEVENT->{'LAST-MODIFIED'};
         $dTStamp = $this->iCalEvent->VEVENT->DTSTAMP;
         $dateUpdated = null;
 
         // If one of the properties is set in the ics file, use that one.
-        if(!is_null($lastModified)) {
+        if (!is_null($lastModified)) {
             $lastModifiedDate = $lastModified->getDateTime();
             // If both are set, use the latest one.
             if (!is_null($dTStamp)) {
@@ -231,7 +246,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     public function setUpdated($updated)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($updated)) {
-            return null;
+            return;
         }
 
         $jmapFormat = "Y-m-d\TH:i:s\Z";
@@ -246,14 +261,16 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         } else {
             $this->iCalEvent->VEVENT->add('DTSTAMP', $iCalendarUpdatedDateTime);
         }
-
     }
 
     public function getUid()
     {
         $uid = $this->iCalEvent->VEVENT->UID;
 
-        if(is_null($uid)){
+        if (is_null($uid)) {
+            // TODO: thow a warning and create a new uid
+            // maybe something like: return uniqid("", true) . "@some_domain"
+            // to conform to https://www.rfc-editor.org/rfc/rfc5545.html#section-3.8.4.7 ?
             return null;
         }
 
@@ -263,7 +280,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     public function setUid($uid)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($uid)) {
-            return null;
+            return;
         }
 
         // VObject adds a uid to new VEVENT objects which we will overwrite with the existing one.
@@ -272,6 +289,5 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         } else {
             $this->iCalEvent->VEVENT->add('UID', $uid);
         }
-
     }
 }
