@@ -8,3 +8,7 @@ vCards:
 * `test_vcard.vcf` - just a vCard
 * `test_vcard_2.vcf` - contains an empty name (vCard "N") property
 * `test_vcard_v3.vcf` - yet another vCard
+
+iCalendars:
+* `test_icalendar.ics` - some random iCalendar
+* `nextcloud_conversion_event_1.ics` - iCalendar created in Nextcloud
