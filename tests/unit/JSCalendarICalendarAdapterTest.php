@@ -100,6 +100,5 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
         $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
         $this->assertEquals($this->jsCalendarEvent->getStatus(), "confirmed");
-        echo $this->jsCalendarEvent->getStatus();
     }
 }
