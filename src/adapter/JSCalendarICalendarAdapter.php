@@ -5,6 +5,7 @@ namespace OpenXPort\Adapter;
 use Sabre\VObject\Component\VCalendar;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
+use OpenXPort\Jmap\Calendar\Location;
 use OpenXPort\Util\AdapterUtil;
 
 /**
@@ -357,5 +358,26 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         return $jmapKeyWords;
+    }
+
+
+    public function getLocation()
+    {
+        $location = $this->iCalEvent->VEVENT->LOCATION;
+
+        if (is_null($location)) {
+            return null;
+        }
+
+        $jmapLocations = [];
+
+        $jmapLocation = new Location();
+        $jmapLocation->setType("Location");
+        $jmapLocation->setName($location);
+
+        $key = base64_encode($location);
+        $jmapLocations["$key"] = $jmapLocation;
+
+        return $jmapLocations;
     }
 }
