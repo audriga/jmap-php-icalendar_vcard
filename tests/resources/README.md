@@ -11,3 +11,4 @@ vCards:
 
 iCalendars:
 * `test_icalendar.ics` - some random iCalendar
+* `nextcloud_conversion_event_1.ics` - iCalendar created in Nextcloud

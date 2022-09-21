@@ -84,5 +84,22 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($jsCalendarData->start, $jsCalendarDataAfter->getStart());
         $this->assertEquals($jsCalendarData->duration, $jsCalendarDataAfter->getDuration());
         $this->assertEquals($jsCalendarData->timeZone, $jsCalendarDataAfter->getTimezone());
-        }
+    }
+
+    /**
+     * Map iCalendar -> JSCalendar using Nextcloud generated data
+     */
+    public function testMapICalendarExtended()
+    {
+        $this->iCalendar = Reader::read(
+            fopen(__DIR__ . '/../resources/nextcloud_conversion_event_1.ics', 'r')
+        );
+        
+        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
+        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
+
+        $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
+        $this->assertEquals($this->jsCalendarEvent->getStatus(), "confirmed");
+        echo $this->jsCalendarEvent->getStatus();
+    }
 }

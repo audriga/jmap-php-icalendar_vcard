@@ -23,6 +23,9 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
 
             array_push($map, array($creationId => $adapter->getICalEvent()));
+
+            // Reset the current iCalEvent to allow for multiple events in one calendar
+            $adapter->resetICalEvent();
         }
         return $map;
     }
@@ -42,10 +45,12 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $jsEvent->setUid($adapter->getUid());
 
-            // TODO: implement time zone
             $jsEvent->setStart($adapter->getDTStart());
             $jsEvent->setDuration($adapter->getDuration());
             $jsEvent->setTimezone($adapter->getTimezone());
+
+            $jsEvent->setSequence($adapter->getSequence());
+            $jsEvent->setStatus($adapter->getStatus());
 
             array_push($list, $jsEvent);
         }

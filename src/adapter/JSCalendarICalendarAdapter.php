@@ -34,6 +34,17 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent = VObject\Reader::read($iCalEvent);
     }
 
+    /**
+     * This method resets the ICalendar event object in the adapter.
+     * Doing so is helpful in avoiding overwriting empty fields of an event with properties of previous events.
+     *
+     * Note that Sabre-VObject creates default values for the UID and DTSTAMP properties of new VEVENTs.
+     */
+    public function resetICalEvent()
+    {
+        $this->iCalEvent = new VCalendar(['VEVENT' => []]);
+    }
+
     public function getSummary()
     {
         return $this->iCalEvent->VEVENT->SUMMARY;
@@ -221,20 +232,19 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $dTStamp = $this->iCalEvent->VEVENT->DTSTAMP;
         $dateUpdated = null;
 
-        // If one of the properties is set in the ics file, use that one.
+        // As per IETF standard: Use the latest of the ones that is present,
+        // if they are no scheduling entity.
         if (!is_null($lastModified)) {
-            $lastModifiedDate = $lastModified->getDateTime();
-            // If both are set, use the latest one.
-            if (!is_null($dTStamp)) {
-                $dTStampDate = $dTStamp->getDateTime();
+            $dateUpdated = $lastModified->getDateTime();
+        }
 
-                $dateUpdated = max($lastModifiedDate, $dTStampDate);
-            } else {
-                $dateUpdated = $lastModifiedDate;
-            }
-        } elseif (!is_null($dTStamp)) {
-            $dateUpdated = $dTStamp->getDateTime();
-        } else {
+        if (!is_null($dTStamp)) {
+            $dTStampDateTime = $dTStamp->getDateTime();
+            $dateUpdated = $dateUpdated < $dTStampDateTime ? $dTStampDateTime : $dateUpdated;
+        }
+
+        // This is only the case if neither property is set in the iCal Event.
+        if (is_null($dateUpdated)) {
             return null;
         }
 
@@ -268,10 +278,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $uid = $this->iCalEvent->VEVENT->UID;
 
         if (is_null($uid)) {
-            // TODO: thow a warning and create a new uid
-            // maybe something like: return uniqid("", true) . "@some_domain"
-            // to conform to https://www.rfc-editor.org/rfc/rfc5545.html#section-3.8.4.7 ?
-            return null;
+            $uid = uniqid("", true) . "-OpenXPort";
         }
 
         return $uid;
@@ -288,6 +295,40 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             $this->iCalEvent->VEVENT->UID = $uid;
         } else {
             $this->iCalEvent->VEVENT->add('UID', $uid);
+        }
+    }
+
+    public function getSequence()
+    {
+        $sequence = $this->iCalEvent->VEVENT->SEQUENCE;
+
+        if (is_null($sequence)) {
+            return null;
+        }
+
+        return $sequence;
+    }
+
+    public function getStatus()
+    {
+        $status = $this->iCalEvent->VEVENT->STATUS;
+
+        switch ($status) {
+            case 'TENTATIVE':
+                return "tentative";
+                break;
+
+            case 'CONFIRMED':
+                return "confirmed";
+                break;
+
+            case 'CANCELLED':
+                return "cancelled";
+                break;
+
+            default:
+                return null;
+                break;
         }
     }
 }
