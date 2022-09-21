@@ -55,6 +55,14 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->add('SUMMARY', $summary);
     }
 
+    public function getDescription()
+    {
+        $description = $this->iCalEvent->VEVENT->DESCRIPTION;
+
+        // TODO: implement me according to
+        // https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-description.
+    }
+
     public function getCreated()
     {
         $created = $this->iCalEvent->VEVENT->CREATED;
@@ -330,5 +338,24 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 return null;
                 break;
         }
+    }
+
+    public function getCategories()
+    {
+        $categories = $this->iCalEvent->VEVENT->CATEGORIES;
+
+        if (is_null($categories)) {
+            return null;
+        }
+
+        $jmapKeyWords = [];
+
+        $categoryValues = explode(",", $categories);
+
+        foreach ($categoryValues as $cat) {
+            $jmapKeyWords[$cat] = true;
+        }
+
+        return $jmapKeyWords;
     }
 }
