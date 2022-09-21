@@ -60,7 +60,14 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $description = $this->iCalEvent->VEVENT->DESCRIPTION;
 
-        // TODO: implement me according to
+
+        if (is_null($description)) {
+            return null;
+        }
+
+        return $description;
+
+        // TODO: implement the unescaping mentioned in the ietf conversion standards.
         // https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-description.
     }
 

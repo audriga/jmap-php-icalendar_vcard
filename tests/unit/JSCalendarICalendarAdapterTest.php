@@ -98,6 +98,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->iCalendarData = array("1" => $this->iCalendar->serialize());
         $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
 
+        $this->assertEquals($this->jsCalendarEvent->getDescription()->getValue(), "Event with a tag, a notification\nand a recurrence.");
         $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
         $this->assertEquals($this->jsCalendarEvent->getStatus(), "confirmed");
         $this->assertEquals($this->jsCalendarEvent->getKeywords(), array("Holiday"=>true));
