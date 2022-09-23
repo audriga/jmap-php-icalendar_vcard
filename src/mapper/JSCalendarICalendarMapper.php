@@ -56,6 +56,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $jsEvent->setKeywords($adapter->getCategories());
             $jsEvent->setLocations($adapter->getLocation());
             $jsEvent->setFreeBusyStatus($adapter->getFreeBusy());
+            $jsEvent->setPrivacy($adapter->getClass());
 
             array_push($list, $jsEvent);
         }

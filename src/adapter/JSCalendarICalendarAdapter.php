@@ -294,7 +294,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $uid = $this->iCalEvent->VEVENT->UID;
 
         if (is_null($uid)) {
-            $uid = uniqid("", true) . "-OpenXPort";
+            $uid = uniqid("", true) . ".OpenXPort";
         }
 
         return $uid;
@@ -404,5 +404,32 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
 
         return $freeBusy == 'OPAGUE' ? 'busy' : 'free';
+    }
+
+    public function getClass()
+    {
+        $class = $this->iCalEvent->VEVENT->CLASS;
+
+        if (is_null($class)) {
+            return null;
+        }
+
+        switch ($class) {
+            case 'CONFIDENTIAL':
+                return 'secret';
+                break;
+
+            case 'PRIVATE':
+                return 'private';
+                break;
+
+            case 'PUBLIC':
+                return 'public';
+                break;
+
+            default:
+                return null;
+                break;
+        }
     }
 }
