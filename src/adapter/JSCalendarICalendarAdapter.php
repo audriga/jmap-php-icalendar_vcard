@@ -65,7 +65,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        return $description;
+        return (string)$description;
 
         // TODO: implement the unescaping mentioned in the ietf conversion standards.
         // https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-description.
@@ -75,7 +75,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $created = $this->iCalEvent->VEVENT->CREATED;
 
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($created)) {
+        if (is_null($created)) {
             return null;
         }
 
@@ -314,6 +314,17 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
     }
 
+    public function getProdId()
+    {
+        $prodId = $this->iCalEvent->PRODID;
+
+        if (is_null($prodId)) {
+            return null;
+        }
+
+        return (string)$prodId;
+    }
+
     public function getSequence()
     {
         $sequence = $this->iCalEvent->VEVENT->SEQUENCE;
@@ -386,5 +397,12 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $jmapLocations["$key"] = $jmapLocation;
 
         return $jmapLocations;
+    }
+
+    public function getFreeBusy()
+    {
+        $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
+
+        return $freeBusy == 'OPAGUE' ? 'busy' : 'free';
     }
 }

@@ -45,6 +45,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $jsEvent->setUpdated($adapter->getUpdated());
 
             $jsEvent->setUid($adapter->getUid());
+            $jsEvent->setProdId($adapter->getProdId());
 
             $jsEvent->setStart($adapter->getDTStart());
             $jsEvent->setDuration($adapter->getDuration());
@@ -54,6 +55,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $jsEvent->setStatus($adapter->getStatus());
             $jsEvent->setKeywords($adapter->getCategories());
             $jsEvent->setLocations($adapter->getLocation());
+            $jsEvent->setFreeBusyStatus($adapter->getFreeBusy());
 
             array_push($list, $jsEvent);
         }

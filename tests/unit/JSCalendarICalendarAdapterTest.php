@@ -98,10 +98,11 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->iCalendarData = array("1" => $this->iCalendar->serialize());
         $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
 
-        $this->assertEquals($this->jsCalendarEvent->getDescription()->getValue(), "Event with a tag, a notification\nand a recurrence.");
+        $this->assertEquals($this->jsCalendarEvent->getDescription(), "Event with a tag, a notification\nand a recurrence.");
         $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
         $this->assertEquals($this->jsCalendarEvent->getStatus(), "confirmed");
         $this->assertEquals($this->jsCalendarEvent->getKeywords(), array("Holiday"=>true));
         $this->assertEquals(array_values($this->jsCalendarEvent->getLocations())[0]->getName(), "Some Hotel, Some Country");
+        $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
     }
 }
