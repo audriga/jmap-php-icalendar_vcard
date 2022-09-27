@@ -38,5 +38,11 @@
             "/build",
             "/README.md"
         ]
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.x-dev"
+        }
     }
+
 }
