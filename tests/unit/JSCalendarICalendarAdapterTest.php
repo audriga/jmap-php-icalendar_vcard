@@ -126,6 +126,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($jsCalendarData->sequence, $jsCalendarDataAfter->getSequence());
         $this->assertEquals($jsCalendarData->status, $jsCalendarDataAfter->getStatus());
         $this->assertEquals($jsCalendarData->freeBusyStatus, $jsCalendarDataAfter->getFreeBusyStatus());
+        $this->assertEquals($jsCalendarData->privacy, $jsCalendarDataAfter->getPrivacy());
     }
 
     //TODO: Add test for multiple events (mapFromJmap).

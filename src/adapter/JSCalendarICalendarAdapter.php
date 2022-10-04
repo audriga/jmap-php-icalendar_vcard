@@ -449,7 +449,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
 
-        return strtoupper($freeBusy) == 'OPAGUE' ? 'busy' : 'free';
+        return $freeBusy == 'OPAGUE' ? 'busy' : 'free';
     }
 
     public function setfreeBusy($freeBusy)
@@ -457,7 +457,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         if (!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
             return;
         }
-
+        
         $iCalFreeBusy = $freeBusy == 'free' ? 'TRANSPARENT' : 'OPAGUE';
 
         $this->iCalEvent->VEVENT->add("TRANPS", $iCalFreeBusy);
@@ -488,6 +488,34 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 return null;
                 break;
         }
+    }
+
+    public function setClass($privacy)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($privacy)) {
+            return;
+        }
+
+        $iCalClass = "";
+
+        switch ($privacy) {
+            case 'secret':
+                $iCalClass = "CONFIDENTIAL";
+                break;
+
+            case 'private':
+                $iCalClass = "PRIVATE";
+                break;
+
+            case 'public':
+                $iCalClass = "PUBLIC";
+                break;
+
+            default:
+                return;
+        }
+
+        $this->iCalEvent->VEVENT->add("CLASS", $iCalClass);
     }
 
     public function getRRule()
