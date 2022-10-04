@@ -13,6 +13,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         foreach ($jmapData as $creationId => $jsCalendarEvent) {
             $adapter->setSummary($jsCalendarEvent->title);
+            $adapter->setDescription($jsCalendarEvent->description);
             $adapter->setCreated($jsCalendarEvent->created);
             $adapter->setUpdated($jsCalendarEvent->updated);
 
@@ -21,6 +22,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $adapter->setDTStart($jsCalendarEvent->start, $jsCalendarEvent->timeZone);
             $adapter->setDTEnd($jsCalendarEvent->start, $jsCalendarEvent->duration, $jsCalendarEvent->timeZone);
 
+            $adapter->setSequence($jsCalendarEvent->sequence);
+            $adapter->setStatus($jsCalendarEvent->status);
 
             array_push($map, array($creationId => $adapter->getICalEvent()));
 

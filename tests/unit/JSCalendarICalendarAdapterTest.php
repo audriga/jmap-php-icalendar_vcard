@@ -64,7 +64,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
     }
     
     /* *
-     * Map JSCalendar -> iCalendar -> JSContact
+     * Map JSCalendar -> iCalendar -> JSCalendar
      * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects, not
      *      just single properties.
      */
@@ -106,4 +106,26 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
         $this->assertEquals($this->jsCalendarEvent->getPrivacy(), "private");
     }
+
+    /**
+     * Map JSCalendar -> iCalendar -> JSCalendar using an extended set of properties.
+     */
+    public function testRoundtripExtended()
+    {
+        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+    
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
+
+        // Make sure that the test runs through.
+        $this->assertEquals($jsCalendarData->title, $jsCalendarDataAfter->getTitle());
+
+
+        $this->assertEquals($jsCalendarData->description, $jsCalendarDataAfter->getDescription());
+        $this->assertEquals($jsCalendarData->sequence, $jsCalendarDataAfter->getSequence());
+        $this->assertEquals($jsCalendarData->status, $jsCalendarDataAfter->getStatus());
+    }
+
+    //TODO: Add test for multiple events (mapFromJmap).
 }

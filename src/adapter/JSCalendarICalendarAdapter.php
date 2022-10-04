@@ -71,6 +71,15 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         // https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-description.
     }
 
+    public function setDescription($description)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($description)) {
+            return;
+        }
+
+        $this->iCalEvent->VEVENT->add('DESCRIPTION', $description);
+    }
+
     public function getCreated()
     {
         $created = $this->iCalEvent->VEVENT->CREATED;
@@ -333,7 +342,16 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        return $sequence;
+        return $sequence->getValue();
+    }
+
+    public function setSequence($sequence)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($sequence)) {
+            $this->iCalEvent->VEVENT->add("SEQUENCE", 0);
+        }
+
+        $this->iCalEvent->VEVENT->add("SEQUENCE", $sequence);
     }
 
     public function getStatus()
@@ -355,6 +373,30 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             default:
                 return null;
+                break;
+        }
+    }
+
+    public function setStatus($status)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($status)) {
+            return;
+        }
+
+        switch ($status) {
+            case 'tentative':
+                $this->iCalEvent->VEVENT->add("STATUS", "TENTATIVE");
+                break;
+
+            case 'cancelled':
+                $this->iCalEvent->VEVENT->add("STATUS", "CANCELLED");
+                break;
+
+            case 'confirmed':
+                $this->iCalEvent->VEVENT->add("STATUS", "CONFIRMED");
+                break;
+
+            default:
                 break;
         }
     }
@@ -431,5 +473,62 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 return null;
                 break;
         }
+    }
+
+    public function getRRule()
+    {
+        /* TODO: implement this property as it is done in the horde adapter.
+         * /../horde-jmap/src/adapter/HordeCalendarEventAdapter.php:331
+         *
+         * Strategy:
+         * Get the RRULE property in the ics file. This should contain every recurrence
+         * so that I could loop over the exploded (by ",") string.
+         *
+         * Create a new RecurrenceRule Object from the OpenXPort library.
+         *
+         * Now every String instance should contain a keyword and a value separated by "=".
+         *
+         * Use a switch case on the key to determine what kind of data should be set.
+         *
+         * Implement a new "IcalendarEventAdapterUtil" class that contains methods to convert
+         * the data correctly.
+         *
+         * Every one of those methods should itself have a switch case looping over the value
+         * associated to the key that returns the right value in the jamp format.
+         *
+         * Use the built in methods to set the right properties or the RecurrenceRule object
+         * within each switch case.
+         *
+         * Finally, return the RecurrenceRule object.
+         */
+
+         return null;
+    }
+
+    public function getParticipants()
+    {
+        /*
+         * TODO: implement this property like it is done in the horde adapter.
+         * /../horde-jmap/src/adapter/HordeCalendarEventAdapter.php:531
+         *
+         * Strategy:
+         * Get the attendee values from the iCal event object.
+         *
+         * Extract the organizer from the iCal event.
+         *
+         * Turn the Attendee property into an array so that looping over it is possible.
+         *
+         * Loop through every attendee and create a new Participant from the OXP class.
+         *
+         * Get each property of the attendeee and add it to the participant.
+         *
+         * Also do this for the organizer, adding everyone to an array of particitpants.
+         *
+         * If there is not organizer, create a generic one.
+         *
+         * Return the array of attendees.
+         */
+
+         return null;
     }
 }

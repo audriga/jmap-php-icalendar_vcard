@@ -12,3 +12,7 @@ vCards:
 iCalendars:
 * `test_icalendar.ics` - some random iCalendar
 * `nextcloud_conversion_event_1.ics` - iCalendar created in Nextcloud
+
+JSCalendars:
+* `jscalendar_basic.json` - JSCalendar with very basic properties
+* `jscalendar_extended.json` - JSCalendar with an extended set of properties
