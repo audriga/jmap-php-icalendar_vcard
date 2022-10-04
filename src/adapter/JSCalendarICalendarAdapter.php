@@ -383,22 +383,26 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return;
         }
 
+        $iCalStatus = "";
+
         switch ($status) {
             case 'tentative':
-                $this->iCalEvent->VEVENT->add("STATUS", "TENTATIVE");
+                $iCalStatus = "TENTATIVE";
                 break;
 
             case 'cancelled':
-                $this->iCalEvent->VEVENT->add("STATUS", "CANCELLED");
+                $iCalStatus = "CANCELLED";
                 break;
 
             case 'confirmed':
-                $this->iCalEvent->VEVENT->add("STATUS", "CONFIRMED");
+                $iCalStatus = "CONFIRMED";
                 break;
 
             default:
-                break;
+                return;
         }
+
+        $this->iCalEvent->VEVENT->add("STATUS", $iCalStatus);
     }
 
     public function getCategories()
@@ -445,7 +449,18 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
 
-        return $freeBusy == 'OPAGUE' ? 'busy' : 'free';
+        return strtoupper($freeBusy) == 'OPAGUE' ? 'busy' : 'free';
+    }
+
+    public function setfreeBusy($freeBusy)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
+            return;
+        }
+
+        $iCalFreeBusy = $freeBusy == 'free' ? 'TRANSPARENT' : 'OPAGUE';
+
+        $this->iCalEvent->VEVENT->add("TRANPS", $iCalFreeBusy);
     }
 
     public function getClass()
