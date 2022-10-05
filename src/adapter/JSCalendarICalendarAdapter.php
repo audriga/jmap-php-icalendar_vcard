@@ -334,6 +334,22 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         return (string)$prodId;
     }
 
+    public function setProdId($prodId)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($prodId)) {
+            return;
+        }
+
+        // Simmilarly to the UID, this is already set by VObject but we will
+        // overwrite it since we already have a PRODID, that does not need
+        // to be changed.
+        if (isset($this->iCalEvent->PRODID)) {
+            $this->iCalEvent->PRODID = $prodId;
+        } else {
+            $this->iCalEvent->add("PRODID", $prodId);
+        }
+    }
+
     public function getSequence()
     {
         $sequence = $this->iCalEvent->VEVENT->SEQUENCE;
@@ -432,7 +448,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $categories = [];
 
-        foreach($keywords as $category => $bool) {
+        foreach ($keywords as $category => $bool) {
             if ($bool) {
                 array_push($categories, $category);
             }
@@ -450,6 +466,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function getLocation()
     {
+        // This will not map any VLOCATION properties, they need ot be handled seperately.
         $location = $this->iCalEvent->VEVENT->LOCATION;
 
         if (is_null($location)) {
@@ -458,14 +475,32 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $jmapLocations = [];
 
+        // Apply json escaping to the name.
+        $locationJmapEscaped = addcslashes(stripslashes($location), '["\]');
+
         $jmapLocation = new Location();
         $jmapLocation->setType("Location");
-        $jmapLocation->setName($location);
+        $jmapLocation->setName($locationJmapEscaped);
 
-        $key = base64_encode($location);
-        $jmapLocations["$key"] = $jmapLocation;
+        $jmapLocations["1"] = $jmapLocation;
 
         return $jmapLocations;
+    }
+
+    public function setLocation($locations)
+    {
+        // This only converts the first location in the jmap event.
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($locations)) {
+            return;
+        }
+
+        // Turn the jmap object into an array.
+        $locationsArray = json_decode(json_encode($locations), true);
+
+        // Only use the first location and add iCal escaping to it.
+        $locationICalEscaped = addcslashes(stripslashes($locationsArray["1"]["name"]), "[,;]");
+
+        $this->iCalEvent->VEVENT->add("LOCATION", $locationICalEscaped);
     }
 
     public function getFreeBusy()
@@ -480,7 +515,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         if (!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
             return;
         }
-        
+
         $iCalFreeBusy = $freeBusy == 'free' ? 'TRANSPARENT' : 'OPAGUE';
 
         $this->iCalEvent->VEVENT->add("TRANPS", $iCalFreeBusy);

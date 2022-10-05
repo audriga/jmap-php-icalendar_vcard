@@ -8,6 +8,12 @@
         "Holiday": true,
         "Vacation": true
         },
+    "locations": {
+        "1": {
+            "@type": "Location",
+            "name": "Some Hotel, Some Country"
+        }
+    },
     "description": "Event with a tag, a notification\nand a recurrence.",
     "start": "2022-09-20",
     "duration": "P1D",
