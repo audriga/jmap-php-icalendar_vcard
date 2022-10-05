@@ -118,7 +118,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
     
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
-        // Make sure that the test runs through.
+        // Makes sure that the objects are created correctly.
         $this->assertEquals($jsCalendarData->title, $jsCalendarDataAfter->getTitle());
 
 

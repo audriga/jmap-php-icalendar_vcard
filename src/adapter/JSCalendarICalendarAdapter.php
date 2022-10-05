@@ -507,6 +507,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
 
+        // "free" is supposed to be the default value.
         return $freeBusy == 'OPAGUE' ? 'busy' : 'free';
     }
 
@@ -516,6 +517,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return;
         }
 
+        // "OPAGUE" is supposed to be the default value.
         $iCalFreeBusy = $freeBusy == 'free' ? 'TRANSPARENT' : 'OPAGUE';
 
         $this->iCalEvent->VEVENT->add("TRANPS", $iCalFreeBusy);
