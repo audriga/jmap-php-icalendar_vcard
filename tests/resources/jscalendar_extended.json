@@ -5,7 +5,8 @@
     "updated": "2022-09-16T14:46:46Z",
     "title": "Some more complex event",
     "keywords": {
-        "Holiday": true
+        "Holiday": true,
+        "Vacation": true
         },
     "description": "Event with a tag, a notification\nand a recurrence.",
     "start": "2022-09-20",

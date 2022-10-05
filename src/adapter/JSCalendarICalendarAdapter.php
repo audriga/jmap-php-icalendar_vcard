@@ -424,6 +424,29 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         return $jmapKeyWords;
     }
 
+    public function setCategories($keywords)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($keywords)) {
+            return;
+        }
+
+        $categories = [];
+
+        foreach($keywords as $category => $bool) {
+            if ($bool) {
+                array_push($categories, $category);
+            }
+        }
+
+        if (count($categories) == 0) {
+            return;
+        }
+
+        $iCalCategories = implode(",", $categories);
+
+        $this->iCalEvent->VEVENT->add("CATEGORIES", $iCalCategories);
+    }
+
 
     public function getLocation()
     {
