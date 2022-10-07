@@ -6,7 +6,10 @@ use Sabre\VObject\Component\VCalendar;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
 use OpenXPort\Jmap\Calendar\Location;
+use OpenXPort\Jmap\Calendar\RecurrenceRule;
+use OpenXPort\Mapper\JSCalendarICalendarMapper;
 use OpenXPort\Util\AdapterUtil;
+use OpenXPort\Util\JSCalendarICalendarAdapterUtil;
 
 /**
  * Generic adapter to convert between ICalendar <-> JSCalendar.
@@ -622,8 +625,133 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
          *
          * Finally, return the RecurrenceRule object.
          */
+        $rRule = $this->iCalEvent->VEVENT->RRULE;
 
-         return null;
+        if (is_null($rRule)) {
+            return null;
+        }
+        
+        // VObject will return the RRULE of the iCal file as one string.
+        $rRuleString = $rRule->getValue();
+
+        if (empty($rRuleString)) {
+            return null;
+        }
+
+        $jmapRecurrenceRule = new RecurrenceRule();
+        $jmapRecurrenceRule->setType("RecurrenceRule");
+
+        foreach(explode(";", $rRuleString) as $rec) {
+            $splitRule = explode("=", $rec);
+            $key = $splitRule[0];
+            $value = $splitRule[1];
+
+            switch ($key) {
+                case 'FREQ':
+                    $jmapRecurrenceRule->setFrequency(
+                        JSCalendarICalendarAdapterUtil::convertFromICalFreqToJmapFrequency($value)
+                    );
+                    break;
+
+                case 'INTERVAL':
+                    $jmapRecurrenceRule->setInterval(
+                        JSCalendarICalendarAdapterUtil::convertFromICalIntervalToJmapInterval($value)
+                    );
+                    break;
+
+                case 'RSCALE':
+                    $jmapRecurrenceRule->setRscale(
+                        JSCalendarICalendarAdapterUtil::convertFromIcalRScaleToJmapRScale($value)
+                    );
+                    break;
+
+                case 'SKIP':
+                    $jmapRecurrenceRule->setSkip(
+                        JSCalendarICalendarAdapterUtil::convertFromICalSkipToJmapSkip($value)
+                    );
+                    break;
+
+                case 'WKST':
+                    $jmapRecurrenceRule->getFirstDayOfWeek(
+                        JSCalendarICalendarAdapterUtil::convertFromIcalWKSTToJmapFirstDayOfWeek($value)
+                    );
+                    break;
+
+                case 'BYDAY':
+                    $jmapRecurrenceRule->setByDay(
+                        JSCalendarICalendarAdapterUtil::convertFromICalByDayToJmapByDay($value)
+                    );
+                    break;
+
+                case 'BYMONTHDAY':
+                    $jmapRecurrenceRule->setByMonthDay(
+                        JSCalendarICalendarAdapterUtil::convertFromICalByMonthDayToJmapByMonthDay($value)
+                    );
+                    break;
+
+                case 'BYMONTH':
+                    $jmapRecurrenceRule->setByMonth(
+                        JSCalendarICalendarAdapterUtil::convertFromICalByMonthToJmapByMonth($value)
+                    );
+                    break;
+
+                case 'BYYEARDAY':
+                    $jmapRecurrenceRule->getByYearDay(
+                        JSCalendarICalendarAdapterUtil::convertFromICalByYearDayToJmapByYearDay($value)
+                    );
+                    break;
+                
+                case 'BYWEEKNO':
+                    $jmapRecurrenceRule->setByWeekNo(
+                        JSCalendarICalendarAdapterUtil::convertFromICalByWeekNoToJmapByWeekNo($value)
+                    );
+                    break;
+                
+                case 'BYHOUR':
+                    $jmapRecurrenceRule->setByHour(
+                        JSCalendarICalendarAdapterUtil::convertFromICalByHourToJmapByHour($value)
+                    );
+                    break;
+
+                case 'BYMINUTE':
+                    $jmapRecurrenceRule->setByMinute(
+                        JSCalendarICalendarAdapterUtil::convertFromICalByMinuteToJmapByMinute($value)
+                    );
+                    break;
+
+                case 'BYSETPOS':
+                    $jmapRecurrenceRule->setBySetPosition(
+                        JSCalendarICalendarAdapterUtil::convertFromICalBySetPosToJmapBySetPosition($value)
+                    );
+
+                case 'COUNT':
+                    $jmapRecurrenceRule->setCount(
+                        JSCalendarICalendarAdapterUtil::convertFromICalCountToJmapCount($value)
+                    );
+                    break;
+
+                case 'UNTIL':
+                    $jmapRecurrenceRule->setUntil(
+                        JSCalendarICalendarAdapterUtil::convertFromICalUntilToJmapUntil($value)
+                    );
+                    break;
+                
+                default:
+                    // Should not happen for rfc conforming iCal events.
+                    break;
+            }
+        }
+
+        return $jmapRecurrenceRule;
+    }
+
+    public function setRecurrenceRule($RecurrenceRule)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($RecurrenceRule)) {
+            return;
+        }
+
+        return;
     }
 
     public function getParticipants()

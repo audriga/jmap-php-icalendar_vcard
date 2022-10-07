@@ -105,8 +105,9 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals(array_values($this->jsCalendarEvent->getLocations())[0]->getName(), "Some Hotel, Some Country");
         $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
         $this->assertEquals($this->jsCalendarEvent->getPrivacy(), "private");
+        $this->assertEquals($this->jsCalendarEvent->getRecurrenceRule()->getFrequency(), "yearly");
+        $this->assertEquals($this->jsCalendarEvent->getRecurrenceRule()->getbyMonth(), array("9"));
     }
-
     /**
      * Map JSCalendar -> iCalendar -> JSCalendar using an extended set of properties.
      */

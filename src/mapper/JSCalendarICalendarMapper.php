@@ -69,6 +69,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $jsEvent->setPrivacy($adapter->getClass());
             $jsEvent->setStatus($adapter->getStatus());
 
+            $jsEvent->setRecurrenceRule($adapter->getRRule());
+
             array_push($list, $jsEvent);
         }
         return $list;
