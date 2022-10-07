@@ -7,7 +7,6 @@ use OpenXPort\Util\Logger;
 use Sabre\VObject;
 use OpenXPort\Jmap\Calendar\Location;
 use OpenXPort\Jmap\Calendar\RecurrenceRule;
-use OpenXPort\Mapper\JSCalendarICalendarMapper;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\JSCalendarICalendarAdapterUtil;
 
@@ -625,23 +624,26 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
          *
          * Finally, return the RecurrenceRule object.
          */
+
         $rRule = $this->iCalEvent->VEVENT->RRULE;
 
-        if (is_null($rRule)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($rRule)) {
             return null;
         }
-        
-        // VObject will return the RRULE of the iCal file as one string.
+
         $rRuleString = $rRule->getValue();
 
-        if (empty($rRuleString)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($rRuleString)) {
             return null;
         }
+
 
         $jmapRecurrenceRule = new RecurrenceRule();
         $jmapRecurrenceRule->setType("RecurrenceRule");
 
-        foreach(explode(";", $rRuleString) as $rec) {
+        foreach (explode(";", $rRuleString) as $rec) {
+            // iCal events split recurrencies by naming the type (as in FREQ, etc.) and value related to the type
+            // using a "=".
             $splitRule = explode("=", $rec);
             $key = $splitRule[0];
             $value = $splitRule[1];
@@ -661,7 +663,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
                 case 'RSCALE':
                     $jmapRecurrenceRule->setRscale(
-                        JSCalendarICalendarAdapterUtil::convertFromIcalRScaleToJmapRScale($value)
+                        JSCalendarICalendarAdapterUtil::convertFromICalRScaleToJmapRScale($value)
                     );
                     break;
 
@@ -672,8 +674,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     break;
 
                 case 'WKST':
-                    $jmapRecurrenceRule->getFirstDayOfWeek(
-                        JSCalendarICalendarAdapterUtil::convertFromIcalWKSTToJmapFirstDayOfWeek($value)
+                    $jmapRecurrenceRule->setFirstDayOfWeek(
+                        JSCalendarICalendarAdapterUtil::convertFromICalWKSTToJmapFirstDayOfWeek($value)
                     );
                     break;
 
@@ -696,17 +698,17 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     break;
 
                 case 'BYYEARDAY':
-                    $jmapRecurrenceRule->getByYearDay(
+                    $jmapRecurrenceRule->setByYearDay(
                         JSCalendarICalendarAdapterUtil::convertFromICalByYearDayToJmapByYearDay($value)
                     );
                     break;
-                
+
                 case 'BYWEEKNO':
                     $jmapRecurrenceRule->setByWeekNo(
                         JSCalendarICalendarAdapterUtil::convertFromICalByWeekNoToJmapByWeekNo($value)
                     );
                     break;
-                
+
                 case 'BYHOUR':
                     $jmapRecurrenceRule->setByHour(
                         JSCalendarICalendarAdapterUtil::convertFromICalByHourToJmapByHour($value)
@@ -719,10 +721,17 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     );
                     break;
 
+                case 'BYSECOND':
+                    $jmapRecurrenceRule->setBySecond(
+                        JSCalendarICalendarAdapterUtil::convertFromICalBySecondToJmapBySecond($value)
+                    );
+                    break;
+
                 case 'BYSETPOS':
                     $jmapRecurrenceRule->setBySetPosition(
                         JSCalendarICalendarAdapterUtil::convertFromICalBySetPosToJmapBySetPosition($value)
                     );
+                    break;
 
                 case 'COUNT':
                     $jmapRecurrenceRule->setCount(
@@ -735,23 +744,15 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                         JSCalendarICalendarAdapterUtil::convertFromICalUntilToJmapUntil($value)
                     );
                     break;
-                
+
                 default:
-                    // Should not happen for rfc conforming iCal events.
+                    // As long as the iCal event follows the rfc, this should not haapen. Might want to add to the logger
+                    // if this case happens.
                     break;
             }
         }
 
         return $jmapRecurrenceRule;
-    }
-
-    public function setRecurrenceRule($RecurrenceRule)
-    {
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($RecurrenceRule)) {
-            return;
-        }
-
-        return;
     }
 
     public function getParticipants()
