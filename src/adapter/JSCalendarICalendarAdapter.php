@@ -65,7 +65,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        return (string)$description;
+        return $description->getValue();
 
         // TODO: implement the unescaping mentioned in the ietf conversion standards.
         // https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-description.

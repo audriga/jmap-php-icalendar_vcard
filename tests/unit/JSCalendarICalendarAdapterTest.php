@@ -128,7 +128,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($jsCalendarData->freeBusyStatus, $jsCalendarDataAfter->getFreeBusyStatus());
         $this->assertEquals($jsCalendarData->privacy, $jsCalendarDataAfter->getPrivacy());
         $this->assertEquals(json_encode($jsCalendarData->keywords), json_encode($jsCalendarDataAfter->getKeywords()));
-        $this->assertEquals(json_decode(json_encode($jsCalendarData->locations), true)["1"]["name"],
+        $this->assertEquals($jsCalendarData->locations->{'1'}->{'name'},
             $jsCalendarDataAfter->getLocations()["1"]->getName());
         $this->assertEquals($jsCalendarData->prodid, $jsCalendarDataAfter->getProdId());
     }
