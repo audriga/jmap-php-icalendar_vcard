@@ -84,7 +84,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $created = $this->iCalEvent->VEVENT->CREATED;
 
-        if (is_null($created)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($created)) {
             return null;
         }
 
@@ -113,7 +113,13 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function getDTStart()
     {
-        $dtStart = $this->iCalEvent->VEVENT->DTSTART->getDateTime();
+        $start = $this->iCalEvent->VEVENT->DTSTART;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($start)) {
+            return null;
+        }
+
+        $dtStart = $start->getDateTime();
 
         // Always uses local dateTime in jmap.
         $jmapStart = $dtStart->format("Y-m-d\TH:i:s");
@@ -192,6 +198,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $start = $this->iCalEvent->VEVENT->DTSTART;
         $end = $this->iCalEvent->VEVENT->DTEND;
 
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($start)) {
+            return null;
+        }
+
         // Default value in jmap is 'PT0S'.
         if (is_null($end)) {
             return 'PT0S';
@@ -199,6 +209,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $dtStart = $start->getDateTime();
         $dtEnd = $end->getDateTime();
+
+        if ($dtStart == $dtEnd) {
+            return 'PT0S';
+        }
 
         $interval = $dtStart->diff($dtEnd);
 
@@ -234,14 +248,14 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $dtStart = $this->iCalEvent->VEVENT->DTSTART;
 
         // Check if DTSTART exists.
-        if ($dtStart == null) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart)) {
             return null;
         }
 
         $timeZone = $dtStart->getDateTime()->getTimezone();
 
         // Check if there is a time zone connected to the DTSTART property
-        if ($timeZone == null) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($timeZone)) {
             return null;
         }
 
@@ -259,11 +273,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         // As per IETF standard: Use the latest of the ones that is present,
         // if they are no scheduling entity.
-        if (!is_null($lastModified)) {
+        if (AdapterUtil::isSetNotNullAndNotEmpty($lastModified)) {
             $dateUpdated = $lastModified->getDateTime();
         }
 
-        if (!is_null($dTStamp)) {
+        if (AdapterUtil::isSetNotNullAndNotEmpty($dTStamp)) {
             $dTStampDateTime = $dTStamp->getDateTime();
             $dateUpdated = $dateUpdated < $dTStampDateTime ? $dTStampDateTime : $dateUpdated;
         }
@@ -425,7 +439,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $categories = $this->iCalEvent->VEVENT->CATEGORIES;
 
-        if (is_null($categories)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($categories)) {
             return null;
         }
 
@@ -469,7 +483,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         // This will not map any VLOCATION properties, they need ot be handled seperately.
         $location = $this->iCalEvent->VEVENT->LOCATION;
 
-        if (is_null($location)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($location)) {
             return null;
         }
 
