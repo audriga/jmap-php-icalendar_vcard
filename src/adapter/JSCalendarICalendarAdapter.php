@@ -521,7 +521,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
 
-        if(!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
             return null;
         }
 
