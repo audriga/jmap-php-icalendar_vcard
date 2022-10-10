@@ -203,7 +203,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         // Default value in jmap is 'PT0S'.
-        if (is_null($end)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($end)) {
             return 'PT0S';
         }
 
@@ -316,7 +316,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $uid = $this->iCalEvent->VEVENT->UID;
 
-        if (is_null($uid)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($uid)) {
             $uid = uniqid("", true) . ".OpenXPort";
         }
 
@@ -341,7 +341,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $prodId = $this->iCalEvent->PRODID;
 
-        if (is_null($prodId)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($prodId)) {
             return null;
         }
 
@@ -368,7 +368,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $sequence = $this->iCalEvent->VEVENT->SEQUENCE;
 
-        if (is_null($sequence)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($sequence)) {
             return null;
         }
 
@@ -521,11 +521,15 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
 
+        if(!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
+            return null;
+        }
+
         // "free" is supposed to be the default value.
-        return $freeBusy == 'OPAGUE' ? 'busy' : 'free';
+        return $freeBusy->getValue() == 'OPAGUE' ? 'busy' : 'free';
     }
 
-    public function setfreeBusy($freeBusy)
+    public function setFreeBusy($freeBusy)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
             return;
@@ -534,7 +538,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         // "OPAGUE" is supposed to be the default value.
         $iCalFreeBusy = $freeBusy == 'free' ? 'TRANSPARENT' : 'OPAGUE';
 
-        $this->iCalEvent->VEVENT->add("TRANPS", $iCalFreeBusy);
+        $this->iCalEvent->VEVENT->add("TRANSP", $iCalFreeBusy);
     }
 
     public function getClass()
