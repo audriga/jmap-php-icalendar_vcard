@@ -755,66 +755,66 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         return $jmapRecurrenceRule;
     }
 
-    public function setRRule($recurrenceRule)
+    public function setRRule($recurrenceRules)
     {
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceRule)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceRules)) {
             return;
         }
 
-        $key = null;
-
-        switch($key) {
-            case 'frequency':
-                break;
-
-            case 'interval':
-                break;
-
-            case 'rscale':
-                break;
-            
-            case 'skip':
-                break;
-
-            case 'firstDayOfWeek':
-                break;
-
-            case 'byDay':
-                break;
-
-            case 'byMonthDay':
-                break;
-
-            case 'byMonth':
-                break;
-
-            case 'byYearDay':
-                break;
-
-            case 'byWeekNo':
-                break;
-
-            case 'byHour':
-                break;
-
-            case 'byMinute':
-                break;
-
-            case 'bySecond':
-                break;
-
-            case 'bySetPosition':
-                break;
-
-            case 'count':
-                break;
-
-            case 'until':
-                break;
-
-            default:
-                // Should never be the case, throw an error maybe.
-                break;
+        foreach($recurrenceRules as $key => $value) {
+            switch($key) {
+                case 'frequency':
+                    break;
+    
+                case 'interval':
+                    break;
+    
+                case 'rscale':
+                    break;
+                
+                case 'skip':
+                    break;
+    
+                case 'firstDayOfWeek':
+                    break;
+    
+                case 'byDay':
+                    break;
+    
+                case 'byMonthDay':
+                    break;
+    
+                case 'byMonth':
+                    break;
+    
+                case 'byYearDay':
+                    break;
+    
+                case 'byWeekNo':
+                    break;
+    
+                case 'byHour':
+                    break;
+    
+                case 'byMinute':
+                    break;
+    
+                case 'bySecond':
+                    break;
+    
+                case 'bySetPosition':
+                    break;
+    
+                case 'count':
+                    break;
+    
+                case 'until':
+                    break;
+    
+                default:
+                    // Entered for ignored properties like "@type".
+                    break;
+            }
         }
     }
 
