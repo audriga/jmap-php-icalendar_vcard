@@ -134,6 +134,10 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($jsCalendarData->prodid, $jsCalendarDataAfter->getProdId());
         $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"frequency"}, $jsCalendarDataAfter->getRecurrenceRule()->getFrequency());
         $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byMonth"}, $jsCalendarDataAfter->getRecurrenceRule()->getByMonth());
+        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byDay"}[0]->{"day"},
+            $jsCalendarDataAfter->getRecurrenceRule()->getByDay()->getDay());
+        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byDay"}[0]->{"nthOfPeriod"},
+            $jsCalendarDataAfter->getRecurrenceRule()->getByDay()->getNthOfPeriod());
     }
 
     //TODO: Add test for multiple events (mapFromJmap).

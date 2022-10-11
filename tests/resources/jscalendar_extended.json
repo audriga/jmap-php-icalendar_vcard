@@ -20,7 +20,11 @@
     "recurrenceRules": [{
         "@type": "RecurrenceRule",
         "frequency": "yearly",
-        "byMonth": ["9"]
+        "byMonth": ["9"],
+        "byDay": [{
+            "day": "mo",
+            "nthOfPeriod": 1
+        }]
     }],
     "status": "confirmed",
     "sequence": 3,
