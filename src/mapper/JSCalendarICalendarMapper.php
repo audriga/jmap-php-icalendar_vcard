@@ -31,6 +31,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $adapter->setClass($jsCalendarEvent->privacy);
             $adapter->setStatus($jsCalendarEvent->status);
 
+            $adapter->setRRule($jsCalendarEvent->recurrenceRules);
+
             array_push($map, array($creationId => $adapter->getICalEvent()));
 
             // Reset the current iCalEvent to allow for multiple events in one calendar

@@ -17,6 +17,11 @@
     "description": "Event with a tag, a notification\nand a recurrence.",
     "start": "2022-09-20",
     "duration": "P1D",
+    "recurrenceRules": [{
+        "@type": "RecurrenceRule",
+        "frequency": "yearly",
+        "byMonth": ["9"]
+    }],
     "status": "confirmed",
     "sequence": 3,
     "freeBusyStatus": "free",

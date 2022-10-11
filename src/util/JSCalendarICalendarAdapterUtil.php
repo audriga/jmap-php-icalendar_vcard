@@ -4,6 +4,10 @@ namespace OpenXPort\Util;
 
 use OpenXPort\Jmap\Calendar\NDay;
 
+/**
+ * Utility class used by /../adapter/JSCalendarICalendarAdapter to convert very simple property values
+ * between JMAP and iCal format.
+ */
 class JSCalendarICalendarAdapterUtil
 {
     protected static $logger;
@@ -18,7 +22,8 @@ class JSCalendarICalendarAdapterUtil
         return $jmapFrequency;
     }
 
-    public static function convertFromJmapFrequencyToICalFreq($frequency) {
+    public static function convertFromJmapFrequencyToICalFreq($frequency)
+    {
         $possibleFrequencyValues = array("yearly", "monthly", "weekly", "daily", "hourly", "minutely", "secondly");
 
         $iCalFreq = !in_array($frequency, $possibleFrequencyValues) ? null : strtoupper($frequency);
@@ -29,23 +34,23 @@ class JSCalendarICalendarAdapterUtil
     public static function convertFromICalIntervalToJmapInterval($interval)
     {
         // 1 is the default jmap value.
-        return is_null($interval) ? 1 : (int)$interval;
+        return !AdapterUtil::isSetNotNullAndNotEmpty($interval) ? 1 : (int)$interval;
     }
 
     public static function convertFromJmapIntervalToICalInterval($interval)
     {
-        return is_null($interval) ? null : (int)$interval;
+        return !AdapterUtil::isSetNotNullAndNotEmpty($interval) ? null : (int)$interval;
     }
 
     public static function convertFromICalRScaleToJmapRScale($rScale)
     {
         // The value is simply converted to lowercase, if it exists.
-        return is_null($rScale) ? null : strtolower($rScale);
+        return !AdapterUtil::isSetNotNullAndNotEmpty($rScale) ? null : strtolower($rScale);
     }
 
     public static function convertFromJmapRScaleToICalRScale($rScale)
     {
-        return is_null($rScale) ? null : strtoupper($rScale);
+        return !AdapterUtil::isSetNotNullAndNotEmpty($rScale) ? null : strtoupper($rScale);
     }
 
     public static function convertFromICalSkipToJmapSkip($skip)
@@ -86,12 +91,12 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromICalByDayToJmapByDay($byDay)
     {
-        if (is_null($byDay)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($byDay)) {
             return null;
         }
 
         $splitByDayArray = explode(",", $byDay);
-        
+
         $jmapByDay = [];
 
         foreach ($splitByDayArray as $bd) {
@@ -119,12 +124,12 @@ class JSCalendarICalendarAdapterUtil
                 $byDayWeekNumberString = substr(implode($splitByDay), 0, $i);
                 $byDayWeekDayString = substr(implode($splitByDay), $i);
             } else {
-                $byWeekDayString = $bd;
+                $byDayWeekDayString = $bd;
             }
 
             $jmapNDay = new NDay();
             $jmapNDay->setDay($byDayWeekDayString);
-            if (!is_null($byDayWeekNumberString) && isset($byDayWeekNumberString)) {
+            if (!!AdapterUtil::isSetNotNullAndNotEmpty($byDayWeekNumberString) && isset($byDayWeekNumberString)) {
                 $jmapNDay->setNthOfPeriod((int)$byDayWeekNumberString);
             }
 
@@ -136,7 +141,32 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromJmapByDayToICalByDay($byDay)
     {
-        // TODO: implement me.
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($byDay)) {
+            return null;
+        }
+
+        $iCalByDay = [];
+
+        foreach ($byDay as $bd) {
+            $iCalByDayString = null;
+
+            $day = $bd->day;
+            $nthOfPeriod = $bd->nthOfPeriod;
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($nthOfPeriod)) {
+                $iCalByDayString = $iCalByDayString . (string)$nthOfPeriod;
+            }
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($day)) {
+                $iCalByDayString = $iCalByDayString . strtoupper($day);
+            }
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($iCalByDayString)) {
+                array_push($iCalByDay, $iCalByDayString);
+            }
+        }
+
+        return implode(",", $iCalByDay);
     }
 
     public static function convertFromICalByMonthDayToJmapByMonthDay($byMonthDay)
@@ -147,7 +177,7 @@ class JSCalendarICalendarAdapterUtil
 
         $splitByMonthDay = explode(",", $byMonthDay);
 
-        foreach($splitByMonthDay as $split) {
+        foreach ($splitByMonthDay as $split) {
             $split = (int)$split;
         }
 
@@ -167,7 +197,7 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromICalbyMonthToJmapByMonth($byMonth)
     {
-        if (is_null($byMonth)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($byMonth)) {
             return null;
         }
 
@@ -183,13 +213,13 @@ class JSCalendarICalendarAdapterUtil
         }
 
         $joinedByMonth = implode(",", $byMonth);
-        
+
         return $joinedByMonth;
     }
 
     public static function convertFromICalByYearDayToJmapByYearDay($byYearDay)
     {
-        if (is_null($byYearDay)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($byYearDay)) {
             return null;
         }
 
@@ -202,7 +232,7 @@ class JSCalendarICalendarAdapterUtil
         return $splitByYearDay;
     }
 
-    public static function convertFromJmapByYearDayToJmapByYearDay($byYearDay)
+    public static function convertFromJmapByYearDayToICalByYearDay($byYearDay)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($byYearDay)) {
             return null;
@@ -215,7 +245,7 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromICalByWeekNoToJmapByWeekNo($byWeekNo)
     {
-        if (is_null($byWeekNo)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($byWeekNo)) {
             return null;
         }
 
@@ -228,7 +258,7 @@ class JSCalendarICalendarAdapterUtil
         return $splitByWeekNo;
     }
 
-    public static function convertFromJmapByWeekNoToJmapByWeekNo($byWeekNo)
+    public static function convertFromJmapByWeekNoToICalByWeekNo($byWeekNo)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($byWeekNo)) {
             return null;
@@ -241,7 +271,7 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromICalByHourToJmapByHour($byHour)
     {
-        if (is_null($byHour)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($byHour)) {
             return null;
         }
 
@@ -267,7 +297,7 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromICalByMinuteToJmapByMinute($byMinute)
     {
-        if (is_null($byMinute)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($byMinute)) {
             return null;
         }
 
@@ -280,9 +310,20 @@ class JSCalendarICalendarAdapterUtil
         return $splitByMinute;
     }
 
+    public static function convertFromJmapByMinuteToICalByMinute($byMinute)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($byMinute)) {
+            return null;
+        }
+
+        $joinedByMinute = implode(",", $byMinute);
+
+        return $joinedByMinute;
+    }
+
     public static function convertFromICalBySecondToJmapBySecond($bySecond)
     {
-        if (is_null($bySecond)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($bySecond)) {
             return null;
         }
 
@@ -295,9 +336,20 @@ class JSCalendarICalendarAdapterUtil
         return $splitBySecond;
     }
 
+    public static function convertFromJmapBySecondToICalBySecond($bySecond)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($bySecond)) {
+            return null;
+        }
+
+        $joinedBySecond = implode(",", $bySecond);
+
+        return $joinedBySecond;
+    }
+
     public static function convertFromICalBySetPosToJmapBySetPosition($bySetPos)
     {
-        if (is_null($bySetPos)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($bySetPos)) {
             return null;
         }
 
@@ -310,20 +362,60 @@ class JSCalendarICalendarAdapterUtil
         return $splitBySetPosition;
     }
 
+    public static function convertFromJmapBySetPositionToICalBySetPosition($bySetPosition)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($bySetPosition)) {
+            return null;
+        }
+
+        $joinedBySetPos = implode(",", $bySetPosition);
+
+        return $joinedBySetPos;
+    }
+
     public static function convertFromICalCountToJmapCount($count)
     {
-        return is_null($count) ? null : (int)$count;
+        return !AdapterUtil::isSetNotNullAndNotEmpty($count) ? null : (int)$count;
+    }
+
+    public static function convertFromJmapCountToICalCount($count)
+    {
+        return !AdapterUtil::isSetNotNullAndNotEmpty($count) ? null : (string)$count;
     }
 
     public static function convertFromICalUntilToJmapUntil($until)
     {
-        if (is_null($until)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($until)) {
             return null;
         }
 
         $iCalUntilDate = \DateTime::createFromFormat("Ymd\THis\Z", $until);
+
+        if ($iCalUntilDate === false) {
+            // TODO: Should probably log if this happens since the value is not a date.
+            return null;
+        }
+
         $jmapUntil = date_format($iCalUntilDate, "Y-m-d\TH:i:s");
 
         return $jmapUntil;
+    }
+
+    public static function convertFromJmapUntilToICalUntil($until)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($until)) {
+            return null;
+        }
+
+        $jmapUntilDate = \DateTime::createFromFormat("Y-m-d\TH:i:s", $until);
+
+        if ($jmapUntilDate === false) {
+            // TODO: like above, this should log an error.
+            return null;
+        }
+
+        $iCalUntil = date_format($jmapUntilDate, "Ymd\THis\Z");
+
+        return $iCalUntil;
     }
 }
