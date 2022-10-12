@@ -13,14 +13,23 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         foreach ($jmapData as $creationId => $jsCalendarEvent) {
             $adapter->setSummary($jsCalendarEvent->title);
+            $adapter->setDescription($jsCalendarEvent->description);
             $adapter->setCreated($jsCalendarEvent->created);
             $adapter->setUpdated($jsCalendarEvent->updated);
 
             $adapter->setUid($jsCalendarEvent->uid);
+            $adapter->setProdId($jsCalendarEvent->prodid);
+            $adapter->setSequence($jsCalendarEvent->sequence);
 
             $adapter->setDTStart($jsCalendarEvent->start, $jsCalendarEvent->timeZone);
             $adapter->setDTEnd($jsCalendarEvent->start, $jsCalendarEvent->duration, $jsCalendarEvent->timeZone);
 
+            $adapter->setCategories($jsCalendarEvent->keywords);
+            $adapter->setLocation($jsCalendarEvent->locations);
+
+            $adapter->setFreeBusy($jsCalendarEvent->freeBusyStatus);
+            $adapter->setClass($jsCalendarEvent->privacy);
+            $adapter->setStatus($jsCalendarEvent->status);
 
             array_push($map, array($creationId => $adapter->getICalEvent()));
 
@@ -39,17 +48,25 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $jsEvent = new CalendarEvent();
             $jsEvent->setType("Event");
+
             $jsEvent->setTitle($adapter->getSummary());
+            $jsEvent->setDescription($adapter->getDescription());
             $jsEvent->setCreated($adapter->getCreated());
             $jsEvent->setUpdated($adapter->getUpdated());
 
             $jsEvent->setUid($adapter->getUid());
+            $jsEvent->setProdId($adapter->getProdId());
+            $jsEvent->setSequence($adapter->getSequence());
 
             $jsEvent->setStart($adapter->getDTStart());
             $jsEvent->setDuration($adapter->getDuration());
             $jsEvent->setTimezone($adapter->getTimezone());
 
-            $jsEvent->setSequence($adapter->getSequence());
+            $jsEvent->setKeywords($adapter->getCategories());
+            $jsEvent->setLocations($adapter->getLocation());
+
+            $jsEvent->setFreeBusyStatus($adapter->getFreeBusy());
+            $jsEvent->setPrivacy($adapter->getClass());
             $jsEvent->setStatus($adapter->getStatus());
 
             array_push($list, $jsEvent);

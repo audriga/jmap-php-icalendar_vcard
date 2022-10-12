@@ -1,0 +1,24 @@
+{
+    "@type": "Event",
+    "prodid": "-//IDN nextcloud.com//Calendar app 3.4.3//EN",
+    "uid": "c9876d46-b3e1-4536-9b6b-1fe1001e4b01",
+    "updated": "2022-09-16T14:46:46Z",
+    "title": "Some more complex event",
+    "keywords": {
+        "Holiday": true,
+        "Vacation": true
+        },
+    "locations": {
+        "1": {
+            "@type": "Location",
+            "name": "Some Hotel, Some Country"
+        }
+    },
+    "description": "Event with a tag, a notification\nand a recurrence.",
+    "start": "2022-09-20",
+    "duration": "P1D",
+    "status": "confirmed",
+    "sequence": 3,
+    "freeBusyStatus": "free",
+    "privacy": "private"
+    }

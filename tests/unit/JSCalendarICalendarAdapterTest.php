@@ -64,7 +64,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
     }
     
     /* *
-     * Map JSCalendar -> iCalendar -> JSContact
+     * Map JSCalendar -> iCalendar -> JSCalendar
      * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects, not
      *      just single properties.
      */
@@ -98,7 +98,40 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->iCalendarData = array("1" => $this->iCalendar->serialize());
         $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
 
+        $this->assertEquals($this->jsCalendarEvent->getDescription(), "Event with a tag, a notification\nand a recurrence.");
         $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
         $this->assertEquals($this->jsCalendarEvent->getStatus(), "confirmed");
+        $this->assertEquals($this->jsCalendarEvent->getKeywords(), array("Holiday" => true));
+        $this->assertEquals(array_values($this->jsCalendarEvent->getLocations())[0]->getName(), "Some Hotel, Some Country");
+        $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
+        $this->assertEquals($this->jsCalendarEvent->getPrivacy(), "private");
     }
+
+    /**
+     * Map JSCalendar -> iCalendar -> JSCalendar using an extended set of properties.
+     */
+    public function testRoundtripExtended()
+    {
+        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+    
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
+
+        // Makes sure that the objects are created correctly.
+        $this->assertEquals($jsCalendarData->title, $jsCalendarDataAfter->getTitle());
+
+
+        $this->assertEquals($jsCalendarData->description, $jsCalendarDataAfter->getDescription());
+        $this->assertEquals($jsCalendarData->sequence, $jsCalendarDataAfter->getSequence());
+        $this->assertEquals($jsCalendarData->status, $jsCalendarDataAfter->getStatus());
+        $this->assertEquals($jsCalendarData->freeBusyStatus, $jsCalendarDataAfter->getFreeBusyStatus());
+        $this->assertEquals($jsCalendarData->privacy, $jsCalendarDataAfter->getPrivacy());
+        $this->assertEquals(json_encode($jsCalendarData->keywords), json_encode($jsCalendarDataAfter->getKeywords()));
+        $this->assertEquals($jsCalendarData->locations->{'1'}->{'name'},
+            $jsCalendarDataAfter->getLocations()["1"]->getName());
+        $this->assertEquals($jsCalendarData->prodid, $jsCalendarDataAfter->getProdId());
+    }
+
+    //TODO: Add test for multiple events (mapFromJmap).
 }

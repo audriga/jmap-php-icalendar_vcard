@@ -5,6 +5,7 @@ namespace OpenXPort\Adapter;
 use Sabre\VObject\Component\VCalendar;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
+use OpenXPort\Jmap\Calendar\Location;
 use OpenXPort\Util\AdapterUtil;
 
 /**
@@ -55,6 +56,30 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->add('SUMMARY', $summary);
     }
 
+    public function getDescription()
+    {
+        $description = $this->iCalEvent->VEVENT->DESCRIPTION;
+
+
+        if (is_null($description)) {
+            return null;
+        }
+
+        return $description->getValue();
+
+        // TODO: implement the unescaping mentioned in the ietf conversion standards.
+        // https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-description.
+    }
+
+    public function setDescription($description)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($description)) {
+            return;
+        }
+
+        $this->iCalEvent->VEVENT->add('DESCRIPTION', $description);
+    }
+
     public function getCreated()
     {
         $created = $this->iCalEvent->VEVENT->CREATED;
@@ -88,7 +113,13 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function getDTStart()
     {
-        $dtStart = $this->iCalEvent->VEVENT->DTSTART->getDateTime();
+        $start = $this->iCalEvent->VEVENT->DTSTART;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($start)) {
+            return null;
+        }
+
+        $dtStart = $start->getDateTime();
 
         // Always uses local dateTime in jmap.
         $jmapStart = $dtStart->format("Y-m-d\TH:i:s");
@@ -167,13 +198,21 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $start = $this->iCalEvent->VEVENT->DTSTART;
         $end = $this->iCalEvent->VEVENT->DTEND;
 
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($start)) {
+            return null;
+        }
+
         // Default value in jmap is 'PT0S'.
-        if (is_null($end)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($end)) {
             return 'PT0S';
         }
 
         $dtStart = $start->getDateTime();
         $dtEnd = $end->getDateTime();
+
+        if ($dtStart == $dtEnd) {
+            return 'PT0S';
+        }
 
         $interval = $dtStart->diff($dtEnd);
 
@@ -209,14 +248,14 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $dtStart = $this->iCalEvent->VEVENT->DTSTART;
 
         // Check if DTSTART exists.
-        if ($dtStart == null) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart)) {
             return null;
         }
 
         $timeZone = $dtStart->getDateTime()->getTimezone();
 
         // Check if there is a time zone connected to the DTSTART property
-        if ($timeZone == null) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($timeZone)) {
             return null;
         }
 
@@ -234,11 +273,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         // As per IETF standard: Use the latest of the ones that is present,
         // if they are no scheduling entity.
-        if (!is_null($lastModified)) {
+        if (AdapterUtil::isSetNotNullAndNotEmpty($lastModified)) {
             $dateUpdated = $lastModified->getDateTime();
         }
 
-        if (!is_null($dTStamp)) {
+        if (AdapterUtil::isSetNotNullAndNotEmpty($dTStamp)) {
             $dTStampDateTime = $dTStamp->getDateTime();
             $dateUpdated = $dateUpdated < $dTStampDateTime ? $dTStampDateTime : $dateUpdated;
         }
@@ -277,8 +316,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $uid = $this->iCalEvent->VEVENT->UID;
 
-        if (is_null($uid)) {
-            $uid = uniqid("", true) . "-OpenXPort";
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($uid)) {
+            $uid = uniqid("", true) . ".OpenXPort";
         }
 
         return $uid;
@@ -298,15 +337,51 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
     }
 
+    public function getProdId()
+    {
+        $prodId = $this->iCalEvent->PRODID;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($prodId)) {
+            return null;
+        }
+
+        return (string)$prodId;
+    }
+
+    public function setProdId($prodId)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($prodId)) {
+            return;
+        }
+
+        // Simmilarly to the UID, this is already set by VObject but we will
+        // overwrite it since we already have a PRODID, that does not need
+        // to be changed.
+        if (isset($this->iCalEvent->PRODID)) {
+            $this->iCalEvent->PRODID = $prodId;
+        } else {
+            $this->iCalEvent->add("PRODID", $prodId);
+        }
+    }
+
     public function getSequence()
     {
         $sequence = $this->iCalEvent->VEVENT->SEQUENCE;
 
-        if (is_null($sequence)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($sequence)) {
             return null;
         }
 
-        return $sequence;
+        return $sequence->getValue();
+    }
+
+    public function setSequence($sequence)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($sequence)) {
+            $this->iCalEvent->VEVENT->add("SEQUENCE", 0);
+        }
+
+        $this->iCalEvent->VEVENT->add("SEQUENCE", $sequence);
     }
 
     public function getStatus()
@@ -330,5 +405,251 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 return null;
                 break;
         }
+    }
+
+    public function setStatus($status)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($status)) {
+            return;
+        }
+
+        $iCalStatus = "";
+
+        switch ($status) {
+            case 'tentative':
+                $iCalStatus = "TENTATIVE";
+                break;
+
+            case 'cancelled':
+                $iCalStatus = "CANCELLED";
+                break;
+
+            case 'confirmed':
+                $iCalStatus = "CONFIRMED";
+                break;
+
+            default:
+                return;
+        }
+
+        $this->iCalEvent->VEVENT->add("STATUS", $iCalStatus);
+    }
+
+    public function getCategories()
+    {
+        $categories = $this->iCalEvent->VEVENT->CATEGORIES;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($categories)) {
+            return null;
+        }
+
+        $jmapKeyWords = [];
+
+        $categoryValues = explode(",", $categories);
+
+        foreach ($categoryValues as $cat) {
+            $jmapKeyWords[$cat] = true;
+        }
+
+        return $jmapKeyWords;
+    }
+
+    public function setCategories($keywords)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($keywords)) {
+            return;
+        }
+
+        $categories = [];
+
+        foreach ($keywords as $category => $bool) {
+            if ($bool) {
+                array_push($categories, $category);
+            }
+        }
+
+        if (count($categories) == 0) {
+            return;
+        }
+
+        $iCalCategories = implode(",", $categories);
+
+        $this->iCalEvent->VEVENT->add("CATEGORIES", $iCalCategories);
+    }
+
+
+    public function getLocation()
+    {
+        // This will not map any VLOCATION properties, they need ot be handled seperately.
+        $location = $this->iCalEvent->VEVENT->LOCATION;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($location)) {
+            return null;
+        }
+
+        $jmapLocations = [];
+
+        // Apply json escaping to the name.
+        $locationJmapEscaped = addcslashes(stripslashes($location), '["\]');
+
+        $jmapLocation = new Location();
+        $jmapLocation->setType("Location");
+        $jmapLocation->setName($locationJmapEscaped);
+
+        $jmapLocations["1"] = $jmapLocation;
+
+        return $jmapLocations;
+    }
+
+    public function setLocation($locations)
+    {
+        // This only converts the first location in the jmap event.
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($locations)) {
+            return;
+        }
+
+        // Turn the jmap object into an array.
+        $locationsArray = json_decode(json_encode($locations), true);
+
+        // Only use the first location and add iCal escaping to it.
+        $locationICalEscaped = addcslashes(stripslashes($locationsArray["1"]["name"]), "[,;]");
+
+        $this->iCalEvent->VEVENT->add("LOCATION", $locationICalEscaped);
+    }
+
+    public function getFreeBusy()
+    {
+        $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
+            return null;
+        }
+
+        // "free" is supposed to be the default value.
+        return $freeBusy->getValue() == 'OPAGUE' ? 'busy' : 'free';
+    }
+
+    public function setFreeBusy($freeBusy)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($freeBusy)) {
+            return;
+        }
+
+        // "OPAGUE" is supposed to be the default value.
+        $iCalFreeBusy = $freeBusy == 'free' ? 'TRANSPARENT' : 'OPAGUE';
+
+        $this->iCalEvent->VEVENT->add("TRANSP", $iCalFreeBusy);
+    }
+
+    public function getClass()
+    {
+        $class = $this->iCalEvent->VEVENT->CLASS;
+
+        if (is_null($class)) {
+            return null;
+        }
+
+        switch ($class) {
+            case 'CONFIDENTIAL':
+                return 'secret';
+                break;
+
+            case 'PRIVATE':
+                return 'private';
+                break;
+
+            case 'PUBLIC':
+                return 'public';
+                break;
+
+            default:
+                return null;
+                break;
+        }
+    }
+
+    public function setClass($privacy)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($privacy)) {
+            return;
+        }
+
+        $iCalClass = "";
+
+        switch ($privacy) {
+            case 'secret':
+                $iCalClass = "CONFIDENTIAL";
+                break;
+
+            case 'private':
+                $iCalClass = "PRIVATE";
+                break;
+
+            case 'public':
+                $iCalClass = "PUBLIC";
+                break;
+
+            default:
+                return;
+        }
+
+        $this->iCalEvent->VEVENT->add("CLASS", $iCalClass);
+    }
+
+    public function getRRule()
+    {
+        /* TODO: implement this property as it is done in the horde adapter.
+         * /../horde-jmap/src/adapter/HordeCalendarEventAdapter.php:331
+         *
+         * Strategy:
+         * Get the RRULE property in the ics file. This should contain every recurrence
+         * so that I could loop over the exploded (by ",") string.
+         *
+         * Create a new RecurrenceRule Object from the OpenXPort library.
+         *
+         * Now every String instance should contain a keyword and a value separated by "=".
+         *
+         * Use a switch case on the key to determine what kind of data should be set.
+         *
+         * Implement a new "IcalendarEventAdapterUtil" class that contains methods to convert
+         * the data correctly.
+         *
+         * Every one of those methods should itself have a switch case looping over the value
+         * associated to the key that returns the right value in the jamp format.
+         *
+         * Use the built in methods to set the right properties or the RecurrenceRule object
+         * within each switch case.
+         *
+         * Finally, return the RecurrenceRule object.
+         */
+
+         return null;
+    }
+
+    public function getParticipants()
+    {
+        /*
+         * TODO: implement this property like it is done in the horde adapter.
+         * /../horde-jmap/src/adapter/HordeCalendarEventAdapter.php:531
+         *
+         * Strategy:
+         * Get the attendee values from the iCal event object.
+         *
+         * Extract the organizer from the iCal event.
+         *
+         * Turn the Attendee property into an array so that looping over it is possible.
+         *
+         * Loop through every attendee and create a new Participant from the OXP class.
+         *
+         * Get each property of the attendeee and add it to the participant.
+         *
+         * Also do this for the organizer, adding everyone to an array of particitpants.
+         *
+         * If there is not organizer, create a generic one.
+         *
+         * Return the array of attendees.
+         */
+
+         return null;
     }
 }
