@@ -323,7 +323,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             $uid = uniqid("", true) . ".OpenXPort";
         }
 
-        return $uid;
+        return $uid->getValue();
     }
 
     public function setUid($uid)
