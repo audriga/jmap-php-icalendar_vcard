@@ -4,6 +4,7 @@ namespace OpenXPort\Mapper;
 
 use Sabre\VObject;
 use OpenXPort\Jmap\Calendar\CalendarEvent;
+use OpenXPort\Util\AdapterUtil;
 
 class JSCalendarICalendarMapper extends AbstractMapper
 {
@@ -45,8 +46,27 @@ class JSCalendarICalendarMapper extends AbstractMapper
     {
         $list = [];
 
+        $masterEvents = [];
+        $modifiedExceptions = [];
+
         foreach ($data as $calendarFolderId => $iCalEvents) {
-            $adapter->setICalEvent($iCalEvents);
+            $iCalObject = VObject\Reader::read($iCalEvents);
+            
+            foreach ($iCalObject->VEVENT as $vevent) {
+                // Save each vevent as its own iCal object with only it in the VEVENT property.
+                $iCalEventObject = $iCalObject;
+                $iCalEventObject->VEVENT = $vevent;
+
+                if (AdapterUtil::isSetNotNullAndNotEmpty($vevent->{'RECURRENCE-ID'})) {
+                    array_push($modifiedExceptions, array("folderId" => $calendarFolderId, "modifiedExceptions" => $iCalEventObject));
+                } else {
+                    array_push($masterEvents, array("folderId" => $calendarFolderId, "masterEvents" => $iCalEventObject));
+                }
+            }
+        }
+
+        foreach ($masterEvents as $masterEvent) {
+            $adapter->setICalEvent($masterEvent["masterEvents"]->serialize());
 
             $jsEvent = new CalendarEvent();
             $jsEvent->setType("Event");
@@ -72,6 +92,39 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $jsEvent->setStatus($adapter->getStatus());
 
             $jsEvent->setRecurrenceRule($adapter->getRRule());
+
+            $masterEventUid = $masterEvent["masterEvents"]->VEVENT->UID->getValue();
+
+            foreach ($modifiedExceptions as $modEx) {
+                $modifiedExceptionUid = $modEx["modifiedExceptions"]->VEVENT->UID->getValue();
+
+                if (strcmp($modifiedExceptionUid, $masterEventUid) === 0) {
+                    $adapter->setICalEvent($modEx["modifiedExceptions"]->serialize());
+
+                    $jmapModifiedException = new CalendarEvent();
+
+                    $jmapModifiedException->setTitle($adapter->getSummary());
+                    $jmapModifiedException->setDescription($adapter->getDescription());
+                    $jmapModifiedException->setCreated($adapter->getCreated());
+                    $jmapModifiedException->setUpdated($adapter->getUpdated());
+                    
+                    $jmapModifiedException->setSequence($adapter->getSequence());
+
+                    $jmapModifiedException->setStart($adapter->getDTStart());
+                    $jmapModifiedException->setDuration($adapter->getDuration());
+                    $jmapModifiedException->setTimeZone($adapter->getTimezone());
+
+                    $jmapModifiedException->setKeywords($adapter->getCategories());
+                    $jmapModifiedException->setLocations($adapter->getLocation());
+
+                    $jmapModifiedException->setFreeBusyStatus($adapter->getFreeBusy());
+                    $jmapModifiedException->setPrivacy($adapter->getClass());
+                    $jmapModifiedException->setStatus($adapter->getStatus());
+
+                    $jmapModifiedException->setStatus($adapter->getStatus());
+                    var_dump($jmapModifiedException);
+                }
+            }
 
             array_push($list, $jsEvent);
         }

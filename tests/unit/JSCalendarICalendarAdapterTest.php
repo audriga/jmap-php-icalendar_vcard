@@ -108,6 +108,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarEvent->getRecurrenceRule()->getFrequency(), "yearly");
         $this->assertEquals($this->jsCalendarEvent->getRecurrenceRule()->getbyMonth(), array("9"));
     }
+
     /**
      * Map JSCalendar -> iCalendar -> JSCalendar using an extended set of properties.
      */
@@ -140,5 +141,21 @@ final class JSCalendarICalendarAdapterTest extends TestCase
             $jsCalendarDataAfter->getRecurrenceRule()->getByDay()->getNthOfPeriod());
     }
 
-    //TODO: Add test for multiple events (mapFromJmap).
+    /**
+     * Map multiple ICal events from a single file to jmap.
+     */
+    public function testMultipleICalEvents()
+    {
+        $this->iCalendar = Reader::read(
+            fopen(__DIR__ . '/../resources/recurring_event_with_changed_occurrence.ics', 'r')
+        );
+
+        //var_dump($this->iCalendar);
+
+        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
+        $this->jsCalendarEvents = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter);
+
+        //var_dump($this->iCalendarData);
+        //var_dump($this->jsCalendarEvents);
+    }
 }
