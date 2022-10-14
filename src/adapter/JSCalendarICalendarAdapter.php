@@ -381,7 +381,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     public function setSequence($sequence)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($sequence)) {
-            $this->iCalEvent->VEVENT->add("SEQUENCE", 0);
+            return;
         }
 
         $this->iCalEvent->VEVENT->add("SEQUENCE", $sequence);
