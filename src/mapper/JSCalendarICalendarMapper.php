@@ -43,7 +43,9 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // one.
             $i = 1;
 
-            foreach ($jsCalendarEvent->recurrenceOverrides as $recurrenceOverride) {
+            foreach ($jsCalendarEvent->recurrenceOverrides as $recurrenceId => $recurrenceOverride) {
+                $adapter->setRecurrenceId($recurrenceId);
+
                 $adapter->setSummary($recurrenceOverride->title);
                 $adapter->setDescription($recurrenceOverride->description);
                 $adapter->setCreated($recurrenceOverride->created);

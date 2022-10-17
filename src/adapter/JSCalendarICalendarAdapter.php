@@ -2,6 +2,7 @@
 
 namespace OpenXPort\Adapter;
 
+use DateTime;
 use Sabre\VObject\Component\VCalendar;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
@@ -878,6 +879,17 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $this->iCalEvent->VEVENT->add("RRULE", implode(";", $iCalRRule));
             }
         }
+    }
+
+    public function setRecurrenceId($recurrenceId)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId)) {
+            return;
+        }
+
+        $recurrenceIdDateTime = DateTime::createFromFormat("Y-m-d\TH:i:s", $recurrenceId);
+
+        $this->iCalEvent->VEVENT->add("RECURRENCE-ID", $recurrenceIdDateTime);
     }
 
     public function getParticipants()
