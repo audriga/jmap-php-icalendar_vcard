@@ -50,6 +50,16 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent = new VCalendar(['VEVENT' => []]);
     }
 
+    public function getVevent() {
+        $vevent = $this->iCalEvent->VEVENT;
+
+        if(!AdapterUtil::isSetNotNullAndNotEmpty($vevent)) {
+            return null;
+        }
+
+        return $vevent->serialize();
+    }
+
     public function getSummary()
     {
         return $this->iCalEvent->VEVENT->SUMMARY->getValue();
@@ -60,7 +70,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         if (!AdapterUtil::isSetNotNullAndNotEmpty($summary)) {
             return;
         }
-            
+
         $this->iCalEvent->VEVENT->add('SUMMARY', $summary);
     }
 

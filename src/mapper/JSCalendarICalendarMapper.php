@@ -34,15 +34,20 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $adapter->setRRule($jsCalendarEvent->recurrenceRules);
 
-            array_push($map, array($creationId => $adapter->getICalEvent()));
+            $masterEvent = $adapter->getICalEvent();
 
             // Reset the current iCalEvent to allow for multiple events in one calendar
             $adapter->resetICalEvent();
 
+            // If the event has no overrides, simply skip the next steps and just add the event
+            // to the array that is returned.
+            if(!AdapterUtil::isSetNotNullAndNotEmpty($jsCalendarEvent->recurrenceOverrides)) {
+                array_push($map, array($creationId => $masterEvent));
+                continue;
+            }
+
             // Use any recurrenceOverrides saved in the JSCal event to create new VEVENTs for each
             // one.
-            $i = 1;
-
             foreach ($jsCalendarEvent->recurrenceOverrides as $recurrenceId => $recurrenceOverride) {
                 $adapter->setRecurrenceId($recurrenceId);
 
@@ -51,8 +56,9 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $adapter->setCreated($recurrenceOverride->created);
                 $adapter->setUpdated($recurrenceOverride->updated);
                 
+                // Use any property set in $jsCalendarEvent, if it is not supposed to be set in a
+                // recurrenceOverride entry. Most importantly, UID needs to match the master event.
                 $adapter->setUid($jsCalendarEvent->uid);
-                $adapter->setProdId($jsCalendarEvent->prodid);
                 $adapter->setSequence($jsCalendarEvent->sequence);
 
                 $adapter->setDTStart($recurrenceOverride->start, $recurrenceOverride->timeZone);
@@ -67,14 +73,29 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $adapter->setClass($jsCalendarEvent->privacy);
                 $adapter->setStatus($recurrenceOverride->status);
 
-                $recurrenceCreationId = $creationId . "." . $i;
+                // The following lines will add the newly created VCalendar, and extract the VEVENT component
+                // in serialized form. The resulting string will then be pasted into the existing VCalendar
+                // component by splitting its serialized string and replacing the last entry.
+                $modifiedExceptionEvent = $adapter->getVevent();
 
-                $i++;
+                $splitMasterEvent = explode("END:VEVENT", $masterEvent);
 
-                array_push($map, array($recurrenceCreationId => $adapter->getICalEvent()));
+                $lastElement = array_pop($splitMasterEvent);
+
+                $lastElement = $modifiedExceptionEvent . $lastElement;
+
+                array_push($splitMasterEvent, $lastElement);
+
+                // This is a somewhat dirty way of removing any blank lines from the resulting string. I might
+                // replace this at some point.
+                $masterEvent = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n",
+                    implode("END:VEVENT\n", $splitMasterEvent)
+                );
 
                 $adapter->resetICalEvent();
             }
+
+            array_push($map, array($creationId => $masterEvent));
         }
 
         return $map;
