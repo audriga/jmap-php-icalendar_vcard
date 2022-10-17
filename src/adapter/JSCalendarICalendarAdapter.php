@@ -57,6 +57,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function setSummary($summary)
     {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($summary)) {
+            return;
+        }
+            
         $this->iCalEvent->VEVENT->add('SUMMARY', $summary);
     }
 
