@@ -150,12 +150,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
             fopen(__DIR__ . '/../resources/recurring_event_with_changed_occurrence.ics', 'r')
         );
 
-        //var_dump($this->iCalendar);
-
         $this->iCalendarData = array("1" => $this->iCalendar->serialize());
         $this->jsCalendarEvents = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter);
-
-        //var_dump($this->iCalendarData);
-        //var_dump($this->jsCalendarEvents);
     }
 }

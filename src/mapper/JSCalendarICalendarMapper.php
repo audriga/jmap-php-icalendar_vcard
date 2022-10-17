@@ -38,7 +38,43 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             // Reset the current iCalEvent to allow for multiple events in one calendar
             $adapter->resetICalEvent();
+
+            // Use any recurrenceOverrides saved in the JSCal event to create new VEVENTs for each
+            // one.
+            $i = 1;
+
+            foreach ($jsCalendarEvent->recurrenceOverrides as $recurrenceOverride) {
+                $adapter->setSummary($recurrenceOverride->title);
+                $adapter->setDescription($recurrenceOverride->description);
+                $adapter->setCreated($recurrenceOverride->created);
+                $adapter->setUpdated($recurrenceOverride->updated);
+                
+                $adapter->setUid($jsCalendarEvent->uid);
+                $adapter->setProdId($jsCalendarEvent->prodid);
+                $adapter->setSequence($jsCalendarEvent->sequence);
+
+                $adapter->setDTStart($recurrenceOverride->start, $recurrenceOverride->timeZone);
+                $adapter->setDTEnd(
+                    $recurrenceOverride->start, $recurrenceOverride->duration, $recurrenceOverride->timeZone
+                );
+
+                $adapter->setCategories($recurrenceOverride->keywords);
+                $adapter->setLocation($recurrenceOverride->locations);
+                
+                $adapter->setFreeBusy($recurrenceOverride->freeBusyStatus);
+                $adapter->setClass($jsCalendarEvent->privacy);
+                $adapter->setStatus($recurrenceOverride->status);
+
+                $recurrenceCreationId = $creationId . "." . $i;
+
+                $i++;
+
+                array_push($map, array($recurrenceCreationId => $adapter->getICalEvent()));
+
+                $adapter->resetICalEvent();
+            }
         }
+
         return $map;
     }
 
@@ -54,6 +90,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
             
             foreach ($iCalObject->VEVENT as $vevent) {
                 // Save each vevent as its own iCal object with only it in the VEVENT property.
+                // THis is done to preserve properties like 'PRODID' as these are not specified in
+                // 'VEVENT' property.
                 $iCalEventObject = $iCalObject;
                 $iCalEventObject->VEVENT = $vevent;
 
@@ -95,6 +133,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $masterEventUid = $masterEvent["masterEvents"]->VEVENT->UID->getValue();
 
+            // Each modified VEVENT in a recurrence can be connected to its "master event" by
+            // their UID as they are the same.
             foreach ($modifiedExceptions as $modEx) {
                 $modifiedExceptionUid = $modEx["modifiedExceptions"]->VEVENT->UID->getValue();
 
@@ -103,6 +143,10 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
                     $jmapModifiedException = new CalendarEvent();
 
+                    // Also convert the properties of this event, leaving out the '@type',
+                    // 'excludeRecurrenceRules', 'method', 'privacy', 'prodId', 'recurrenceId',
+                    // 'recurrenceOverrides', 'recurrenceRules', 'relatedTo', 'replyTo' and 'uid'
+                    // JMAP properties.
                     $jmapModifiedException->setTitle($adapter->getSummary());
                     $jmapModifiedException->setDescription($adapter->getDescription());
                     $jmapModifiedException->setCreated($adapter->getCreated());
@@ -122,12 +166,28 @@ class JSCalendarICalendarMapper extends AbstractMapper
                     $jmapModifiedException->setStatus($adapter->getStatus());
 
                     $jmapModifiedException->setStatus($adapter->getStatus());
-                    var_dump($jmapModifiedException);
+
+                    // The modified occurence of the event is saved on the 'recurrenceOverrides' property
+                    // of a JSCal event.
+                    $currentRecurrenceOverrides = $jsEvent->getRecurrenceOverrides();
+                    if (!AdapterUtil::isSetNotNullAndNotEmpty($currentRecurrenceOverrides)) {
+                        $currentRecurrenceOverrides = [];
+                    }
+
+                    //Add the new modified occurrence to the ones already set in the JSCal event.
+                    $recurrenceIdValueDate = $modEx["modifiedExceptions"]->VEVENT->{'RECURRENCE-ID'}->getDateTime();
+
+                    $recurrenceIdOfModifiedException = date_format($recurrenceIdValueDate, "Y-m-d\TH:i:s");
+
+                    $currentRecurrenceOverrides[$recurrenceIdOfModifiedException] = $jmapModifiedException;
+
+                    $jsEvent->setRecurrenceOverrides($currentRecurrenceOverrides);
                 }
             }
 
             array_push($list, $jsEvent);
         }
+
         return $list;
     }
 }
