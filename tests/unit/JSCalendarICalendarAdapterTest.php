@@ -151,6 +151,35 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         );
 
         $this->iCalendarData = array("1" => $this->iCalendar->serialize());
-        $this->jsCalendarEvents = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter);
+        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
+
+        // Check whether the key has been set correctly and the overrides were mapped successfully.
+        $this->assertTrue(in_array("2022-10-15T00:00:00", array_keys($this->jsCalendarEvent->getRecurrenceOverrides())));
+        $this->assertEquals($this->jsCalendarEvent->getRecurrenceOverrides()["2022-10-15T00:00:00"]->getDescription(), "added description");
+    }
+
+    public function testRecurrenceOverrideRoundtrip()
+    {
+        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_with_recurrence_overrides.json'));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
+
+        // Check that the recurrence ids were mapped correctly.
+        $this->assertEquals(array_keys(get_object_vars($jsCalendarData->recurrenceOverrides)),
+            array_keys($jsCalendarDataAfter->getRecurrenceOverrides())
+        );
+
+        // Check that the title was changed and does not equal the one set for the master event.
+        $this->assertNotEquals($jsCalendarData->title,
+            $jsCalendarDataAfter->getRecurrenceOverrides()["2020-01-08T14:00:00"]->getTitle()
+        );
+
+        // Check that the title of a single override matches
+        $this->assertEquals($jsCalendarData->recurrenceOverrides->{"2020-06-26T09:00:00"}->title,
+            $jsCalendarDataAfter->getRecurrenceOverrides()["2020-06-26T09:00:00"]->getTitle()
+        );
+
     }
 }

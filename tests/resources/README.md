@@ -17,3 +17,4 @@ iCalendars:
 JSCalendars:
 * `jscalendar_basic.json` - JSCalendar with very basic properties
 * `jscalendar_extended.json` - JSCalendar with an extended set of properties
+* `jscalendar_with_recurrence_overrides.json` - JSCalendar with a recurrenceOverride property
