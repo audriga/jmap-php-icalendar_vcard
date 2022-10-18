@@ -73,9 +73,9 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $adapter->setClass($jsCalendarEvent->privacy);
                 $adapter->setStatus($recurrenceOverride->status);
 
-                // The following lines will add the newly created VCalendar, and extract the VEVENT component
-                // in serialized form. The resulting string will then be pasted into the existing VCalendar
-                // component by splitting its serialized string and replacing the last entry.
+                // The following lines will extract the VEVENT property form the newly created VCalendar
+                // component in serialized form. The resulting string will then be pasted into the existing
+                // VCalendar component by splitting its serialized string and replacing the last entry.
                 $modifiedExceptionEvent = $adapter->getVevent();
 
                 $splitMasterEvent = explode("END:VEVENT", $masterEvent);
