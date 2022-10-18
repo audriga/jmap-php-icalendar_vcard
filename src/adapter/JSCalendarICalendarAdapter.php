@@ -50,10 +50,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent = new VCalendar(['VEVENT' => []]);
     }
 
-    public function getVevent() {
+    public function getVevent()
+    {
         $vevent = $this->iCalEvent->VEVENT;
 
-        if(!AdapterUtil::isSetNotNullAndNotEmpty($vevent)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($vevent)) {
             return null;
         }
 

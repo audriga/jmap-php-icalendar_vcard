@@ -41,7 +41,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             // If the event has no overrides, simply skip the next steps and just add the event
             // to the array that is returned.
-            if(!AdapterUtil::isSetNotNullAndNotEmpty($jsCalendarEvent->recurrenceOverrides)) {
+            if (!AdapterUtil::isSetNotNullAndNotEmpty($jsCalendarEvent->recurrenceOverrides)) {
                 array_push($map, array($creationId => $masterEvent));
                 continue;
             }
@@ -55,7 +55,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $adapter->setDescription($recurrenceOverride->description);
                 $adapter->setCreated($recurrenceOverride->created);
                 $adapter->setUpdated($recurrenceOverride->updated);
-                
+
                 // Use any property set in $jsCalendarEvent, if it is not supposed to be set in a
                 // recurrenceOverride entry. Most importantly, UID needs to match the master event.
                 $adapter->setUid($jsCalendarEvent->uid);
@@ -63,12 +63,14 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
                 $adapter->setDTStart($recurrenceOverride->start, $recurrenceOverride->timeZone);
                 $adapter->setDTEnd(
-                    $recurrenceOverride->start, $recurrenceOverride->duration, $recurrenceOverride->timeZone
+                    $recurrenceOverride->start,
+                    $recurrenceOverride->duration,
+                    $recurrenceOverride->timeZone
                 );
 
                 $adapter->setCategories($recurrenceOverride->keywords);
                 $adapter->setLocation($recurrenceOverride->locations);
-                
+
                 $adapter->setFreeBusy($recurrenceOverride->freeBusyStatus);
                 $adapter->setClass($jsCalendarEvent->privacy);
                 $adapter->setStatus($recurrenceOverride->status);
@@ -88,9 +90,9 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
                 // This is a somewhat dirty way of removing any blank lines from the resulting string. I might
                 // replace this at some point.
-                $masterEvent = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n",
-                    implode("END:VEVENT\n", $splitMasterEvent)
-                );
+                $masterEvent = implode("END:VEVENT\n", $splitMasterEvent);
+
+                $masterEvent = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $masterEvent);
 
                 $adapter->resetICalEvent();
             }
@@ -110,18 +112,25 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         foreach ($data as $calendarFolderId => $iCalEvents) {
             $iCalObject = VObject\Reader::read($iCalEvents);
-            
+
             foreach ($iCalObject->VEVENT as $vevent) {
                 // Save each vevent as its own iCal object with only it in the VEVENT property.
-                // THis is done to preserve properties like 'PRODID' as these are not specified in
-                // 'VEVENT' property.
-                $iCalEventObject = $iCalObject;
+                // This is done to preserve properties like 'PRODID' for multiple master events
+                // as these are not specified within the 'VEVENT' property.
+                $iCalEventObject = clone($iCalObject);
                 $iCalEventObject->VEVENT = $vevent;
 
+                // Changed occurrences can be distingusihed by having a 'RECURRENCE-ID' property.
                 if (AdapterUtil::isSetNotNullAndNotEmpty($vevent->{'RECURRENCE-ID'})) {
-                    array_push($modifiedExceptions, array("folderId" => $calendarFolderId, "modifiedExceptions" => $iCalEventObject));
+                    array_push(
+                        $modifiedExceptions,
+                        array("folderId" => $calendarFolderId, "modifiedExceptions" => $iCalEventObject)
+                    );
                 } else {
-                    array_push($masterEvents, array("folderId" => $calendarFolderId, "masterEvents" => $iCalEventObject));
+                    array_push(
+                        $masterEvents,
+                        array("folderId" => $calendarFolderId, "masterEvents" => $iCalEventObject)
+                    );
                 }
             }
         }
@@ -154,10 +163,10 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $jsEvent->setRecurrenceRule($adapter->getRRule());
 
-            $masterEventUid = $masterEvent["masterEvents"]->VEVENT->UID->getValue();
-
             // Each modified VEVENT in a recurrence can be connected to its "master event" by
             // their UID as they are the same.
+            $masterEventUid = $masterEvent["masterEvents"]->VEVENT->UID->getValue();
+
             foreach ($modifiedExceptions as $modEx) {
                 $modifiedExceptionUid = $modEx["modifiedExceptions"]->VEVENT->UID->getValue();
 
@@ -174,7 +183,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
                     $jmapModifiedException->setDescription($adapter->getDescription());
                     $jmapModifiedException->setCreated($adapter->getCreated());
                     $jmapModifiedException->setUpdated($adapter->getUpdated());
-                    
+
                     $jmapModifiedException->setSequence($adapter->getSequence());
 
                     $jmapModifiedException->setStart($adapter->getDTStart());
@@ -190,7 +199,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
                     $jmapModifiedException->setStatus($adapter->getStatus());
 
-                    // The modified occurence of the event is saved on the 'recurrenceOverrides' property
+                    // The modified occurence of the event is saved in the 'recurrenceOverrides' property
                     // of a JSCal event.
                     $currentRecurrenceOverrides = $jsEvent->getRecurrenceOverrides();
                     if (!AdapterUtil::isSetNotNullAndNotEmpty($currentRecurrenceOverrides)) {
