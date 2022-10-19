@@ -34,7 +34,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $adapter->setRRule($jsCalendarEvent->recurrenceRules);
 
-            $masterEvent = $adapter->getICalEvent();
+            // Extracts the master event and makes sure it does not get overwritten.
+            $masterEvent = clone($adapter->getICalEvent());
 
             // Reset the current iCalEvent to allow for multiple events in one calendar
             $adapter->resetICalEvent();
@@ -42,7 +43,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // If the event has no overrides, simply skip the next steps and just add the event
             // to the array that is returned.
             if (!AdapterUtil::isSetNotNullAndNotEmpty($jsCalendarEvent->recurrenceOverrides)) {
-                array_push($map, array($creationId => $masterEvent));
+                array_push($map, array($creationId => $masterEvent->serialize()));
                 continue;
             }
 
@@ -75,29 +76,17 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $adapter->setClass($jsCalendarEvent->privacy);
                 $adapter->setStatus($recurrenceOverride->status);
 
-                // The following lines will extract the VEVENT property form the newly created VCalendar
-                // component in serialized form. The resulting string will then be pasted into the existing
-                // VCalendar component by splitting its serialized string and replacing the last entry.
-                $modifiedExceptionEvent = $adapter->getVevent();
+                // The following will extract the VEVENT components of the modified exception currently
+                // set in the adapter as an associative array (property => value). The array will then
+                // be added to the master event as a new VEVENT component using the VObject libary
+                $modifiedExceptionEvent = $adapter->getVeventComponents();
 
-                $splitMasterEvent = explode("END:VEVENT", $masterEvent);
-
-                $lastElement = array_pop($splitMasterEvent);
-
-                $lastElement = $modifiedExceptionEvent . $lastElement;
-
-                array_push($splitMasterEvent, $lastElement);
-
-                // This is a somewhat dirty way of removing any blank lines from the resulting string. I might
-                // replace this at some point.
-                $masterEvent = implode("END:VEVENT\n", $splitMasterEvent);
-
-                $masterEvent = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $masterEvent);
+                $masterEvent->add("VEVENT", $modifiedExceptionEvent);
 
                 $adapter->resetICalEvent();
             }
 
-            array_push($map, array($creationId => $masterEvent));
+            array_push($map, array($creationId => $masterEvent->serialize()));
         }
 
         return $map;
@@ -167,6 +156,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // their UID as they are the same.
             $masterEventUid = $masterEvent["masterEvents"]->VEVENT->UID->getValue();
 
+            $recurrenceOverrides = [];
+
             foreach ($modifiedExceptions as $modEx) {
                 $modifiedExceptionUid = $modEx["modifiedExceptions"]->VEVENT->UID->getValue();
 
@@ -175,10 +166,10 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
                     $jmapModifiedException = new CalendarEvent();
 
-                    // Also convert the properties of this event, leaving out the '@type',
+                    // Modiified exceptions are are event that exclude the '@type',
                     // 'excludeRecurrenceRules', 'method', 'privacy', 'prodId', 'recurrenceId',
                     // 'recurrenceOverrides', 'recurrenceRules', 'relatedTo', 'replyTo' and 'uid'
-                    // JMAP properties.
+                    // JMAP properties. They are than added into the recurrenceoverride property.
                     $jmapModifiedException->setTitle($adapter->getSummary());
                     $jmapModifiedException->setDescription($adapter->getDescription());
                     $jmapModifiedException->setCreated($adapter->getCreated());
@@ -199,24 +190,17 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
                     $jmapModifiedException->setStatus($adapter->getStatus());
 
-                    // The modified occurence of the event is saved in the 'recurrenceOverrides' property
-                    // of a JSCal event.
-                    $currentRecurrenceOverrides = $jsEvent->getRecurrenceOverrides();
-                    if (!AdapterUtil::isSetNotNullAndNotEmpty($currentRecurrenceOverrides)) {
-                        $currentRecurrenceOverrides = [];
-                    }
-
                     //Add the new modified occurrence to the ones already set in the JSCal event.
                     $recurrenceIdValueDate = $modEx["modifiedExceptions"]->VEVENT->{'RECURRENCE-ID'}->getDateTime();
 
                     $recurrenceIdOfModifiedException = date_format($recurrenceIdValueDate, "Y-m-d\TH:i:s");
 
-                    $currentRecurrenceOverrides[$recurrenceIdOfModifiedException] = $jmapModifiedException;
-
-                    $jsEvent->setRecurrenceOverrides($currentRecurrenceOverrides);
+                    $recurrenceOverrides[$recurrenceIdOfModifiedException] = $jmapModifiedException;
                 }
             }
 
+            $jsEvent->setRecurrenceOverrides($recurrenceOverrides);
+            
             array_push($list, $jsEvent);
         }
 

@@ -31,7 +31,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function getICalEvent()
     {
-        return $this->iCalEvent->serialize();
+        return $this->iCalEvent;
     }
 
     public function setICalEvent($iCalEvent)
@@ -50,7 +50,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent = new VCalendar(['VEVENT' => []]);
     }
 
-    public function getVevent()
+    /**
+     * This will return every component set in the VEVENT property of the iCal event set
+     * in this adapter as an associative array to be fed into a different iCalendar component.
+     */
+    public function getVeventComponents()
     {
         $vevent = $this->iCalEvent->VEVENT;
 
@@ -58,7 +62,23 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        return $vevent->serialize();
+        $dateTimeProperties = array("RECURRENCE-ID", "DTSTART", "DTEND", "LAST-MODIFIED", "DTSTAMP", "CREATED");
+
+        $veventComponents = [];
+
+        foreach ($vevent->children() as $veventProperty) {
+            $propertyName = $veventProperty->name;
+
+            if (in_array($propertyName, $dateTimeProperties)) {
+                $propertyValue = $veventProperty->getDateTime();
+            } else {
+                $propertyValue = $veventProperty->getValue();
+            }
+
+            $veventComponents[$propertyName] = $propertyValue;
+        }
+
+        return $veventComponents;
     }
 
     public function getSummary()

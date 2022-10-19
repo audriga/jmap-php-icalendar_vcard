@@ -392,7 +392,12 @@ class JSCalendarICalendarAdapterUtil
         $iCalUntilDate = \DateTime::createFromFormat("Ymd\THis\Z", $until);
 
         if ($iCalUntilDate === false) {
-            // TODO: Should probably log if this happens since the value is not a date.
+            if (self::$logger == null) {
+                self::$logger == Logger::getInstance();
+            }
+
+            self::$logger->error("Unable to create date from iCal until: ", $until);
+            
             return null;
         }
 
@@ -410,7 +415,12 @@ class JSCalendarICalendarAdapterUtil
         $jmapUntilDate = \DateTime::createFromFormat("Y-m-d\TH:i:s", $until);
 
         if ($jmapUntilDate === false) {
-            // TODO: like above, this should log an error.
+            if (self::$logger == null) {
+                self::$logger == Logger::getInstance();
+            }
+
+            self::$logger->error("Unable to create date from JMAP until: ", $until);
+
             return null;
         }
 
