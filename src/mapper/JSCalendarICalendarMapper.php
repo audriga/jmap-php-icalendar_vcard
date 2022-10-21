@@ -14,7 +14,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         foreach ($jmapData as $creationId => $jsCalendarEvent) {
             // Map any properties of the event using the helper fucntion.
-            $this->mapPropertiesFromJmap($jsCalendarEvent, $adapter);
+            $this->mapAllJmapPropertiesToICal($jsCalendarEvent, $adapter);
 
             // Extracts the master event and makes sure it does not get overwritten.
             $masterEvent = clone($adapter->getICalEvent());
@@ -35,7 +35,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $adapter->setRecurrenceId($recurrenceId);
 
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.
-                $this->mapPropertiesFromJmap($recurrenceOverride, $adapter, $jsCalendarEvent);
+                $this->mapAllJmapPropertiesToICal($recurrenceOverride, $adapter, $jsCalendarEvent);
 
                 // The following will extract the VEVENT components of the modified exception currently
                 // set in the adapter as an associative array (property => value). The array will then
@@ -53,7 +53,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         return $map;
     }
 
-    private function mapPropertiesFromJmap($jsEvent, $adapter, $masterEvent = null)
+    private function mapAllJmapPropertiesToICal($jsEvent, $adapter, $masterEvent = null)
     {
         if (is_null($jsEvent) || is_null($adapter)) {
             // TODO: consider logging an error.
@@ -127,29 +127,11 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $adapter->setICalEvent($masterEvent["masterEvents"]->serialize());
 
             $jsEvent = new CalendarEvent();
+
+            // Set the @type property here in order for the event to be recognised as a master event.
             $jsEvent->setType("Event");
 
-            $jsEvent->setTitle($adapter->getSummary());
-            $jsEvent->setDescription($adapter->getDescription());
-            $jsEvent->setCreated($adapter->getCreated());
-            $jsEvent->setUpdated($adapter->getUpdated());
-
-            $jsEvent->setUid($adapter->getUid());
-            $jsEvent->setProdId($adapter->getProdId());
-            $jsEvent->setSequence($adapter->getSequence());
-
-            $jsEvent->setStart($adapter->getDTStart());
-            $jsEvent->setDuration($adapter->getDuration());
-            $jsEvent->setTimezone($adapter->getTimezone());
-
-            $jsEvent->setKeywords($adapter->getCategories());
-            $jsEvent->setLocations($adapter->getLocation());
-
-            $jsEvent->setFreeBusyStatus($adapter->getFreeBusy());
-            $jsEvent->setPrivacy($adapter->getClass());
-            $jsEvent->setStatus($adapter->getStatus());
-
-            $jsEvent->setRecurrenceRule($adapter->getRRule());
+            $this->mapAllICalPropertiesToJmap($jsEvent, $adapter);
 
             // Each modified VEVENT in a recurrence can be connected to its "master event" by
             // their UID as they are the same.
@@ -168,26 +150,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
                     // Modiified exceptions are are event that exclude the '@type',
                     // 'excludeRecurrenceRules', 'method', 'privacy', 'prodId', 'recurrenceId',
                     // 'recurrenceOverrides', 'recurrenceRules', 'relatedTo', 'replyTo' and 'uid'
-                    // JMAP properties. They are than added into the recurrenceoverride property.
-                    $jmapModifiedException->setTitle($adapter->getSummary());
-                    $jmapModifiedException->setDescription($adapter->getDescription());
-                    $jmapModifiedException->setCreated($adapter->getCreated());
-                    $jmapModifiedException->setUpdated($adapter->getUpdated());
-
-                    $jmapModifiedException->setSequence($adapter->getSequence());
-
-                    $jmapModifiedException->setStart($adapter->getDTStart());
-                    $jmapModifiedException->setDuration($adapter->getDuration());
-                    $jmapModifiedException->setTimeZone($adapter->getTimezone());
-
-                    $jmapModifiedException->setKeywords($adapter->getCategories());
-                    $jmapModifiedException->setLocations($adapter->getLocation());
-
-                    $jmapModifiedException->setFreeBusyStatus($adapter->getFreeBusy());
-                    $jmapModifiedException->setPrivacy($adapter->getClass());
-                    $jmapModifiedException->setStatus($adapter->getStatus());
-
-                    $jmapModifiedException->setStatus($adapter->getStatus());
+                    // JMAP properties. They are than added into the recurrenceOverride property.
+                    $this->mapAllICalPropertiesToJmap($jmapModifiedException, $adapter);
 
                     //Add the new modified occurrence to the ones already set in the JSCal event.
                     $recurrenceIdValueDate = $modEx["modifiedExceptions"]->VEVENT->{'RECURRENCE-ID'}->getDateTime();
@@ -204,5 +168,41 @@ class JSCalendarICalendarMapper extends AbstractMapper
         }
 
         return $list;
+    }
+
+    private function mapAllICalPropertiesToJmap($jmapEvent, $adapter)
+    {
+        if (is_null($jmapEvent) || is_null($adapter)) {
+            return;
+        }
+
+        // All properties that are set in both a master event and a
+        // recurrence override are set.
+        $jmapEvent->setTitle($adapter->getSummary());
+        $jmapEvent->setDescription($adapter->getDescription());
+        $jmapEvent->setCreated($adapter->getCreated());
+        $jmapEvent->setUpdated($adapter->getUpdated());
+
+        $jmapEvent->setSequence($adapter->getSequence());
+
+        $jmapEvent->setStart($adapter->getDTStart());
+        $jmapEvent->setDuration($adapter->getDuration());
+        $jmapEvent->setTimezone($adapter->getTimezone());
+
+        $jmapEvent->setKeywords($adapter->getCategories());
+        $jmapEvent->setLocations($adapter->getLocation());
+
+        $jmapEvent->setFreeBusyStatus($adapter->getFreeBusy());
+        $jmapEvent->setStatus($adapter->getStatus());
+
+        // Map the properties that are strictly set in master event.
+        if (strcmp($jmapEvent->getType(), "Event") === 0) {
+            $jmapEvent->setUid($adapter->getUid());
+            $jmapEvent->setProdId($adapter->getProdId());
+
+            $jmapEvent->setPrivacy($adapter->getClass());
+
+            $jmapEvent->setRecurrenceRule($adapter->getRRule());
+        }
     }
 }
