@@ -239,6 +239,12 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertNotNull($jsCalendarDataAfter[0]->getDescription());
         $this->assertNull($jsCalendarDataAfter[1]->getDescription());
 
+        $this->assertNotEmpty($jsCalendarDataAfter[0]->getRecurrenceRule());
+        $this->assertEmpty($jsCalendarDataAfter[1]->getRecurrenceRule());
+
+        $this->assertNotEmpty($jsCalendarDataAfter[0]->getRecurrenceOverrides());
+        $this->assertEmpty($jsCalendarDataAfter[1]->getRecurrenceOverrides());
+        
         // Make sure that none of the properties were overwritten incorrectly.
         $this->assertNotEquals($jsCalendarDataAfter[0]->getTitle(), $jsCalendarDataAfter[1]->getTitle());
         $this->assertNotEquals($jsCalendarDataAfter[0]->getTimezone(), $jsCalendarDataAfter[1]->getTimezone());

@@ -6,7 +6,17 @@
     "description": "first event description",
     "start": "2022-10-22T00:00:00",
     "timeZone": "Europe/Berlin",
-    "duration": "P1D"
+    "duration": "P1D",
+    "recurrenceRules": [{
+        "@type": "RecurrenceRule",
+        "frequency": "weekly",
+        "until": "2022-12-24T00:00:00"
+    }],
+    "recurrenceOverrides": {
+        "2022-10-29T00:00:00": {
+          "title": "changed occurence"
+        }
+    }
 },
 {
     "@type": "Event",
