@@ -1,0 +1,19 @@
+[{
+    "@type": "Event",
+    "uid": "6ce54315-f25e-4ebb-ba78-50dece044de3",
+    "updated": "2022-10-21T14:00:00Z",
+    "title": "first event",
+    "description": "first event description",
+    "start": "2022-10-22T00:00:00",
+    "timeZone": "Europe/Berlin",
+    "duration": "P1D"
+},
+{
+    "@type": "Event",
+    "uid": "71b018e5-dd90-40e5-9f60-f84c2dee21ad",
+    "updated": "2022-10-21T15:00:00Z",
+    "title": "second event",
+    "start": "2022-10-22T12:00:00",
+    "timeZone": "America/Los_Angeles",
+    "duration": "PT1H"
+}]
