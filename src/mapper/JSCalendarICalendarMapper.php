@@ -13,26 +13,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $map = [];
 
         foreach ($jmapData as $creationId => $jsCalendarEvent) {
-            $adapter->setSummary($jsCalendarEvent->title);
-            $adapter->setDescription($jsCalendarEvent->description);
-            $adapter->setCreated($jsCalendarEvent->created);
-            $adapter->setUpdated($jsCalendarEvent->updated);
-
-            $adapter->setUid($jsCalendarEvent->uid);
-            $adapter->setProdId($jsCalendarEvent->prodid);
-            $adapter->setSequence($jsCalendarEvent->sequence);
-
-            $adapter->setDTStart($jsCalendarEvent->start, $jsCalendarEvent->timeZone);
-            $adapter->setDTEnd($jsCalendarEvent->start, $jsCalendarEvent->duration, $jsCalendarEvent->timeZone);
-
-            $adapter->setCategories($jsCalendarEvent->keywords);
-            $adapter->setLocation($jsCalendarEvent->locations);
-
-            $adapter->setFreeBusy($jsCalendarEvent->freeBusyStatus);
-            $adapter->setClass($jsCalendarEvent->privacy);
-            $adapter->setStatus($jsCalendarEvent->status);
-
-            $adapter->setRRule($jsCalendarEvent->recurrenceRules);
+            // Map any properties of the event using the helper fucntion.
+            $this->mapPropertiesFromJmap($jsCalendarEvent, $adapter);
 
             // Extracts the master event and makes sure it does not get overwritten.
             $masterEvent = clone($adapter->getICalEvent());
@@ -52,29 +34,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
             foreach ($jsCalendarEvent->recurrenceOverrides as $recurrenceId => $recurrenceOverride) {
                 $adapter->setRecurrenceId($recurrenceId);
 
-                $adapter->setSummary($recurrenceOverride->title);
-                $adapter->setDescription($recurrenceOverride->description);
-                $adapter->setCreated($recurrenceOverride->created);
-                $adapter->setUpdated($recurrenceOverride->updated);
-
-                // Use any property set in $jsCalendarEvent, if it is not supposed to be set in a
-                // recurrenceOverride entry. Most importantly, UID needs to match the master event.
-                $adapter->setUid($jsCalendarEvent->uid);
-                $adapter->setSequence($jsCalendarEvent->sequence);
-
-                $adapter->setDTStart($recurrenceOverride->start, $recurrenceOverride->timeZone);
-                $adapter->setDTEnd(
-                    $recurrenceOverride->start,
-                    $recurrenceOverride->duration,
-                    $recurrenceOverride->timeZone
-                );
-
-                $adapter->setCategories($recurrenceOverride->keywords);
-                $adapter->setLocation($recurrenceOverride->locations);
-
-                $adapter->setFreeBusy($recurrenceOverride->freeBusyStatus);
-                $adapter->setClass($jsCalendarEvent->privacy);
-                $adapter->setStatus($recurrenceOverride->status);
+                // Map the properties of the recurrenceOverride to its corresponding VEVENT.
+                $this->mapPropertiesFromJmap($recurrenceOverride, $adapter, $jsCalendarEvent);
 
                 // The following will extract the VEVENT components of the modified exception currently
                 // set in the adapter as an associative array (property => value). The array will then
@@ -90,6 +51,44 @@ class JSCalendarICalendarMapper extends AbstractMapper
         }
 
         return $map;
+    }
+
+    private function mapPropertiesFromJmap($jsEvent, $adapter, $masterEvent = null)
+    {
+        if (is_null($jsEvent) || is_null($adapter)) {
+            // TODO: consider logging an error.
+            return;
+        }
+        // Map any properites that can be set in events and their recurrence overrides.
+        $adapter->setSummary($jsEvent->title);
+        $adapter->setDescription($jsEvent->description);
+        $adapter->setCreated($jsEvent->created);
+        $adapter->setUpdated($jsEvent->updated);
+
+        $adapter->setDTStart($jsEvent->start, $jsEvent->timeZone);
+        $adapter->setDTEnd($jsEvent->start, $jsEvent->duration, $jsEvent->timeZone);
+
+        $adapter->setCategories($jsEvent->keywords);
+        $adapter->setLocation($jsEvent->locations);
+
+        $adapter->setFreeBusy($jsEvent->freeBusyStatus);
+        $adapter->setStatus($jsEvent->status);
+
+        // Map any properties that are only found in the event itself.
+        if (is_null($masterEvent)) {
+            $adapter->setUid($jsEvent->uid);
+            $adapter->setProdId($jsEvent->prodid);
+
+            $adapter->setSequence($jsEvent->sequence);
+            $adapter->setClass($jsEvent->privacy);
+
+            $adapter->setRRule($jsEvent->recurrenceRules);
+        } else {
+            $adapter->setUid($masterEvent->uid);
+
+            $adapter->setSequence($masterEvent->sequence);
+            $adapter->setClass($masterEvent->privacy);
+        }
     }
 
     public function mapToJmap($data, $adapter)
@@ -200,7 +199,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             }
 
             $jsEvent->setRecurrenceOverrides($recurrenceOverrides);
-            
+
             array_push($list, $jsEvent);
         }
 

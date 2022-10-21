@@ -397,7 +397,7 @@ class JSCalendarICalendarAdapterUtil
             }
 
             self::$logger->error("Unable to create date from iCal until: ", $until);
-            
+
             return null;
         }
 
