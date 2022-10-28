@@ -94,10 +94,11 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->iCalendar = Reader::read(
             fopen(__DIR__ . '/../resources/nextcloud_conversion_event_1.ics', 'r')
         );
-        
+
         $this->iCalendarData = array("1" => $this->iCalendar->serialize());
         $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
 
+        // Check for most basic properties.
         $this->assertEquals($this->jsCalendarEvent->getDescription(), "Event with a tag, a notification\nand a recurrence.");
         $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
         $this->assertEquals($this->jsCalendarEvent->getStatus(), "confirmed");
@@ -105,8 +106,27 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals(array_values($this->jsCalendarEvent->getLocations())[0]->getName(), "Some Hotel, Some Country");
         $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
         $this->assertEquals($this->jsCalendarEvent->getPrivacy(), "private");
+
+        // Check for reucrrenceRules.
         $this->assertEquals($this->jsCalendarEvent->getRecurrenceRule()->getFrequency(), "yearly");
         $this->assertEquals($this->jsCalendarEvent->getRecurrenceRule()->getbyMonth(), array("9"));
+
+        // Check for alerts.
+        $this->assertEquals(sizeof($this->jsCalendarEvent->getAlerts()), 3);
+        $this->assertEquals($this->jsCalendarEvent->getAlerts()["2"]->getTrigger()->getType(), "OffsetTrigger");
+        $this->assertEquals($this->jsCalendarEvent->getAlerts()["2"]->getTrigger()->getOffset(), "-PT5M");
+        $this->assertEquals($this->jsCalendarEvent->getAlerts()["2"]->getAction(), "display");
+        $this->assertEquals($this->jsCalendarEvent->getAlerts()["1"]->getTrigger()->getType(), "AbsoluteTrigger");
+        $this->assertEquals($this->jsCalendarEvent->getAlerts()["1"]->getTrigger()->getWhen(), "2022-05-08T12:00:00Z");
+        // Check that no value is accidentaly overwritten if it was set in a previous alert.
+        $this->assertNotEquals(
+            $this->jsCalendarEvent->getAlerts()["2"]->getTrigger()->getOffset(),
+            $this->jsCalendarEvent->getAlerts()["3"]->getTrigger()->getOffset()
+        );
+        $this->assertNotEquals(
+            $this->jsCalendarEvent->getAlerts()["1"]->getTrigger()->getType(),
+            $this->jsCalendarEvent->getAlerts()["3"]->getTrigger()->getType()
+        );
     }
 
     /**
