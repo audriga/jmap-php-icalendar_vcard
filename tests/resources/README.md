@@ -12,7 +12,11 @@ vCards:
 iCalendars:
 * `test_icalendar.ics` - some random iCalendar
 * `nextcloud_conversion_event_1.ics` - iCalendar created in Nextcloud
+* `recurring_event_with_changed_occurrence.ics` - iCal event with recurrence and a changed occurrence
+* `calendar_witch_two_events.ics` - iCal file with two separate events.
 
 JSCalendars:
 * `jscalendar_basic.json` - JSCalendar with very basic properties
 * `jscalendar_extended.json` - JSCalendar with an extended set of properties
+* `jscalendar_with_recurrence_overrides.json` - JSCalendar with a recurrenceOverride property
+* `jscalendar_two_events.json` - JSCalendar consisting of an array of two events.

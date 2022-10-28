@@ -105,6 +105,8 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals(array_values($this->jsCalendarEvent->getLocations())[0]->getName(), "Some Hotel, Some Country");
         $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
         $this->assertEquals($this->jsCalendarEvent->getPrivacy(), "private");
+        $this->assertEquals($this->jsCalendarEvent->getRecurrenceRule()->getFrequency(), "yearly");
+        $this->assertEquals($this->jsCalendarEvent->getRecurrenceRule()->getbyMonth(), array("9"));
     }
 
     /**
@@ -131,7 +133,126 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($jsCalendarData->locations->{'1'}->{'name'},
             $jsCalendarDataAfter->getLocations()["1"]->getName());
         $this->assertEquals($jsCalendarData->prodid, $jsCalendarDataAfter->getProdId());
+        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"frequency"}, $jsCalendarDataAfter->getRecurrenceRule()->getFrequency());
+        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byMonth"}, $jsCalendarDataAfter->getRecurrenceRule()->getByMonth());
+        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byDay"}[0]->{"day"},
+            $jsCalendarDataAfter->getRecurrenceRule()->getByDay()->getDay());
+        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byDay"}[0]->{"nthOfPeriod"},
+            $jsCalendarDataAfter->getRecurrenceRule()->getByDay()->getNthOfPeriod());
     }
 
-    //TODO: Add test for multiple events (mapFromJmap).
+    /**
+     * Map multiple ICal events from a single file to jmap.
+     */
+    public function testRecurringICalEvent()
+    {
+        $this->iCalendar = Reader::read(
+            fopen(__DIR__ . '/../resources/recurring_event_with_changed_occurrence.ics', 'r')
+        );
+
+        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
+        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
+
+        // Check whether the key has been set correctly and the overrides were mapped successfully.
+        $this->assertTrue(in_array("2022-10-15T00:00:00", array_keys($this->jsCalendarEvent->getRecurrenceOverrides())));
+        $this->assertEquals($this->jsCalendarEvent->getRecurrenceOverrides()["2022-10-15T00:00:00"]->getDescription(), "added description");
+    }
+
+    public function testRecurrenceOverrideRoundtrip()
+    {
+        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_with_recurrence_overrides.json'));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
+
+        // Check that the recurrence ids were mapped correctly.
+        $this->assertEquals(array_keys(get_object_vars($jsCalendarData->recurrenceOverrides)),
+            array_keys($jsCalendarDataAfter->getRecurrenceOverrides())
+        );
+
+        // Check that the title was changed and does not equal the one set for the master event.
+        $this->assertNotEquals($jsCalendarData->title,
+            $jsCalendarDataAfter->getRecurrenceOverrides()["2020-01-08T14:00:00"]->getTitle()
+        );
+
+        // Check that the title of a single override matches
+        $this->assertEquals($jsCalendarData->recurrenceOverrides->{"2020-06-26T09:00:00"}->title,
+            $jsCalendarDataAfter->getRecurrenceOverrides()["2020-06-26T09:00:00"]->getTitle()
+        );
+
+    }
+
+    public function testMultipleICalEvents()
+    {
+        $this->iCalendar = Reader::read(
+            fopen(__DIR__ . '/../resources/calendar_with_two_events.ics', 'r')
+        );
+
+        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
+
+        $jsCalendarData = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter);
+
+        // Check that no null value is overwritten with values from the first event.
+        $this->assertEquals($jsCalendarData[0]->getStatus(), "confirmed");
+        $this->assertNull($jsCalendarData[1]->getStatus());
+
+        // Make sure that all the properties that should be different are different.
+        $this->assertNotEquals($jsCalendarData[0]->getTitle(), $jsCalendarData[1]->getTitle());
+        $this->assertNotEquals($jsCalendarData[0]->getDescription(), $jsCalendarData[1]->getDescription());
+        $this->assertNotEquals($jsCalendarData[0]->getDuration(), $jsCalendarData[1]->getDuration());
+        $this->assertNotEquals($jsCalendarData[0]->getUpdated(), $jsCalendarData[1]->getUpdated());
+        $this->assertNotEquals($jsCalendarData[0]->getUid(), $jsCalendarData[1]->getUid());
+        
+        // Make sure that all the properties that should match do so.
+        $this->assertEquals($jsCalendarData[0]->getProdId(), $jsCalendarData[1]->getProdId());
+        $this->assertEquals($jsCalendarData[0]->getSequence(), $jsCalendarData[1]->getSequence());
+        $this->assertEquals($jsCalendarData[0]->getTimezone(), $jsCalendarData[1]->getTimezone());
+    }
+
+    public function testMultipleEventsRoundtrip()
+    {
+        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_two_events.json'));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData[0], "c2" => $jsCalendarData[1]), $this->adapter);
+
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(array("c1" => reset($iCalendarData[0]), "c2" => reset($iCalendarData[1])), $this->adapter);
+
+        // Check that properties were mapped correctly to their counterpart.
+        $this->assertEquals($jsCalendarData[0]->title, $jsCalendarDataAfter[0]->getTitle());
+        $this->assertEquals($jsCalendarData[1]->title, $jsCalendarDataAfter[1]->getTitle());
+
+        $this->assertEquals($jsCalendarData[0]->start, $jsCalendarDataAfter[0]->getStart());
+        $this->assertEquals($jsCalendarData[1]->start, $jsCalendarDataAfter[1]->getStart());
+
+        $this->assertEquals($jsCalendarData[0]->timeZone, $jsCalendarDataAfter[0]->getTimezone());
+        $this->assertEquals($jsCalendarData[1]->timeZone, $jsCalendarDataAfter[1]->getTimezone());
+
+        $this->assertEquals($jsCalendarData[0]->uid, $jsCalendarDataAfter[0]->getUid());
+        $this->assertEquals($jsCalendarData[1]->uid, $jsCalendarDataAfter[1]->getUid());
+
+        $this->assertEquals($jsCalendarData[0]->duration, $jsCalendarDataAfter[0]->getDuration());
+        $this->assertEquals($jsCalendarData[1]->duration, $jsCalendarDataAfter[1]->getDuration());
+
+        // Test whether properties are overwirtten by previous events.
+        $this->assertEquals($jsCalendarData[0]->description, $jsCalendarDataAfter[0]->getDescription());
+        $this->assertNotNull($jsCalendarDataAfter[0]->getDescription());
+        $this->assertNull($jsCalendarDataAfter[1]->getDescription());
+
+        $this->assertNotEmpty($jsCalendarDataAfter[0]->getRecurrenceRule());
+        $this->assertEmpty($jsCalendarDataAfter[1]->getRecurrenceRule());
+
+        $this->assertNotEmpty($jsCalendarDataAfter[0]->getRecurrenceOverrides());
+        $this->assertEmpty($jsCalendarDataAfter[1]->getRecurrenceOverrides());
+        
+        // Make sure that none of the properties were overwritten incorrectly.
+        $this->assertNotEquals($jsCalendarDataAfter[0]->getTitle(), $jsCalendarDataAfter[1]->getTitle());
+        $this->assertNotEquals($jsCalendarDataAfter[0]->getTimezone(), $jsCalendarDataAfter[1]->getTimezone());
+        $this->assertNotEquals($jsCalendarDataAfter[0]->getUid(), $jsCalendarDataAfter[1]->getUid());
+        $this->assertNotEquals($jsCalendarDataAfter[0]->getStart(), $jsCalendarDataAfter[1]->getStart());
+        $this->assertNotEquals($jsCalendarDataAfter[0]->getDuration(), $jsCalendarDataAfter[1]->getDuration());
+
+        // Check that both of the events are saved with @type Event.
+        $this->assertEquals($jsCalendarDataAfter[0]->getType(), $jsCalendarDataAfter[1]->getType());
+    }
 }
