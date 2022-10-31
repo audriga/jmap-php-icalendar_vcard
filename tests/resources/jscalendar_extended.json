@@ -14,6 +14,24 @@
             "name": "Some Hotel, Some Country"
         }
     },
+    "alerts": {
+        "1": {
+            "@type": "Alert",
+            "action": "display",
+            "trigger": {
+                "@type": "OffsetTrigger",
+                "offset": "-PT30M"
+            }
+        },
+        "2": {
+            "@type": "Alert",
+            "action": "email",
+            "trigger": {
+                "@type": "AbsoluteTrigger",
+                "when": "2022-10-31T17:00:00Z"
+            }
+        }
+    },
     "description": "Event with a tag, a notification\nand a recurrence.",
     "start": "2022-09-20",
     "duration": "P1D",

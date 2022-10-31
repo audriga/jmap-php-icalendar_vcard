@@ -159,6 +159,14 @@ final class JSCalendarICalendarAdapterTest extends TestCase
             $jsCalendarDataAfter->getRecurrenceRule()->getByDay()->getDay());
         $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byDay"}[0]->{"nthOfPeriod"},
             $jsCalendarDataAfter->getRecurrenceRule()->getByDay()->getNthOfPeriod());
+
+        // Check for correct mapping of alerts.
+        $this->assertEquals(sizeof($jsCalendarDataAfter->getAlerts()), 2);
+        $this->assertEquals($jsCalendarData->alerts->{"1"}->trigger->offset, $jsCalendarDataAfter->getAlerts()[1]->getTrigger()->getOffset());
+        $this->assertEquals($jsCalendarData->alerts->{"2"}->trigger->when, $jsCalendarDataAfter->getAlerts()[2]->getTrigger()->getwhen());
+
+        $this->assertEquals($jsCalendarData->alerts->{"1"}->action, $jsCalendarDataAfter->getAlerts()[1]->getAction());
+        $this->assertEquals($jsCalendarData->alerts->{"2"}->action, $jsCalendarDataAfter->getAlerts()[2]->getAction());
     }
 
     /**
