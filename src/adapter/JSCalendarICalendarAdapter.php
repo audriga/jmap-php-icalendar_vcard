@@ -645,7 +645,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
                 $trigger->setWhen(date_format($triggerDateTime, "Y-m-d\TH:i:s\Z"));
             } else {
-                $this->logger->error("Unable to create trigger for alert from value: " . $alarm->TRIGGER->getValue());
+                $this->logger->error(
+                    "Unable to create iCal trigger for alert from value: "
+                    . $alarm->TRIGGER->getValue()
+                );
 
                 continue;
             }
@@ -666,13 +669,74 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             } elseif (strcmp($action, "EMAIL") === 0) {
                 $alert->setAction("email");
             }
-            var_dump($alert);
 
             $jmapAlerts[$key] = $alert;
             $key++;
         }
 
         return $jmapAlerts;
+    }
+
+    public function setAlerts($alerts)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($alerts)) {
+            return;
+        }
+
+        foreach ($alerts as $id => $alert) {
+            $alarmProperties = [];
+
+            $jsCalAction = $alert->{"action"};
+
+            // Set the ACTION property.
+            if (strcmp($jsCalAction, "email") === 0) {
+                $iCalAction = "EMAIL";
+            } else {
+                $iCalAction = "DISPLAY";
+            }
+
+            $alarmProperties["ACTION"] = $iCalAction;
+
+            $jsCalTrigger = $alert->{"trigger"};
+
+            // Set the TRIGGER property.
+            if (strcmp($jsCalTrigger->{"@type"}, "OffsetTrigger") === 0) {
+                $triggerValue = $jsCalTrigger->{"offset"};
+
+                // An offset trigger can contain a relatedTo parameter, which needs to be mapped as well.
+                if (!is_null($jsCalTrigger->{"relatedTo"})) {
+                    $iCalRelated = strtoupper($jsCalTrigger->{"relatedTo"});
+
+                    $triggerKeyword = "TRIGGER;RELATED=" . $iCalRelated;
+                } else {
+                    $triggerKeyword = "TRIGGER";
+                }
+            } elseif (strcmp($jsCalTrigger->{"@type"}, "AbsoluteTrigger") === 0) {
+                $triggerValue = date_format(
+                    DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->{"when"}),
+                    "Ymd\THis\Z"
+                );
+
+                // If the date time is false, it could not be parsed from the string, which should not happen.
+                if (!$triggerValue) {
+                    $this->logger->error(
+                        "Unable to create date time for absolute trigger from value: "
+                        . $jsCalTrigger->{"when"}
+                    );
+                }
+
+                $triggerKeyword = "TRIGGER;VALUE=DATE-TIME";
+            } else {
+                // The trigger type is not one of the two known ones.
+                $this->logger->error("Unable to created trigger value from trigger type: " . $jsCalTrigger->{"@type"});
+
+                continue;
+            }
+
+            $alarmProperties[$triggerKeyword] = $triggerValue;
+
+            $this->iCalEvent->VEVENT->add("VALARM", $alarmProperties);
+        }
     }
 
     public function setClass($privacy)
