@@ -7,6 +7,9 @@ use Sabre\VObject\Component\VCalendar;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
 use OpenXPort\Jmap\Calendar\Location;
+use OpenXPort\Jmap\Calendar\OffsetTrigger;
+use OpenXPort\Jmap\Calendar\AbsoluteTrigger;
+use OpenXPort\Jmap\Calendar\Alert;
 use OpenXPort\Jmap\Calendar\RecurrenceRule;
 use OpenXPort\Mapper\JSCalendarICalendarMapper;
 use OpenXPort\Util\AdapterUtil;
@@ -611,6 +614,65 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 return null;
                 break;
         }
+    }
+
+    public function getAlerts()
+    {
+        $alarms = $this->iCalEvent->VEVENT->VALARM;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($alarms)) {
+            return null;
+        }
+
+        $jmapAlerts = [];
+        $key = 1;
+
+        foreach ($alarms as $alarm) {
+            $alert = new Alert();
+
+            // The trigger can either be a relative offset or a date time and is mapped to an OffsetTrigger
+            // or an AbsoluteTrigger using the connected attributes respectively.
+            if (strcmp($alarm->TRIGGER->getValueType(), "DURATION") === 0) {
+                $trigger = new OffsetTrigger();
+                $trigger->setType("OffsetTrigger");
+
+                $trigger->setOffset($alarm->TRIGGER->getValue());
+            } elseif (strcmp($alarm->TRIGGER->getValueType(), "DATE-TIME") === 0) {
+                $trigger = new AbsoluteTrigger();
+                $trigger->setType("AbsoluteTrigger");
+
+                $triggerDateTime = $alarm->TRIGGER->getDateTime();
+
+                $trigger->setWhen(date_format($triggerDateTime, "Y-m-d\TH:i:s\Z"));
+            } else {
+                $this->logger->error("Unable to create trigger for alert from value: " . $alarm->TRIGGER->getValue());
+
+                continue;
+            }
+
+            $alert->setTrigger($trigger);
+
+            $action = $alarm->ACTION;
+
+            // Check if a value is set for ACTION
+            if (AdapterUtil::isSetNotNullAndNotEmpty($action)) {
+                $action = $action->getValue();
+            }
+
+            // While there are many more values that can be connected to the ACTION property,
+            // these are the only three that are supposed to be converted.
+            if (strcmp($action, "DISPLAY") === 0 || strcmp($action, "AUDIO") === 0) {
+                $alert->setAction("display");
+            } elseif (strcmp($action, "EMAIL") === 0) {
+                $alert->setAction("email");
+            }
+            var_dump($alert);
+
+            $jmapAlerts[$key] = $alert;
+            $key++;
+        }
+
+        return $jmapAlerts;
     }
 
     public function setClass($privacy)
