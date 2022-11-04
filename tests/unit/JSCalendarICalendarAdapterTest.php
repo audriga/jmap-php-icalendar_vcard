@@ -164,7 +164,6 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals(sizeof($jsCalendarDataAfter->getAlerts()), 2);
         $this->assertEquals($jsCalendarData->alerts->{"1"}->trigger->offset, $jsCalendarDataAfter->getAlerts()[1]->getTrigger()->getOffset());
         $this->assertEquals($jsCalendarData->alerts->{"2"}->trigger->when, $jsCalendarDataAfter->getAlerts()[2]->getTrigger()->getwhen());
-
         $this->assertEquals($jsCalendarData->alerts->{"1"}->action, $jsCalendarDataAfter->getAlerts()[1]->getAction());
         $this->assertEquals($jsCalendarData->alerts->{"2"}->action, $jsCalendarDataAfter->getAlerts()[2]->getAction());
     }

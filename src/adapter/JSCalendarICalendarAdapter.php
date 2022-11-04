@@ -637,6 +637,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $trigger->setType("OffsetTrigger");
 
                 $trigger->setOffset($alarm->TRIGGER->getValue());
+
+                // TODO: add correct mapping of RELATED parameter.
             } elseif (strcmp($alarm->TRIGGER->getValueType(), "DATE-TIME") === 0) {
                 $trigger = new AbsoluteTrigger();
                 $trigger->setType("AbsoluteTrigger");
