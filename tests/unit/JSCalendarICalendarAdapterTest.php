@@ -115,6 +115,8 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals(sizeof($this->jsCalendarEvent->getAlerts()), 3);
         $this->assertEquals($this->jsCalendarEvent->getAlerts()["2"]->getTrigger()->getType(), "OffsetTrigger");
         $this->assertEquals($this->jsCalendarEvent->getAlerts()["2"]->getTrigger()->getOffset(), "-PT5M");
+        $this->assertEquals($this->jsCalendarEvent->getAlerts()["2"]->getTrigger()->getRelativeTo(), "start");
+        $this->assertEquals($this->jsCalendarEvent->getAlerts()["3"]->getTrigger()->getRelativeTo(), "end");
         $this->assertEquals($this->jsCalendarEvent->getAlerts()["2"]->getAction(), "display");
         $this->assertEquals($this->jsCalendarEvent->getAlerts()["1"]->getTrigger()->getType(), "AbsoluteTrigger");
         $this->assertEquals($this->jsCalendarEvent->getAlerts()["1"]->getTrigger()->getWhen(), "2022-05-08T12:00:00Z");
@@ -163,6 +165,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         // Check for correct mapping of alerts.
         $this->assertEquals(sizeof($jsCalendarDataAfter->getAlerts()), 2);
         $this->assertEquals($jsCalendarData->alerts->{"1"}->trigger->offset, $jsCalendarDataAfter->getAlerts()[1]->getTrigger()->getOffset());
+        $this->assertEquals($jsCalendarData->alerts->{"1"}->trigger->relativeTo, $jsCalendarDataAfter->getAlerts()[1]->getTrigger()->getRelativeTo()); 
         $this->assertEquals($jsCalendarData->alerts->{"2"}->trigger->when, $jsCalendarDataAfter->getAlerts()[2]->getTrigger()->getwhen());
         $this->assertEquals($jsCalendarData->alerts->{"1"}->action, $jsCalendarDataAfter->getAlerts()[1]->getAction());
         $this->assertEquals($jsCalendarData->alerts->{"2"}->action, $jsCalendarDataAfter->getAlerts()[2]->getAction());

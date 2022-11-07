@@ -20,7 +20,8 @@
             "action": "display",
             "trigger": {
                 "@type": "OffsetTrigger",
-                "offset": "-PT30M"
+                "offset": "-PT30M",
+                "relativeTo": "end"
             }
         },
         "2": {
