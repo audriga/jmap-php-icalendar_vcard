@@ -129,6 +129,33 @@ final class JSCalendarICalendarAdapterTest extends TestCase
             $this->jsCalendarEvent->getAlerts()["1"]->getTrigger()->getType(),
             $this->jsCalendarEvent->getAlerts()["3"]->getTrigger()->getType()
         );
+
+        //Check for participants.
+        $participants = $this->jsCalendarEvent->getParticipants();
+        $this->assertEquals(sizeof($participants), 3);
+        // 1st Attendee mapping.
+        $currentParticipant = current($participants);
+        $this->assertEquals($currentParticipant->getName(), "File Sharing User 2");
+        $this->assertEquals($currentParticipant->getKind(), "individual");
+        $this->assertEquals($currentParticipant->getRoles(), array("attendee", "optional"));
+        $this->assertNull($currentParticipant->getParticipationStatus());
+        $this->assertTrue($currentParticipant->getExpectReply());
+        $this->assertEquals($currentParticipant->getSendTo()["imip"], "mailto:user-2@file-sharing-test.com");
+        // 2nd ATTENDEE mapping.
+        $currentParticipant = next($participants);
+        $this->assertEquals($currentParticipant->getName(), "File Sharing User 3");
+        $this->assertEquals($currentParticipant->getKind(), "individual");
+        $this->assertEquals($currentParticipant->getRoles()[0], "informational");
+        $this->assertEquals($currentParticipant->getParticipationStatus(), "accepted");
+        $this->assertNull($currentParticipant->getExpectReply());
+        $this->assertEquals($currentParticipant->getSendTo()["imip"], "mailto:user-3@file-sharing-test.com");
+        // ORGANIZER mapping.
+        $currentParticipant = end($participants);
+        $this->assertEquals($currentParticipant->getName(), "File Sharing User 1");
+        $this->assertNull($currentParticipant->getKind());
+        $this->assertEquals($currentParticipant->getRoles()[0], "owner");
+        $this->assertFalse($currentParticipant->getExpectReply());
+        $this->assertEquals($currentParticipant->getSendTo()["imip"], "mailto:user-1@file-sharing-test.com");
     }
 
     /**
