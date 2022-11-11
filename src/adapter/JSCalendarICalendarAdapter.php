@@ -11,6 +11,7 @@ use OpenXPort\Jmap\Calendar\OffsetTrigger;
 use OpenXPort\Jmap\Calendar\AbsoluteTrigger;
 use OpenXPort\Jmap\Calendar\Alert;
 use OpenXPort\Jmap\Calendar\RecurrenceRule;
+use OpenXPort\Jmap\Calendar\Participant;
 use OpenXPort\Mapper\JSCalendarICalendarMapper;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\JSCalendarICalendarAdapterUtil;
@@ -1072,28 +1073,193 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function getParticipants()
     {
-        /*
-         * TODO: implement this property like it is done in the horde adapter.
-         * /../horde-jmap/src/adapter/HordeCalendarEventAdapter.php:531
-         *
-         * Strategy:
-         * Get the attendee values from the iCal event object.
-         *
-         * Extract the organizer from the iCal event.
-         *
-         * Turn the Attendee property into an array so that looping over it is possible.
-         *
-         * Loop through every attendee and create a new Participant from the OXP class.
-         *
-         * Get each property of the attendeee and add it to the participant.
-         *
-         * Also do this for the organizer, adding everyone to an array of particitpants.
-         *
-         * If there is not organizer, create a generic one.
-         *
-         * Return the array of attendees.
-         */
+        $organizer = $this->iCalEvent->VEVENT->ORGANIZER;
+        $attendees = $this->iCalEvent->VEVENT->ATTENDEE;
 
-         return null;
+        if (
+            !AdapterUtil::isSetNotNullAndNotEmpty($organizer)
+            && !AdapterUtil::isSetNotNullAndNotEmpty($attendees)
+        ) {
+                return null;
+        }
+
+        $jmapParticipants = [];
+
+        if (AdapterUtil::isSetNotNullAndNotEmpty($attendees)) {
+            foreach ($attendees as $attendee) {
+                $attendeeValue = $attendee->getValue();
+
+                if (is_null($attendeeValue)) {
+                    continue;
+                }
+
+                $jmapParticipant = new Participant();
+
+                $jmapParticipant->setType("Participant");
+
+                if (explode(":", $attendeeValue)[0] == "mailto") {
+                    $jmapParticipant->setSendTo(array("imip" => $attendeeValue));
+                } else {
+                    $jmapParticipant->setSendTo(array("other" => $attendeeValue));
+                }
+
+                // Set any properties using the helper function.
+                $this->addParticipantParameters($attendee->parameters, $jmapParticipant);
+
+                $participantId = md5(print_r($jmapParticipant, true));
+
+                $jmapParticipants["$participantId"] = $jmapParticipant;
+            }
+        }
+
+        if (AdapterUtil::isSetNotNullAndNotEmpty($organizer)) {
+            $oValue = $organizer->getValue();
+
+            $jmapParticipant = null;
+
+            $participantId = null;
+
+            foreach ($jmapParticipants as $id => $participant) {
+                $curSendTo = $participant->getSendTo();
+
+                if (
+                    explode(":", $oValue)[0] == "mailto" &&
+                    array_key_exists("imip", $curSendTo) &&
+                    $curSendTo["imip"] == $oValue
+                ) {
+                    $curRoles = $participant->getRoles();
+
+                    array_push($curRoles, "owner");
+
+                    $participant->setRoles($curRoles);
+                    $jmapParticipant = $participant;
+                    $participantId = $id;
+                } elseif (array_key_exists("other", $curSendTo) && $curSendTo["other"] == $oValue) {
+                    $curRoles = $participant->getRoles();
+
+                    array_push($curRoles, "owner");
+
+                    $participant->setRoles($curRoles);
+                    $jmapParticipant = $participant;
+                    $participantId = $id;
+                }
+            }
+
+            // If no match was found, the event's organizer is not yet registered as an attendee and
+            // is therefore created as a new participant.
+            if (is_null($jmapParticipant)) {
+                $jmapParticipant = new Participant();
+                $jmapParticipant->setType("Participant");
+
+                if (explode(":", $oValue)[0] == "mailto") {
+                    $jmapParticipant->setSendTo(array("imip" => $oValue));
+                } else {
+                    $jmapParticipant->setSendTo(array("other" => $oValue));
+                }
+
+                $participantId = md5(print_r($jmapParticipant, true));
+            }
+
+            $this->addParticipantParameters($organizer->parameters, $jmapParticipant);
+
+            // Always and only false for organizers.
+            $jmapParticipant->setExpectReply(false);
+
+            $curRoles = $jmapParticipant->getRoles();
+
+            // If the Organizer was created as a new participant, this will always be empty and must
+            // be set to "owner".
+            if (empty($curRoles)) {
+                $jmapParticipant->setRoles(array("owner"));
+            }
+
+            $jmapParticipants["$participantId"] = $jmapParticipant;
+        }
+
+        return $jmapParticipants;
+    }
+
+    private function addParticipantParameters($parameters, $participant)
+    {
+        // Use the VObject library to loop through each of the parameters of the property by their name.
+        foreach ($parameters as $param) {
+            // Now map each parameter using their name and value.
+            switch ($param->name) {
+                case "CN":
+                    $participant->setName($param->getValue());
+                    break;
+
+                case "CUTYPE":
+                    $participant->setKind(
+                        JSCalendarICalendarAdapterUtil::convertFromICalCUTypeToJmapKind($param->getValue())
+                    );
+                    break;
+
+                case "DELEGATED-FROM":
+                    $participant->setDelegatedFrom(
+                        JSCalendarICalendarAdapterUtil::converFromICalDelegatedFromToJmapDelegatedFrom(
+                            $param->getValue()
+                        )
+                    );
+                    break;
+
+                case "DELEAGTED-TO":
+                    $participant->setDelegatedTo(
+                        JSCalendarICalendarAdapterUtil::converFromICalDelegatedToToJmapDelegatedTo($param->getValue())
+                    );
+                    break;
+
+                case "DIR":
+                    // TODO.
+                    break;
+
+                case "LANG":
+                    // Not a part of our OXP Participant class.
+                    break;
+
+                case "MEMBER":
+                    // TODO.
+                    break;
+
+                case "PARTSTAT":
+                    $participant->setParticipationStatus(
+                        JSCalendarICalendarAdapterUtil::convertFromICalPartStatToJmapParticipationStatus(
+                            $param->getValue()
+                        )
+                    );
+                    break;
+
+                case "ROLE":
+                    $participant->setRoles(
+                        JSCalendarICalendarAdapterUtil::convertFormICalRoleToJmapRoles($param->getValue())
+                    );
+                    break;
+
+                case "RSVP":
+                    $participant->setExpectReply(
+                        JSCalendarICalendarAdapterUtil::convertFromICalRSVPToJmapExpectReply($param->getValue())
+                    );
+                    break;
+
+                case "SCHEDULE-AGENT":
+                    // Not a part of our OXP Participant class.
+                    break;
+
+                case "SCHEDULE-FORCE-SEND":
+                    // Not a part of our OXP Participant class.
+                    break;
+
+                case "SCHEDULE-STATUS":
+                    // Not a part of our OXP Participant class.
+                    break;
+
+                case "SENT-BY":
+                    $participant->setInvitedBy($param->getValue());
+                    break;
+
+                default:
+                    break;
+            }
+        }
     }
 }
