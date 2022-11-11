@@ -428,4 +428,80 @@ class JSCalendarICalendarAdapterUtil
 
         return $iCalUntil;
     }
+
+    public static function convertFromICalCUTypeToJmapKind($cutype)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($cutype)) {
+            return null;
+        }
+
+        $values = [
+            "INDIVIDUAL" => "individual",
+            "GROUP" => "group",
+            "RESOURCE" => "resource",
+            "ROOM" => "location",
+            "UNKNOWN" => null
+        ];
+
+        if (array_key_exists($cutype, $values)) {
+            return $values[$cutype];
+        }
+
+        return strtolower($cutype);
+    }
+
+    public static function converFromICalDelegatedFromToJmapDelegatedFrom($delegatedFrom)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedFrom)) {
+            return null;
+        }
+
+        $jmapDelegatedFrom = explode(",", $delegatedFrom);
+
+        return $jmapDelegatedFrom;
+    }
+
+    public static function converFromICalDelegatedToToJmapDelegatedTo($delegatedTo)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedTo)) {
+            return null;
+        }
+        $jmapDelegatedTo = explode(",", $delegatedTo);
+
+        return $jmapDelegatedTo;
+    }
+
+    public static function convertFromICalPartStatToJmapParticipationStatus($partStat)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($partStat) || $partStat == "NEEDS-ACTION") {
+            return null;
+        }
+
+        return strtolower($partStat);
+    }
+
+    public static function convertFormICalRoleToJmapRoles($role)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($role)) {
+            return null;
+        }
+
+        $values = [
+            "CHAIR" => array("attendee", "chair"),
+            "REQ-PARTICIPANT" => array("attendee"),
+            "OPT-PARTICIPANT" => array("attendee", "optional"),
+            "NON-PARTICIPANT" => array("informational")
+        ];
+
+        if (array_key_exists($role, $values)) {
+            return $values[$role];
+        }
+
+        return array(strtolower($role));
+    }
+
+    public static function convertFromICalRSVPToJmapExpectReply($rsvp)
+    {
+        return $rsvp == "TRUE" ? true : null;
+    }
 }
