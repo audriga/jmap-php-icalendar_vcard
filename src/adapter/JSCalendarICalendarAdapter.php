@@ -1129,7 +1129,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 ) {
                     $curRoles = $participant->getRoles();
 
-                    array_push($curRoles, "owner");
+                    $curRoles["owner"] = true;
 
                     $participant->setRoles($curRoles);
                     $jmapParticipant = $participant;
@@ -1137,7 +1137,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 } elseif (array_key_exists("other", $curSendTo) && $curSendTo["other"] == $oValue) {
                     $curRoles = $participant->getRoles();
 
-                    array_push($curRoles, "owner");
+                    $curRoles["owner"] = true;
 
                     $participant->setRoles($curRoles);
                     $jmapParticipant = $participant;
@@ -1170,7 +1170,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             // If the Organizer was created as a new participant, this will always be empty and must
             // be set to "owner".
             if (empty($curRoles)) {
-                $jmapParticipant->setRoles(array("owner"));
+                $jmapParticipant->setRoles(array("owner" => true));
             }
 
             $jmapParticipants["$participantId"] = $jmapParticipant;
@@ -1261,5 +1261,111 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     break;
             }
         }
+    }
+
+    public function setParticipants($participants)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($participants)) {
+            return;
+        }
+
+        foreach ($participants as $id => $participant) {
+            $participantValues = get_object_vars($participant);
+
+            // Define the value (mail address or other) for this property.
+            if (array_key_exists("sendTo", $participantValues)) {
+                $sendTo = get_object_vars($participantValues["sendTo"]);
+
+                $propertyValue = array_key_exists("imip", $sendTo) ? $sendTo["imip"] : $sendTo["other"];
+            } else {
+                // The property has no value and can't be parsed to iCal, so skip it.
+                $this->logger->error("Unable to create ATTENDEE/ORGANIZER property without sendTo data");
+                continue;
+            }
+
+            $parameters = $this->extractParticipantParameters($participantValues);
+
+            // Handle roles outside of the helper method to make deciding between ORGANIZER and
+            // ATTENDEE easier.
+            $jmapRoles = get_object_vars($participantValues["roles"]);
+
+            if (array_key_exists("owner", $jmapRoles)) {
+                $this->iCalEvent->VEVENT->add("ORGANIZER", $propertyValue, $parameters);
+
+                // Unset the role to make sure this participant is only mapped to an ATTENDEE,
+                // if it has another eligible role.
+                unset($jmapRoles["owner"]);
+            }
+
+            // As iCal only supports a single role, this needs to be gathered
+            // from the combination of roles connected to a participant.
+            if (array_key_exists("attendee", $jmapRoles)) {
+                if (array_key_exists("chair", $jmapRoles)) {
+                    $parameters["ROLE"] = "CHAIR";
+                } elseif (array_key_exists("optional", $jmapRoles)) {
+                    $parameters["ROLE"] = "OPT-PARTICIPANT";
+                } else {
+                    $parameters["ROLE"] = "REQ-PARTICIPANT";
+                }
+            } elseif (array_key_exists("informational", $jmapRoles)) {
+                $parameters["ROLE"] = "NON-PARTICIPANT";
+            } elseif (sizeof($jmapRoles) == 1) {
+                // A single non-standard role can be parsed.
+                $parameters["ROLE"] = strtoupper(array_pop($jmapRoles));
+            } elseif (sizeof($jmapRoles) > 1) {
+                $this->logger->error("Unable to parse multiple roles: " . implode(", ", $jmapRoles));
+                continue;
+            }
+
+            if (!is_null($parameters["ROLE"])) {
+                $this->iCalEvent->VEVENT->add("ATTENDEE", $propertyValue, $parameters);
+            }
+        }
+    }
+
+    private function extractParticipantParameters($participantValues)
+    {
+        $parameters = [];
+
+        foreach ($participantValues as $key => $value) {
+            switch ($key) {
+                case "name":
+                    $parameters["CN"] = $value;
+                    break;
+
+                case "kind":
+                    $parameters["CUTYPE"] = JSCalendarICalendarAdapterUtil::convertFromJmapKindToICalCUType($value);
+                    break;
+
+                case "participationStatus":
+                    $parameters["PARTSTAT"] = JSCalendarICalendarAdapterUtil::convertFromJmapKindToICalCUType($value);
+                    break;
+
+                case "expectReply":
+                    $parameters["RSVP"] = JSCalendarICalendarAdapterUtil::convertFromJmapExpectReplyToICalRSVP($value);
+                    break;
+
+                case "delegatedTo":
+                    //TODO
+                    break;
+
+                case "delegatedFrom":
+                    //TODO
+                    break;
+
+                case "memberOf":
+                    //TODO
+                    break;
+
+                case "links":
+                    //TODO
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        return $parameters;
     }
 }

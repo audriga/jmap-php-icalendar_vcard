@@ -76,6 +76,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $adapter->setAlerts($jsEvent->alerts);
 
+        $adapter->setParticipants($jsEvent->participants);
+
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
             $adapter->setUid($jsEvent->uid);

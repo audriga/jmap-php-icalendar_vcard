@@ -450,6 +450,26 @@ class JSCalendarICalendarAdapterUtil
         return strtolower($cutype);
     }
 
+    public static function convertFromJmapKindToICalCUType($kind)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($kind)) {
+            return "UNKNOWN";
+        }
+
+        $values = [
+            "individual" => "INDIVIDUAL",
+            "group" => "GROUP",
+            "resource" => "RESOURCE",
+            "ROOM" => "LOCATION"
+        ];
+
+        if (array_key_exists($kind, $values)) {
+            return $values[$kind];
+        }
+
+        return strtoupper($kind);
+    }
+
     public static function converFromICalDelegatedFromToJmapDelegatedFrom($delegatedFrom)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedFrom)) {
@@ -473,11 +493,22 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromICalPartStatToJmapParticipationStatus($partStat)
     {
+        // This parameter is not supposed to be converted, if the value is either not set or "NEEDS-ACTION"
         if (!AdapterUtil::isSetNotNullAndNotEmpty($partStat) || $partStat == "NEEDS-ACTION") {
             return null;
         }
 
         return strtolower($partStat);
+    }
+
+    public static function convertFromJmapParticipationStatusToICalPartStat($participationStatus)
+    {
+        // The RFC is incomplete here. "needs-action" may also need to be skipped.
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($participationStatus)) {
+            return null;
+        }
+
+        return strtoupper($participationStatus);
     }
 
     public static function convertFormICalRoleToJmapRoles($role)
@@ -487,21 +518,26 @@ class JSCalendarICalendarAdapterUtil
         }
 
         $values = [
-            "CHAIR" => array("attendee", "chair"),
-            "REQ-PARTICIPANT" => array("attendee"),
-            "OPT-PARTICIPANT" => array("attendee", "optional"),
-            "NON-PARTICIPANT" => array("informational")
+            "CHAIR" => array("attendee" => true, "chair" => true),
+            "REQ-PARTICIPANT" => array("attendee" => true),
+            "OPT-PARTICIPANT" => array("attendee" => true, "optional" => true),
+            "NON-PARTICIPANT" => array("informational" => true)
         ];
 
         if (array_key_exists($role, $values)) {
             return $values[$role];
         }
 
-        return array(strtolower($role));
+        return array(strtolower($role) => true);
     }
 
     public static function convertFromICalRSVPToJmapExpectReply($rsvp)
     {
         return $rsvp == "TRUE" ? true : null;
+    }
+
+    public static function convertFromJmapExpectReplyToICalRSVP($expectReply)
+    {
+        return (!is_null($expectReply) && $expectReply) ? "TRUE" : "FALSE";
     }
 }
