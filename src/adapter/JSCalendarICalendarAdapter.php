@@ -7,6 +7,9 @@ use Sabre\VObject\Component\VCalendar;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
 use OpenXPort\Jmap\Calendar\Location;
+use OpenXPort\Jmap\Calendar\OffsetTrigger;
+use OpenXPort\Jmap\Calendar\AbsoluteTrigger;
+use OpenXPort\Jmap\Calendar\Alert;
 use OpenXPort\Jmap\Calendar\RecurrenceRule;
 use OpenXPort\Mapper\JSCalendarICalendarMapper;
 use OpenXPort\Util\AdapterUtil;
@@ -610,6 +613,140 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             default:
                 return null;
                 break;
+        }
+    }
+
+    public function getAlerts()
+    {
+        $alarms = $this->iCalEvent->VEVENT->VALARM;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($alarms)) {
+            return null;
+        }
+
+        $jmapAlerts = [];
+        $key = 1;
+
+        foreach ($alarms as $alarm) {
+            $alert = new Alert();
+
+            // The trigger can either be a relative offset or a date time and is mapped to an OffsetTrigger
+            // or an AbsoluteTrigger using the connected parameters respectively.
+            if (strcmp($alarm->TRIGGER->getValueType(), "DURATION") === 0) {
+                $trigger = new OffsetTrigger();
+                $trigger->setType("OffsetTrigger");
+
+                $trigger->setOffset($alarm->TRIGGER->getValue());
+
+                // If the TRIGGER property has a "RELATED" parameter, map it to relativeTo;
+                if (!is_null($alarm->TRIGGER["RELATED"])) {
+                    $trigger->setRelativeTo(strtolower($alarm->TRIGGER["RELATED"]->getValue()));
+                }
+            } elseif (strcmp($alarm->TRIGGER->getValueType(), "DATE-TIME") === 0) {
+                $trigger = new AbsoluteTrigger();
+                $trigger->setType("AbsoluteTrigger");
+
+                $triggerDateTime = $alarm->TRIGGER->getDateTime();
+
+                $trigger->setWhen(date_format($triggerDateTime, "Y-m-d\TH:i:s\Z"));
+            } else {
+                $this->logger->error(
+                    "Unable to create iCal trigger for alert from value: "
+                    . $alarm->TRIGGER->getValue()
+                );
+
+                continue;
+            }
+
+            $alert->setTrigger($trigger);
+
+            $action = $alarm->ACTION;
+
+            // Check if a value is set for ACTION
+            if (AdapterUtil::isSetNotNullAndNotEmpty($action)) {
+                $action = $action->getValue();
+            }
+
+            // While there are many more values that can be connected to the ACTION property,
+            // these are the only three that are supposed to be converted.
+            if (strcmp($action, "DISPLAY") === 0 || strcmp($action, "AUDIO") === 0) {
+                $alert->setAction("display");
+            } elseif (strcmp($action, "EMAIL") === 0) {
+                $alert->setAction("email");
+            }
+
+            $jmapAlerts[$key] = $alert;
+            $key++;
+        }
+
+        return $jmapAlerts;
+    }
+
+    public function setAlerts($alerts)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($alerts)) {
+            return;
+        }
+
+        // Use a running index to refer to the current-most VALARM added to the event.
+        $alarmIndex = 0;
+
+
+        foreach ($alerts as $id => $alert) {
+            $this->iCalEvent->VEVENT->add("VALARM", []);
+
+            $jsCalAction = $alert->{"action"};
+
+            // Set the ACTION property. "EMAIL" and "DISPLAY" are the only ones relevant for mapping.
+            if (strcmp($jsCalAction, "email") === 0) {
+                $iCalAction = "EMAIL";
+            } else {
+                $iCalAction = "DISPLAY";
+            }
+
+            $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("ACTION", $iCalAction);
+
+            $jsCalTrigger = $alert->{"trigger"};
+
+            // Set the TRIGGER property.
+            if (strcmp($jsCalTrigger->{"@type"}, "OffsetTrigger") === 0) {
+                $triggerValue = $jsCalTrigger->{"offset"};
+
+                // An offset trigger can contain a relativeTo parameter, which needs to be mapped as well.
+                if (!is_null($jsCalTrigger->{"relativeTo"})) {
+                    $iCalRelated = strtoupper($jsCalTrigger->{"relativeTo"});
+
+                    $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add(
+                        "TRIGGER",
+                        $triggerValue,
+                        ["RELATED" => $iCalRelated]
+                    );
+                } else {
+                    $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue);
+                }
+            } elseif (strcmp($jsCalTrigger->{"@type"}, "AbsoluteTrigger") === 0) {
+                $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->{"when"});
+
+                // If the date time is false, it was probably not in UTC, which is the standard for both formats.
+                // Log and skip to the next alert.
+                if (!$triggerValue) {
+                    $this->logger->error(
+                        "Unable to create date time for absolute trigger from value: "
+                        . $jsCalTrigger->{"when"}
+                    );
+
+                    continue;
+                }
+
+                $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue, ["VALUE" => "DATE-TIME"]);
+            } else {
+                // The trigger type is not one of the two known ones.
+                $this->logger->error("Unable to created trigger value from trigger type: " . $jsCalTrigger->{"@type"});
+
+                continue;
+            }
+
+            $alarmIndex++;
         }
     }
 

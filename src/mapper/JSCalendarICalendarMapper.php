@@ -74,6 +74,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $adapter->setFreeBusy($jsEvent->freeBusyStatus);
         $adapter->setStatus($jsEvent->status);
 
+        $adapter->setAlerts($jsEvent->alerts);
+
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
             $adapter->setUid($jsEvent->uid);
@@ -194,6 +196,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $jmapEvent->setFreeBusyStatus($adapter->getFreeBusy());
         $jmapEvent->setStatus($adapter->getStatus());
+
+        $jmapEvent->setAlerts($adapter->getAlerts());
 
         // Map the properties that are strictly set in master event.
         if (strcmp($jmapEvent->getType(), "Event") === 0) {
