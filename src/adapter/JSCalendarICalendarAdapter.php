@@ -1361,6 +1361,9 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     //TODO
                     break;
 
+                case "invitedBy":
+                    $parameters["SENT-BY"] = $value;
+
                 default:
                     break;
             }
