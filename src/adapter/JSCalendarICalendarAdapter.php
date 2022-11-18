@@ -668,8 +668,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $action = $action->getValue();
             }
 
-            // While there are many more values that can be connected to the ACTION property,
-            // these are the only three that are supposed to be converted.
+            // "DISPLAY" and "AUDIO" are both converted to "display", as there is no direct
+            // counterpart for "AUDIO" in JSCalendar.
             if (strcmp($action, "DISPLAY") === 0 || strcmp($action, "AUDIO") === 0) {
                 $alert->setAction("display");
             } elseif (strcmp($action, "EMAIL") === 0) {
@@ -1167,8 +1167,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $curRoles = $jmapParticipant->getRoles();
 
-            // If the Organizer was created as a new participant, this will always be empty and must
-            // be set to "owner".
+            // If the Organizer was created as a new participant, this will always be empty and
+            // their role must be set to "owner".
             if (empty($curRoles)) {
                 $jmapParticipant->setRoles(array("owner" => true));
             }
@@ -1363,6 +1363,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
                 case "invitedBy":
                     $parameters["SENT-BY"] = $value;
+                    break;
 
                 default:
                     break;
