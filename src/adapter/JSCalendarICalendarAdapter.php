@@ -1210,7 +1210,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     break;
 
                 case "DIR":
-                    // TODO.
+                    // TODO: implement me
                     break;
 
                 case "LANG":
@@ -1218,7 +1218,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     break;
 
                 case "MEMBER":
-                    // TODO.
+                    // TODO: implement me. The conversion specs suggest to map participants that are groups first
+                    // so we would need to do some filtering/sorting ahead of the conversions.
                     break;
 
                 case "PARTSTAT":
@@ -1345,20 +1346,23 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     $parameters["RSVP"] = JSCalendarICalendarAdapterUtil::convertFromJmapExpectReplyToICalRSVP($value);
                     break;
 
-                case "delegatedTo":
-                    //TODO
+                case "delegatedFrom":
+                    $parameters["DELEGATED-FROM"] =
+                    JSCalendarICalendarAdapterUtil::convertFromJmapDelegatedFromToICalDelegatedFrom($value);
                     break;
 
-                case "delegatedFrom":
-                    //TODO
+                case "delegatedTo":
+                    $parameters["DELEGATED-TO"] =
+                    JSCalendarICalendarAdapterUtil::convertFromJmapDelegatedToToICalDelegatedTo($value);
                     break;
 
                 case "memberOf":
-                    //TODO
+                    //TODO: implement me. The conversion specs suggest to map participants that are groups first
+                    // so we would need to do some filtering/sorting ahead of the conversions.
                     break;
 
                 case "links":
-                    //TODO
+                    //TODO: implement me
                     break;
 
                 case "invitedBy":

@@ -476,9 +476,25 @@ class JSCalendarICalendarAdapterUtil
             return null;
         }
 
-        $jmapDelegatedFrom = explode(",", $delegatedFrom);
+        $splitDelegatedFrom = explode(",", $delegatedFrom);
+        $jmapDelegatedFrom = [];
+
+        foreach ($splitDelegatedFrom as $id) {
+            $jmapDelegatedFrom[$id] = true;
+        }
 
         return $jmapDelegatedFrom;
+    }
+
+    public static function convertFromJmapDelegatedFromToICalDelegatedFrom($delegatedFrom)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedFrom)) {
+            return null;
+        }
+
+        $delegatedFrom = array_keys($delegatedFrom);
+
+        return implode(",", $delegatedFrom);
     }
 
     public static function converFromICalDelegatedToToJmapDelegatedTo($delegatedTo)
@@ -486,9 +502,26 @@ class JSCalendarICalendarAdapterUtil
         if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedTo)) {
             return null;
         }
-        $jmapDelegatedTo = explode(",", $delegatedTo);
+
+        $splitDelegatedTo = explode(",", $delegatedTo);
+        $jmapDelegatedTo = [];
+
+        foreach ($splitDelegatedTo as $id) {
+            $jmapDelegatedTo[$id] = true;
+        }
 
         return $jmapDelegatedTo;
+    }
+
+    public static function convertFromJmapDelegatedToToICalDelegatedTo($delegatedTo)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedTo)) {
+            return null;
+        }
+
+        $delegatedTo = array_keys($delegatedTo);
+
+        return implode(",", $delegatedTo);
     }
 
     public static function convertFromICalPartStatToJmapParticipationStatus($partStat)
