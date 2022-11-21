@@ -503,7 +503,6 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromJmapParticipationStatusToICalPartStat($participationStatus)
     {
-        // The RFC is incomplete here. "needs-action" may also need to be skipped.
         if (!AdapterUtil::isSetNotNullAndNotEmpty($participationStatus)) {
             return null;
         }
