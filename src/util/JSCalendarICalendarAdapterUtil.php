@@ -428,4 +428,148 @@ class JSCalendarICalendarAdapterUtil
 
         return $iCalUntil;
     }
+
+    public static function convertFromICalCUTypeToJmapKind($cutype)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($cutype)) {
+            return null;
+        }
+
+        $values = [
+            "INDIVIDUAL" => "individual",
+            "GROUP" => "group",
+            "RESOURCE" => "resource",
+            "ROOM" => "location",
+            "UNKNOWN" => null
+        ];
+
+        if (array_key_exists($cutype, $values)) {
+            return $values[$cutype];
+        }
+
+        return strtolower($cutype);
+    }
+
+    public static function convertFromJmapKindToICalCUType($kind)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($kind)) {
+            return "UNKNOWN";
+        }
+
+        $values = [
+            "individual" => "INDIVIDUAL",
+            "group" => "GROUP",
+            "resource" => "RESOURCE",
+            "ROOM" => "LOCATION"
+        ];
+
+        if (array_key_exists($kind, $values)) {
+            return $values[$kind];
+        }
+
+        return strtoupper($kind);
+    }
+
+    public static function converFromICalDelegatedFromToJmapDelegatedFrom($delegatedFrom)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedFrom)) {
+            return null;
+        }
+
+        $splitDelegatedFrom = explode(",", $delegatedFrom);
+        $jmapDelegatedFrom = [];
+
+        foreach ($splitDelegatedFrom as $id) {
+            $jmapDelegatedFrom[$id] = true;
+        }
+
+        return $jmapDelegatedFrom;
+    }
+
+    public static function convertFromJmapDelegatedFromToICalDelegatedFrom($delegatedFrom)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedFrom)) {
+            return null;
+        }
+
+        $delegatedFrom = array_keys($delegatedFrom);
+
+        return implode(",", $delegatedFrom);
+    }
+
+    public static function converFromICalDelegatedToToJmapDelegatedTo($delegatedTo)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedTo)) {
+            return null;
+        }
+
+        $splitDelegatedTo = explode(",", $delegatedTo);
+        $jmapDelegatedTo = [];
+
+        foreach ($splitDelegatedTo as $id) {
+            $jmapDelegatedTo[$id] = true;
+        }
+
+        return $jmapDelegatedTo;
+    }
+
+    public static function convertFromJmapDelegatedToToICalDelegatedTo($delegatedTo)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($delegatedTo)) {
+            return null;
+        }
+
+        $delegatedTo = array_keys($delegatedTo);
+
+        return implode(",", $delegatedTo);
+    }
+
+    public static function convertFromICalPartStatToJmapParticipationStatus($partStat)
+    {
+        // This parameter is not supposed to be converted, if the value is either not set or "NEEDS-ACTION"
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($partStat) || $partStat == "NEEDS-ACTION") {
+            return null;
+        }
+
+        return strtolower($partStat);
+    }
+
+    public static function convertFromJmapParticipationStatusToICalPartStat($participationStatus)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($participationStatus)) {
+            return null;
+        }
+
+        return strtoupper($participationStatus);
+    }
+
+    public static function convertFormICalRoleToJmapRoles($role)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($role)) {
+            return null;
+        }
+
+        $values = [
+            "CHAIR" => array("attendee" => true, "chair" => true),
+            "REQ-PARTICIPANT" => array("attendee" => true),
+            "OPT-PARTICIPANT" => array("attendee" => true, "optional" => true),
+            "NON-PARTICIPANT" => array("informational" => true)
+        ];
+
+        if (array_key_exists($role, $values)) {
+            return $values[$role];
+        }
+
+        return array(strtolower($role) => true);
+    }
+
+    public static function convertFromICalRSVPToJmapExpectReply($rsvp)
+    {
+        return $rsvp == "TRUE" ? true : null;
+    }
+
+    public static function convertFromJmapExpectReplyToICalRSVP($expectReply)
+    {
+        return (!is_null($expectReply) && $expectReply) ? "TRUE" : "FALSE";
+    }
 }

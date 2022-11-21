@@ -33,6 +33,45 @@
             }
         }
     },
+    "participants": {
+        "dG9tQGZvb2Jhci5xlLmNvbQ": {
+            "@type": "Participant",
+            "name": "Some Attendee",
+            "sendTo": {
+                "imip": "mailto:some.attendee@example.com"
+            },
+            "participationStatus": "accepted",
+            "roles": {
+                "attendee": true
+            }
+        },
+        "em9lQGZvb2GFtcGxlLmNvbQ": {
+            "@type": "Participant",
+            "name": "Some Event Owner",
+            "sendTo": {
+                "imip": "mailto:some.owner@example.com"
+            },
+            "participationStatus": "accepted",
+            "roles": {
+                "owner": true,
+                "attendee": true,
+                "chair": true
+            }
+        },
+        "ajksdgasjgjgdleqwueqwe": {
+            "@type": "Participant",
+            "name": "Some Other Attendee",
+            "sendTo": {
+                "other": "+49-123-4567890"
+            },
+            "participationStatus": "needs-action",
+            "expectReply": true,
+            "roles": {
+                "attendee": true,
+                "optional": true
+            }
+        }
+    },
     "description": "Event with a tag, a notification\nand a recurrence.",
     "start": "2022-09-20",
     "duration": "P1D",

@@ -11,6 +11,7 @@ use OpenXPort\Jmap\Calendar\OffsetTrigger;
 use OpenXPort\Jmap\Calendar\AbsoluteTrigger;
 use OpenXPort\Jmap\Calendar\Alert;
 use OpenXPort\Jmap\Calendar\RecurrenceRule;
+use OpenXPort\Jmap\Calendar\Participant;
 use OpenXPort\Mapper\JSCalendarICalendarMapper;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\JSCalendarICalendarAdapterUtil;
@@ -667,8 +668,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $action = $action->getValue();
             }
 
-            // While there are many more values that can be connected to the ACTION property,
-            // these are the only three that are supposed to be converted.
+            // "DISPLAY" and "AUDIO" are both converted to "display", as there is no direct
+            // counterpart for "AUDIO" in JSCalendar.
             if (strcmp($action, "DISPLAY") === 0 || strcmp($action, "AUDIO") === 0) {
                 $alert->setAction("display");
             } elseif (strcmp($action, "EMAIL") === 0) {
@@ -1072,28 +1073,307 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function getParticipants()
     {
-        /*
-         * TODO: implement this property like it is done in the horde adapter.
-         * /../horde-jmap/src/adapter/HordeCalendarEventAdapter.php:531
-         *
-         * Strategy:
-         * Get the attendee values from the iCal event object.
-         *
-         * Extract the organizer from the iCal event.
-         *
-         * Turn the Attendee property into an array so that looping over it is possible.
-         *
-         * Loop through every attendee and create a new Participant from the OXP class.
-         *
-         * Get each property of the attendeee and add it to the participant.
-         *
-         * Also do this for the organizer, adding everyone to an array of particitpants.
-         *
-         * If there is not organizer, create a generic one.
-         *
-         * Return the array of attendees.
-         */
+        $organizer = $this->iCalEvent->VEVENT->ORGANIZER;
+        $attendees = $this->iCalEvent->VEVENT->ATTENDEE;
 
-         return null;
+        if (
+            !AdapterUtil::isSetNotNullAndNotEmpty($organizer)
+            && !AdapterUtil::isSetNotNullAndNotEmpty($attendees)
+        ) {
+                return null;
+        }
+
+        $jmapParticipants = [];
+
+        if (AdapterUtil::isSetNotNullAndNotEmpty($attendees)) {
+            foreach ($attendees as $attendee) {
+                $attendeeValue = $attendee->getValue();
+
+                if (is_null($attendeeValue)) {
+                    continue;
+                }
+
+                $jmapParticipant = new Participant();
+
+                $jmapParticipant->setType("Participant");
+
+                if (explode(":", $attendeeValue)[0] == "mailto") {
+                    $jmapParticipant->setSendTo(array("imip" => $attendeeValue));
+                } else {
+                    $jmapParticipant->setSendTo(array("other" => $attendeeValue));
+                }
+
+                // Set any properties using the helper function.
+                $this->addParticipantParameters($attendee->parameters, $jmapParticipant);
+
+                $participantId = md5(print_r($jmapParticipant, true));
+
+                $jmapParticipants["$participantId"] = $jmapParticipant;
+            }
+        }
+
+        if (AdapterUtil::isSetNotNullAndNotEmpty($organizer)) {
+            $oValue = $organizer->getValue();
+
+            $jmapParticipant = null;
+
+            $participantId = null;
+
+            foreach ($jmapParticipants as $id => $participant) {
+                $curSendTo = $participant->getSendTo();
+
+                if (
+                    explode(":", $oValue)[0] == "mailto" &&
+                    array_key_exists("imip", $curSendTo) &&
+                    $curSendTo["imip"] == $oValue
+                ) {
+                    $curRoles = $participant->getRoles();
+
+                    $curRoles["owner"] = true;
+
+                    $participant->setRoles($curRoles);
+                    $jmapParticipant = $participant;
+                    $participantId = $id;
+                } elseif (array_key_exists("other", $curSendTo) && $curSendTo["other"] == $oValue) {
+                    $curRoles = $participant->getRoles();
+
+                    $curRoles["owner"] = true;
+
+                    $participant->setRoles($curRoles);
+                    $jmapParticipant = $participant;
+                    $participantId = $id;
+                }
+            }
+
+            // If no match was found, the event's organizer is not yet registered as an attendee and
+            // is therefore created as a new participant.
+            if (is_null($jmapParticipant)) {
+                $jmapParticipant = new Participant();
+                $jmapParticipant->setType("Participant");
+
+                if (explode(":", $oValue)[0] == "mailto") {
+                    $jmapParticipant->setSendTo(array("imip" => $oValue));
+                } else {
+                    $jmapParticipant->setSendTo(array("other" => $oValue));
+                }
+
+                $participantId = md5(print_r($jmapParticipant, true));
+            }
+
+            $this->addParticipantParameters($organizer->parameters, $jmapParticipant);
+
+            // Always and only false for organizers.
+            $jmapParticipant->setExpectReply(false);
+
+            $curRoles = $jmapParticipant->getRoles();
+
+            // If the Organizer was created as a new participant, this will always be empty and
+            // their role must be set to "owner".
+            if (empty($curRoles)) {
+                $jmapParticipant->setRoles(array("owner" => true));
+            }
+
+            $jmapParticipants["$participantId"] = $jmapParticipant;
+        }
+
+        return $jmapParticipants;
+    }
+
+    private function addParticipantParameters($parameters, $participant)
+    {
+        // Use the VObject library to loop through each of the parameters of the property by their name.
+        foreach ($parameters as $param) {
+            // Now map each parameter using their name and value.
+            switch ($param->name) {
+                case "CN":
+                    $participant->setName($param->getValue());
+                    break;
+
+                case "CUTYPE":
+                    $participant->setKind(
+                        JSCalendarICalendarAdapterUtil::convertFromICalCUTypeToJmapKind($param->getValue())
+                    );
+                    break;
+
+                case "DELEGATED-FROM":
+                    $participant->setDelegatedFrom(
+                        JSCalendarICalendarAdapterUtil::converFromICalDelegatedFromToJmapDelegatedFrom(
+                            $param->getValue()
+                        )
+                    );
+                    break;
+
+                case "DELEAGTED-TO":
+                    $participant->setDelegatedTo(
+                        JSCalendarICalendarAdapterUtil::converFromICalDelegatedToToJmapDelegatedTo($param->getValue())
+                    );
+                    break;
+
+                case "DIR":
+                    // TODO: implement me
+                    break;
+
+                case "LANG":
+                    // Not a part of our OXP Participant class.
+                    break;
+
+                case "MEMBER":
+                    // TODO: implement me. The conversion specs suggest to map participants that are groups first
+                    // so we would need to do some filtering/sorting ahead of the conversions.
+                    break;
+
+                case "PARTSTAT":
+                    $participant->setParticipationStatus(
+                        JSCalendarICalendarAdapterUtil::convertFromICalPartStatToJmapParticipationStatus(
+                            $param->getValue()
+                        )
+                    );
+                    break;
+
+                case "ROLE":
+                    $participant->setRoles(
+                        JSCalendarICalendarAdapterUtil::convertFormICalRoleToJmapRoles($param->getValue())
+                    );
+                    break;
+
+                case "RSVP":
+                    $participant->setExpectReply(
+                        JSCalendarICalendarAdapterUtil::convertFromICalRSVPToJmapExpectReply($param->getValue())
+                    );
+                    break;
+
+                case "SCHEDULE-AGENT":
+                    // Not a part of our OXP Participant class.
+                    break;
+
+                case "SCHEDULE-FORCE-SEND":
+                    // Not a part of our OXP Participant class.
+                    break;
+
+                case "SCHEDULE-STATUS":
+                    // Not a part of our OXP Participant class.
+                    break;
+
+                case "SENT-BY":
+                    $participant->setInvitedBy($param->getValue());
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    public function setParticipants($participants)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($participants)) {
+            return;
+        }
+
+        foreach ($participants as $id => $participant) {
+            $participantValues = get_object_vars($participant);
+
+            // Define the value (mail address or other) for this property.
+            if (array_key_exists("sendTo", $participantValues)) {
+                $sendTo = get_object_vars($participantValues["sendTo"]);
+
+                $propertyValue = array_key_exists("imip", $sendTo) ? $sendTo["imip"] : $sendTo["other"];
+            } else {
+                // The property has no value and can't be parsed to iCal, so skip it.
+                $this->logger->error("Unable to create ATTENDEE/ORGANIZER property without sendTo data");
+                continue;
+            }
+
+            $parameters = $this->extractParticipantParameters($participantValues);
+
+            // Handle roles outside of the helper method to make deciding between ORGANIZER and
+            // ATTENDEE easier.
+            $jmapRoles = get_object_vars($participantValues["roles"]);
+
+            if (array_key_exists("owner", $jmapRoles)) {
+                $this->iCalEvent->VEVENT->add("ORGANIZER", $propertyValue, $parameters);
+
+                // Unset the role to make sure this participant is only mapped to an ATTENDEE,
+                // if it has another eligible role.
+                unset($jmapRoles["owner"]);
+            }
+
+            // As iCal only supports a single role, this needs to be gathered
+            // from the combination of roles connected to a participant.
+            if (array_key_exists("attendee", $jmapRoles)) {
+                if (array_key_exists("chair", $jmapRoles)) {
+                    $parameters["ROLE"] = "CHAIR";
+                } elseif (array_key_exists("optional", $jmapRoles)) {
+                    $parameters["ROLE"] = "OPT-PARTICIPANT";
+                } else {
+                    $parameters["ROLE"] = "REQ-PARTICIPANT";
+                }
+            } elseif (array_key_exists("informational", $jmapRoles)) {
+                $parameters["ROLE"] = "NON-PARTICIPANT";
+            } elseif (sizeof($jmapRoles) == 1) {
+                // A single non-standard role can be parsed.
+                $parameters["ROLE"] = strtoupper(array_pop($jmapRoles));
+            } elseif (sizeof($jmapRoles) > 1) {
+                $this->logger->error("Unable to parse multiple roles: " . implode(", ", $jmapRoles));
+                continue;
+            }
+
+            if (!is_null($parameters["ROLE"])) {
+                $this->iCalEvent->VEVENT->add("ATTENDEE", $propertyValue, $parameters);
+            }
+        }
+    }
+
+    private function extractParticipantParameters($participantValues)
+    {
+        $parameters = [];
+
+        foreach ($participantValues as $key => $value) {
+            switch ($key) {
+                case "name":
+                    $parameters["CN"] = $value;
+                    break;
+
+                case "kind":
+                    $parameters["CUTYPE"] = JSCalendarICalendarAdapterUtil::convertFromJmapKindToICalCUType($value);
+                    break;
+
+                case "participationStatus":
+                    $parameters["PARTSTAT"] = JSCalendarICalendarAdapterUtil::convertFromJmapKindToICalCUType($value);
+                    break;
+
+                case "expectReply":
+                    $parameters["RSVP"] = JSCalendarICalendarAdapterUtil::convertFromJmapExpectReplyToICalRSVP($value);
+                    break;
+
+                case "delegatedFrom":
+                    $parameters["DELEGATED-FROM"] =
+                    JSCalendarICalendarAdapterUtil::convertFromJmapDelegatedFromToICalDelegatedFrom($value);
+                    break;
+
+                case "delegatedTo":
+                    $parameters["DELEGATED-TO"] =
+                    JSCalendarICalendarAdapterUtil::convertFromJmapDelegatedToToICalDelegatedTo($value);
+                    break;
+
+                case "memberOf":
+                    //TODO: implement me. The conversion specs suggest to map participants that are groups first
+                    // so we would need to do some filtering/sorting ahead of the conversions.
+                    break;
+
+                case "links":
+                    //TODO: implement me
+                    break;
+
+                case "invitedBy":
+                    $parameters["SENT-BY"] = $value;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        return $parameters;
     }
 }
