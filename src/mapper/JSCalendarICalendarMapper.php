@@ -73,6 +73,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $adapter->setFreeBusy($jsEvent->freeBusyStatus);
         $adapter->setStatus($jsEvent->status);
+        // Missing color in the CalendarEvent object.
+        // $adapter->setColor($jsEvent->color);
 
         $adapter->setAlerts($jsEvent->alerts);
 
@@ -198,6 +200,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $jmapEvent->setFreeBusyStatus($adapter->getFreeBusy());
         $jmapEvent->setStatus($adapter->getStatus());
+        // Missing color in the CalendarEvent object.
+        // $jmapEvent->setColor($adapter->getColor());
 
         $jmapEvent->setAlerts($adapter->getAlerts());
         $jmapEvent->setParticipants($adapter->getParticipants());

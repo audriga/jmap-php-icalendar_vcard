@@ -484,6 +484,26 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->add("STATUS", $iCalStatus);
     }
 
+    public function getColor()
+    {
+        $color = $this->iCalEvent->VEVENT->COLOR;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($color)) {
+            return null;
+        }
+
+        return $color;
+    }
+
+    public function setColor($color)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($color)) {
+            return;
+        }
+
+        $this->iCalEvent->VEVENT->add("COLOR", $color);
+    }
+
     public function getCategories()
     {
         $categories = $this->iCalEvent->VEVENT->CATEGORIES;
