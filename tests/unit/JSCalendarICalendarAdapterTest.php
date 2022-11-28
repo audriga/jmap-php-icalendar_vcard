@@ -142,6 +142,9 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($currentParticipant->getRoles(), array("attendee" => true, "optional" => true));
         $this->assertNull($currentParticipant->getParticipationStatus());
         $this->assertTrue($currentParticipant->getExpectReply());
+        $this->assertEquals($currentParticipant->getLanguage(), "en");
+        $this->assertNull($currentParticipant->getScheduleAgent());
+        $this->assertFalse($currentParticipant->getScheduleForceSend());
         $this->assertEquals($currentParticipant->getSendTo()["imip"], "mailto:user-2@file-sharing-test.com");
         // 2nd ATTENDEE mapping.
         $currentParticipant = next($participants);
@@ -150,6 +153,10 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($currentParticipant->getRoles(), array("informational" => true));
         $this->assertEquals($currentParticipant->getParticipationStatus(), "accepted");
         $this->assertNull($currentParticipant->getExpectReply());
+        $this->assertEquals($currentParticipant->getLanguage(), "en");
+        $this->assertEquals($currentParticipant->getSCheduleAgent(), "client");
+        $this->assertEquals($currentParticipant->getScheduleStatus(), array("1.1"));
+        $this->assertTrue($currentParticipant->getScheduleForceSend());
         $this->assertEquals($currentParticipant->getSendTo()["imip"], "mailto:user-3@file-sharing-test.com");
         // ORGANIZER mapping.
         $currentParticipant = end($participants);
@@ -207,8 +214,12 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $currentMappedParticipant = reset($mappedParticipants);
         $this->assertEquals($currentParticipant->name, $currentMappedParticipant->getName());
         $this->assertEquals($currentParticipant->sendTo->imip, $currentMappedParticipant->getSendTo()["imip"]);
+        $this->assertEquals($currentParticipant->language, $currentMappedParticipant->getLanguage());
         $this->assertEquals($currentParticipant->participationStatus, $currentMappedParticipant->getParticipationStatus());
         $this->assertEquals($currentParticipant->roles->attendee, $currentMappedParticipant->getRoles()["attendee"]);
+        $this->assertEquals($currentParticipant->scheduleAgent, $currentMappedParticipant->getScheduleAgent());
+        $this->assertEquals($currentParticipant->scheduleForceSend, $currentMappedParticipant->getScheduleForceSend());
+        $this->assertEquals($currentParticipant->scheduleStatus, $currentMappedParticipant->getScheduleStatus());
         // Check second participant and owner.
         $currentParticipant = $jsCalendarData->participants->{"em9lQGZvb2GFtcGxlLmNvbQ"};
         $currentMappedParticipant = next($mappedParticipants);
@@ -218,6 +229,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($currentParticipant->roles->owner, $currentMappedParticipant->getRoles()["owner"]);
         $this->assertEquals($currentParticipant->roles->attendee, $currentMappedParticipant->getRoles()["attendee"]);
         $this->assertEquals($currentParticipant->roles->chair, $currentMappedParticipant->getRoles()["chair"]);
+        $this->assertNotEquals($currentParticipant->scheduleAgent, $currentMappedParticipant->getScheduleAgent());
         // Check third participant and owner.
         $currentParticipant = $jsCalendarData->participants->{"ajksdgasjgjgdleqwueqwe"};
         $currentMappedParticipant = end($mappedParticipants);
