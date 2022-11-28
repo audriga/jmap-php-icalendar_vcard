@@ -1358,6 +1358,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     private function extractParticipantParameters($participantValues)
     {
+        // Parse through each property of the participant and add it to an array that is
+        // then used to add the parameters to the ATTENDEE.
         $parameters = [];
 
         foreach ($participantValues as $key => $value) {
