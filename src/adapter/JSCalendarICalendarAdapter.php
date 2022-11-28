@@ -1233,8 +1233,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     // TODO: implement me
                     break;
 
-                case "LANG":
-                    // Not a part of our OXP Participant class.
+                case "LANGUAGE":
+                    $participant->setLanguage($param->getValue());
                     break;
 
                 case "MEMBER":
@@ -1252,7 +1252,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
                 case "ROLE":
                     $participant->setRoles(
-                        JSCalendarICalendarAdapterUtil::convertFormICalRoleToJmapRoles($param->getValue())
+                        JSCalendarICalendarAdapterUtil::convertFromICalRoleToJmapRoles($param->getValue())
                     );
                     break;
 
@@ -1263,15 +1263,27 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     break;
 
                 case "SCHEDULE-AGENT":
-                    // Not a part of our OXP Participant class.
+                    $participant->setScheduleAgent(
+                        JSCalendarICalendarAdapterUtil::convertFromICalScheduleAgentToJmapScheduleAgent(
+                            $param->getValue()
+                        )
+                    );
                     break;
 
                 case "SCHEDULE-FORCE-SEND":
-                    // Not a part of our OXP Participant class.
+                    $participant->setScheduleForceSend(
+                        JSCalendarICalendarAdapterUtil::convertFromICalScheduleForceSendToJmapScheduleForceSend(
+                            $param->getValue()
+                        )
+                    );
                     break;
 
                 case "SCHEDULE-STATUS":
-                    // Not a part of our OXP Participant class.
+                    $participant->setScheduleStatus(
+                        JSCalendarICalendarAdapterUtil::convertFromICalScheduleStatusToJmapScheduleStatus(
+                            $param->getValue()
+                        )
+                    );
                     break;
 
                 case "SENT-BY":
@@ -1358,6 +1370,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     $parameters["CUTYPE"] = JSCalendarICalendarAdapterUtil::convertFromJmapKindToICalCUType($value);
                     break;
 
+                case "language":
+                    $parameters["LANGUAGE"] = $value;
+                    break;
+
                 case "participationStatus":
                     $parameters["PARTSTAT"] = JSCalendarICalendarAdapterUtil::convertFromJmapKindToICalCUType($value);
                     break;
@@ -1374,6 +1390,21 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 case "delegatedTo":
                     $parameters["DELEGATED-TO"] =
                     JSCalendarICalendarAdapterUtil::convertFromJmapDelegatedToToICalDelegatedTo($value);
+                    break;
+
+                case "scheduleAgent":
+                    $parameters["SCHEDULE-AGENT"] =
+                    JSCalendarICalendarAdapterUtil::convertFromJmapScheduleAgentToICalScheduleAgent($value);
+                    break;
+
+                case "scheduleForceSend":
+                    $parameters["SCHEDULE-FORCE-SEND"] =
+                    JSCalendarICalendarAdapterUtil::convertFromJmapScheduleForceSendToICaleScheduleForceSend($value);
+                    break;
+
+                case "scheduleStatus":
+                    $parameters["SCHEDULE-STATUS"] =
+                    JSCalendarICalendarAdapterUtil::convertFromJmapScheduleStatusToICalScheduleStatus($value);
                     break;
 
                 case "memberOf":
