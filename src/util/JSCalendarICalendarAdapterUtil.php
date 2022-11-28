@@ -543,7 +543,7 @@ class JSCalendarICalendarAdapterUtil
         return strtoupper($participationStatus);
     }
 
-    public static function convertFormICalRoleToJmapRoles($role)
+    public static function convertFromICalRoleToJmapRoles($role)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($role)) {
             return null;
@@ -571,5 +571,62 @@ class JSCalendarICalendarAdapterUtil
     public static function convertFromJmapExpectReplyToICalRSVP($expectReply)
     {
         return (!is_null($expectReply) && $expectReply) ? "TRUE" : "FALSE";
+    }
+
+    public static function convertFromICalScheduleAgentToJmapScheduleAgent($scheduleAgent)
+    {
+        // the parameter is only supposed to be mapped if it is "CLIENT". 
+        if (!(AdapterUtil::isSetNotNullAndNotEmpty($scheduleAgent) && strtoupper($scheduleAgent) == "CLIENT")) {
+            return null;
+        }
+
+        return "client";
+    }
+
+    public static function convertFromJmapScheduleAgentToICalScheduleAgent($scheduleAgent)
+    {
+        $values = array("client", "server", "none");
+
+        if (!(AdapterUtil::isSetNotNullAndNotEmpty($scheduleAgent) && in_array($scheduleAgent, $values))) {
+            return null;
+        }
+
+        return strtoupper($scheduleAgent);
+    }
+
+    public static function convertFromICalScheduleForceSendToJmapScheduleForceSend($scheduleForceSend)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($scheduleForceSend)) {
+            return null;
+        }
+
+        return $scheduleForceSend === "TRUE";
+    }
+
+    public static function convertFromJmapScheduleForceSendToICaleScheduleForceSend($scheduleForceSend)
+    {
+        if (!(AdapterUtil::isSetNotNullAndNotEmpty($scheduleForceSend) && $scheduleForceSend)) {
+            return "FALSE";
+        }
+
+        return "TRUE";
+    }
+
+    public static function convertFromICalScheduleStatusToJmapScheduleStatus($scheduleStatus)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($scheduleStatus)) {
+            return null;
+        }
+
+        return explode(",", $scheduleStatus);
+    }
+
+    public static function convertFromJmapScheduleStatusToICalScheduleStatus($scheduleStatus)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($scheduleStatus)) {
+            return null;
+        }
+
+        return implode(",", $scheduleStatus);
     }
 }
