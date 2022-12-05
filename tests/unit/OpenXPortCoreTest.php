@@ -71,4 +71,13 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("public", $this->jsCalendar->getPrivacy());
         $this->assertEquals("mailto:some.user@somedomain.com", $this->jsCalendar->getReplyTo()["imip"]);
     }
+
+    public function testParseEventWithLocations()
+    {
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_locations.json")
+        );
+
+        var_dump($this->jsCalendar);
+    }
 }
