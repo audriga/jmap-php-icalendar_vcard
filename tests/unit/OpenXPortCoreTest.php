@@ -11,7 +11,7 @@ use OpenXPort\Jmap\Calendar\CalendarEvent;
 final class OpenXPortCoreTest extends Testcase
 {
     /** @var \OpenXPort\Jmap\Calendar\CalendarEvent */
-    protected $jsCalendarEvent = null;
+    protected $jsCalendar = null;
 
     public function setUp(): void
     {
@@ -20,7 +20,7 @@ final class OpenXPortCoreTest extends Testcase
 
     public function tearDown(): void
     {
-        $this->jsCalendarEvent = null;
+        $this->jsCalendar = null;
     }
 
     /**
@@ -28,6 +28,16 @@ final class OpenXPortCoreTest extends Testcase
      */
     public function testParseBasicEvent()
     {
-        $this->jsCalendarEvent = CalendarEvent::fromJson(__DIR__ . '/../resources/jscalendar_basic.json', 'r');
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . '/../resources/jscalendar_basic.json')
+        );
+
+        $this->assertEquals("Event", $this->jsCalendar->getType());
+        $this->assertEquals("a8df6573-0474-496d-8496-033ad45d7fea", $this->jsCalendar->getUid());
+        $this->assertEquals("2020-01-02T18:23:04Z", $this->jsCalendar->getUpdated());
+        $this->assertEquals("Some event", $this->jsCalendar->getTitle());
+        $this->assertEquals("2020-01-15T13:00:00", $this->jsCalendar->getStart());
+        $this->assertEquals("America/New_York", $this->jsCalendar->getTimeZone());
+        $this->assertEquals("PT1H", $this->jsCalendar->getDuration());
     }
 }
