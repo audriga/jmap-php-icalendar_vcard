@@ -32,8 +32,6 @@ final class OpenXPortCoreTest extends Testcase
             file_get_contents(__DIR__ . '/../resources/jscalendar_basic.json')
         );
 
-        var_dump($this->jsCalendar);
-
         $this->assertEquals("Event", $this->jsCalendar->getType());
         $this->assertEquals("a8df6573-0474-496d-8496-033ad45d7fea", $this->jsCalendar->getUid());
         $this->assertEquals("2020-01-02T18:23:04Z", $this->jsCalendar->getUpdated());
@@ -66,7 +64,6 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("This is just some other event!", $this->jsCalendar->getDescription());
         $this->assertEquals("text/plain", $this->jsCalendar->getDescriptionContentType());
         $this->assertFalse($this->jsCalendar->getShowWithoutTime());
-        var_dump($this->jsCalendar->getKeywords());
         $this->assertEquals(array("Test Events" => true, "Work" => true), $this->jsCalendar->getKeywords());
         $this->assertFalse($this->jsCalendar->getExcluded());
         $this->assertEquals(1, $this->jsCalendar->getPriority());
