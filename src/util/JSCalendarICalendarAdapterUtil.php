@@ -575,7 +575,7 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromICalScheduleAgentToJmapScheduleAgent($scheduleAgent)
     {
-        // the parameter is only supposed to be mapped if it is "CLIENT". 
+        // the parameter is only supposed to be mapped if it is "CLIENT".
         if (!(AdapterUtil::isSetNotNullAndNotEmpty($scheduleAgent) && strtoupper($scheduleAgent) == "CLIENT")) {
             return null;
         }
