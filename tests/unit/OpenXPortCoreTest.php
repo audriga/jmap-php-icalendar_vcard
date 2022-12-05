@@ -78,6 +78,35 @@ final class OpenXPortCoreTest extends Testcase
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_locations.json")
         );
 
-        var_dump($this->jsCalendar);
+        // Check the parsing of the first location.
+        $curentLocation = reset($this->jsCalendar->getLocations());
+        $this->assertEquals("Location", $curentLocation->getType());
+        $this->assertEquals("Conference Room 101", $curentLocation->getTitle());
+        $this->assertEquals("Biggest conference room in the upper level of the main building", $curentLocation->getDescription());
+        $this->assertEquals("Europe/Amsterdam", $curentLocation->getTimeZone());
+        $this->assertEquals("geo:49.00937,8.40444", $curentLocation->getCoordinates());
+        
+        // Check the parsing of the second location.
+        $curentLocation = next($this->jsCalendar->getLocations());
+        $this->assertEquals("Location", $curentLocation->getType());
+        $this->assertEquals("Flight to New York", $curentLocation->getTitle());
+        $this->assertEquals("Starting point of a flight from Stuttgart Airport to New York JFK", $curentLocation->getDescription());
+        $this->assertEquals("Europe/Amsterdam", $curentLocation->getTimeZone());
+        $this->assertEquals("start", $curentLocation->getRelativeTo());
+        $this->assertEquals("geo:48.687330584,9.219832454", $curentLocation->getCoordinates());
+    }
+
+    public function testParseEventWithLinks()
+    {
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_links.json")
+        );
+    }
+
+    public function testParseEventWithAlerts()
+    {
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_alerts.json")
+        );
     }
 }
