@@ -563,7 +563,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $jmapLocation = new Location();
         $jmapLocation->setType("Location");
-        $jmapLocation->setName($locationJmapEscaped);
+        $jmapLocation->setTitle($locationJmapEscaped);
 
         $jmapLocations["1"] = $jmapLocation;
 
@@ -581,7 +581,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $locationsArray = json_decode(json_encode($locations), true);
 
         // Only use the first location and add iCal escaping to it.
-        $locationICalEscaped = addcslashes(stripslashes($locationsArray["1"]["name"]), "[,;]");
+        $locationICalEscaped = addcslashes(stripslashes($locationsArray["1"]["title"]), "[,;]");
 
         $this->iCalEvent->VEVENT->add("LOCATION", $locationICalEscaped);
     }
