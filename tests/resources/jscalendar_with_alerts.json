@@ -1,0 +1,33 @@
+{
+    "@type": "Event",
+    "uid": "1234-locations-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "alerts": {
+        "1": {
+            "@type": "Alert",
+            "action": "display",
+            "trigger": {
+                "@type": "AbsoluteTrigger",
+                "when": "2022-12-05T18:00:00"
+            }
+        },
+        "2": {
+            "@type": "Alert",
+            "action": "email",
+            "trigger": {
+                "@type": "OffsetTrigger",
+                "offset": "-PT30M",
+                "relativeTo": "end"
+            }
+        },
+        "3": {
+            "@type": "Alert",
+            "action": "display",
+            "trigger": {
+                "@type": "CompletionTrigger",
+                "percentComplete": 90,
+                "//comment": "This is just a made up trigger"
+            }
+        }
+    }
+}
