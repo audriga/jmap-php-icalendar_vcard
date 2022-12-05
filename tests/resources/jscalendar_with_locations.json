@@ -1,0 +1,22 @@
+{
+    "@type": "Event",
+    "uid": "1234-locations-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "locations": {
+        "mtf1xo-qgxmf5-eut5-jvcb": {
+            "@type": "Location",
+            "title": "Conference Room 101",
+            "description": "Biggest conference room in the upper level of the main building",
+            "timeZone": "Europe/Amsterdam",
+            "coordinates": "geo:49.00937,8.40444"
+        },
+        "2c21cn-busc6c-6slx-6teq": {
+            "@type": "Location",
+            "title": "Flight to New York",
+            "description": "Starting point of a flight from Stuttgart Airport to New York JFK",
+            "timeZone": "Europe/Amsterdam",
+            "relativeTo": "start",
+            "coordinates": "geo:48.687330584,9.219832454"
+        }
+    }
+}
