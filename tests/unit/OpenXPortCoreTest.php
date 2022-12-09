@@ -101,6 +101,16 @@ final class OpenXPortCoreTest extends Testcase
         $this->jsCalendar = CalendarEvent::fromJson(
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_links.json")
         );
+
+        $currentLink = current($this->jsCalendar->getLinks());
+        $this->assertEquals("Link", $currentLink->getType());
+        $this->assertEquals("some://example.com:1234/some/dir?name=foo#bar", $currentLink->getHref());
+        $this->assertEquals("image", $currentLink->getContentType());
+        $this->assertEquals(512, $currentLink->getSize());
+        $this->assertEquals("current", $currentLink->getRel());
+        $this->assertEquals("fullsize", $currentLink->getDisplay());
+        // Currently not active due to conflicts in the property naming conventions.
+        //$this->assertEquals("foo.png", $currentLink->getTitle());
     }
 
     public function testParseEventWithAlerts()
@@ -108,5 +118,24 @@ final class OpenXPortCoreTest extends Testcase
         $this->jsCalendar = CalendarEvent::fromJson(
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_alerts.json")
         );
+
+        $currentAlert = $this->jsCalendar->getAlerts()["1"];
+        $this->assertEquals("Alert", $currentAlert->getType());
+        $this->assertEquals("display", $currentAlert->getAction());
+        $this->assertEquals("AbsoluteTrigger", $currentAlert->getTrigger()->getType());
+        $this->assertEquals("2022-12-05T18:00:00", $currentAlert->getTrigger()->getWhen());
+
+        $currentAlert = $this->jsCalendar->getAlerts()["2"];
+        $this->assertEquals("Alert", $currentAlert->getType());
+        $this->assertEquals("email", $currentAlert->getAction());
+        $this->assertEquals("OffsetTrigger", $currentAlert->getTrigger()->getType());
+        $this->assertEquals("-PT30M", $currentAlert->getTrigger()->getOffset());
+        $this->assertEquals("end", $currentAlert->getTrigger()->getRelativeTo());
+
+
+        $currentAlert = $this->jsCalendar->getAlerts()["3"];
+        $this->assertEquals("Alert", $currentAlert->getType());
+        $this->assertEquals("display", $currentAlert->getAction());
+        $this->assertEquals("CompletionTrigger", $currentAlert->getTrigger()->getType());
     }
 }
