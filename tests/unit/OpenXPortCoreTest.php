@@ -138,4 +138,15 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("display", $currentAlert->getAction());
         $this->assertEquals("CompletionTrigger", $currentAlert->getTrigger()->getType());
     }
+
+    public function testParseEventWithRecurrenceRules()
+    {
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_recurrence_rule.json")
+        );
+
+        var_dump(json_decode(file_get_contents(__DIR__ . "/../resources/jscalendar_with_recurrence_rule.json")));
+
+        var_dump($this->jsCalendar);
+    }
 }

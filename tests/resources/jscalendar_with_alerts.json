@@ -1,6 +1,6 @@
 {
     "@type": "Event",
-    "uid": "1234-locations-OpenXPort-TestFiles",
+    "uid": "1234-alerts-OpenXPort-TestFiles",
     "prodId": "-//audriga//OpenXPort",
     "alerts": {
         "1": {
