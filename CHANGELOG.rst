@@ -4,6 +4,17 @@ JMAP iCalendar/vCard Release Notes
 
 .. contents:: Topics
 
+v0.1.1
+=======
+
+Release summary
+---------------
+Allow versions >= 1 of OXP Core
+
+Details
+-------
+* Allow versions >= 1 of OXP Core #6065
+
 v0.1.0
 =======
 
