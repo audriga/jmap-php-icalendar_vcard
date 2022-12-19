@@ -919,7 +919,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             array_push($jmapRecurrenceRules, $jmapRecurrenceRule);
         }
 
-        return $jmapRecurrenceRule;
+        return $jmapRecurrenceRules;
     }
 
     public function setRRule($recurrenceRules)
