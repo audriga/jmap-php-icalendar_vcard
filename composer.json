@@ -21,7 +21,7 @@
     "require": {
         "php": ">=5.6",
         "sabre/vobject": ">=4.2",
-        "audriga/jmap-openxport": "~1"
+        "audriga/jmap-openxport": "dev-6047-matching-jscalendar-rfc-spec as 1.x-dev"
     },
     "require-dev": {
         "phpunit/phpunit": ">=9",

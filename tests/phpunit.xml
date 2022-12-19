@@ -4,7 +4,8 @@
     cacheResultFile=".phpunit.result.cache"
     convertErrorsToExceptions="false"
     convertNoticesToExceptions="false"
-    convertWarningsToExceptions="false">
+    convertWarningsToExceptions="false"
+    convertDeprecationsToExceptions="true">
     <testsuites>
 	<testsuite name="Unit">
 	    <directory>unit</directory>
