@@ -4,15 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e7166f73aab9394ed995cd730c2987da",
+    "content-hash": "4f3e1c83c181f758cc87dc123e97784c",
     "packages": [
         {
             "name": "audriga/jmap-openxport",
-            "version": "dev-6047-matching-jscalendar-rfc-spec",
+            "version": "1.4.0",
             "source": {
                 "type": "git",
                 "url": "git@bitbucket.org:audriga/jmap-php-openxport.git",
-                "reference": "8a20fc54974f68b4b89659937e041f9f0e527f20"
+                "reference": "e154176faee90a49bec23def56e331893bdbe2d8"
             },
             "require": {
                 "php": ">=5.6",
@@ -54,7 +54,7 @@
                 "jmap",
                 "migration"
             ],
-            "time": "2022-12-19T12:32:08+00:00"
+            "time": "2022-12-14T11:20:00+00:00"
         },
         {
             "name": "psr/log",
@@ -2125,18 +2125,9 @@
             "time": "2021-07-28T10:34:58+00:00"
         }
     ],
-    "aliases": [
-        {
-            "package": "audriga/jmap-openxport",
-            "version": "dev-6047-matching-jscalendar-rfc-spec",
-            "alias": "1.x-dev",
-            "alias_normalized": "1.9999999.9999999.9999999-dev"
-        }
-    ],
+    "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "audriga/jmap-openxport": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
