@@ -209,7 +209,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $jmapEvent->setPrivacy($adapter->getClass());
 
-            $jmapEvent->setRecurrenceRule($adapter->getRRule());
+            $jmapEvent->setRecurrenceRules($adapter->getRRule());
         }
     }
 }
