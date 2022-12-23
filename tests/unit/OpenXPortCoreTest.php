@@ -145,8 +145,68 @@ final class OpenXPortCoreTest extends Testcase
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_recurrence_rule.json")
         );
 
-        var_dump(json_decode(file_get_contents(__DIR__ . "/../resources/jscalendar_with_recurrence_rule.json")));
+        // Check the recurrence rules.
+        $recurrenceRule = $this->jsCalendar->getRecurrenceRules()[0];
 
-        var_dump($this->jsCalendar);
+        $this->assertEquals("RecurrenceRule", $recurrenceRule->getType());
+        $this->assertEquals("weekly", $recurrenceRule->getFrequency());
+        $this->assertEquals(6, $recurrenceRule->getCount());
+
+        $recurrenceRule = $this->jsCalendar->getRecurrenceRules()[1];
+
+        $this->assertEquals("RecurrenceRule", $recurrenceRule->getType());
+        $this->assertEquals("NDay", $recurrenceRule->getByDay()[0]->getType());
+        $this->assertEquals("su", $recurrenceRule->getByDay()[0]->getDay());
+        $this->assertEquals("1", $recurrenceRule->getCount());
+        
+        // Check the recurrence overrides.
+        $this->assertEquals(
+            array_keys($this->jsCalendar->getRecurrenceOverrides()),
+            array("2023-01-23T17:00:00", "2022-12-18T17:00:00", "2022-12-26T17:00:00")
+        );
+        $recurrenceOverride = current($this->jsCalendar->getRecurrenceOverrides());
+
+        $this->assertTrue($recurrenceOverride instanceof CalendarEvent);
+        $this->assertEquals("2023-01-23T15:00:00", $recurrenceOverride->getStart());
+        $this->assertEquals("PT2H", $recurrenceOverride->getDuration());
+        $this->assertEquals("Some Exam", $recurrenceOverride->getTitle());
+        $this->assertEquals("Bring your own paper!", $recurrenceOverride->getDescription());
+
+        $recurrenceOverride = next($this->jsCalendar->getRecurrenceOverrides());
+
+        $this->assertEquals("Register for exam!", $recurrenceOverride->getDescription());
+
+        $recurrenceOverride = end($this->jsCalendar->getRecurrenceOverrides());
+
+        $this->assertTrue($recurrenceOverride->getExcluded());
+    }
+
+    public function testParseEventWithViirtualLocations()
+    {
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_virtual_locations.json")
+        );
+
+        $virtualLocation = current($this->jsCalendar->getVirtualLocations());
+        
+        $this->assertEquals("VirtualLocation", $virtualLocation->getType());
+        $this->assertEquals("Video Call", $virtualLocation->getName());
+        $this->assertEquals("Internal video call", $virtualLocation->getDescription());
+        $this->assertEquals("www.some-video-call-service.com/r123", $virtualLocation->getUri());
+        $this->assertEquals(
+            array("video" => true, "audio" => true),
+            $virtualLocation->getFeatures()
+        );
+
+        $virtualLocation = next($this->jsCalendar->getVirtualLocations());
+        
+        $this->assertEquals("VirtualLocation", $virtualLocation->getType());
+        $this->assertEquals("Feature Keynote", $virtualLocation->getName());
+        $this->assertEquals("Keynote of our new Feature to be made public directly afterwards.", $virtualLocation->getDescription());
+        $this->assertEquals("www.some-streaming-service.com/user#our-company", $virtualLocation->getUri());
+        $this->assertEquals(
+            array("video" => true, "chat" => true, "moderator" => true, "screen" => true),
+            $virtualLocation->getFeatures()
+        );
     }
 }
