@@ -81,7 +81,7 @@ final class OpenXPortCoreTest extends Testcase
         // Check the parsing of the first location.
         $curentLocation = reset($this->jsCalendar->getLocations());
         $this->assertEquals("Location", $curentLocation->getType());
-        $this->assertEquals("Conference Room 101", $curentLocation->getTitle());
+        $this->assertEquals("Conference Room 101", $curentLocation->getName());
         $this->assertEquals("Biggest conference room in the upper level of the main building", $curentLocation->getDescription());
         $this->assertEquals("Europe/Amsterdam", $curentLocation->getTimeZone());
         $this->assertEquals("geo:49.00937,8.40444", $curentLocation->getCoordinates());
@@ -89,7 +89,7 @@ final class OpenXPortCoreTest extends Testcase
         // Check the parsing of the second location.
         $curentLocation = next($this->jsCalendar->getLocations());
         $this->assertEquals("Location", $curentLocation->getType());
-        $this->assertEquals("Flight to New York", $curentLocation->getTitle());
+        $this->assertEquals("Flight to New York", $curentLocation->getName());
         $this->assertEquals("Starting point of a flight from Stuttgart Airport to New York JFK", $curentLocation->getDescription());
         $this->assertEquals("Europe/Amsterdam", $curentLocation->getTimeZone());
         $this->assertEquals("start", $curentLocation->getRelativeTo());

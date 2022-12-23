@@ -563,7 +563,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $jmapLocation = new Location();
         $jmapLocation->setType("Location");
-        $jmapLocation->setTitle($locationJmapEscaped);
+        $jmapLocation->setName($locationJmapEscaped);
 
         $jmapLocations["1"] = $jmapLocation;
 
