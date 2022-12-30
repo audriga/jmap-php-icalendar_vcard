@@ -181,7 +181,7 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertTrue($recurrenceOverride->getExcluded());
     }
 
-    public function testParseEventWithViirtualLocations()
+    public function testParseEventWithVirtualLocations()
     {
         $this->jsCalendar = CalendarEvent::fromJson(
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_virtual_locations.json")
@@ -208,5 +208,61 @@ final class OpenXPortCoreTest extends Testcase
             array("video" => true, "chat" => true, "moderator" => true, "screen" => true),
             $virtualLocation->getFeatures()
         );
+    }
+
+    public function testParseEventWithParticipants()
+    {
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_participants.json")
+        );
+
+        var_dump($this->jsCalendar);
+        $participant = current($this->jsCalendar->getParticipants());
+
+        $this->assertEquals("Participant", $participant->getType());
+        $this->assertEquals("John Doe", $participant->getName());
+        $this->assertEquals("john.doe@some.domain.com", $participant->getEmail());
+        $this->assertEquals(array("imip" => "mailto:john.doe@some.domain.com"), $participant->getSendTo());
+        $this->assertEquals("accepted", $participant->getParticipationStatus());
+        $this->assertEquals(array(
+            "attendee" => true,
+            "organizer" => true,
+            "owner" => true
+        ), $participant->getRoles());
+        $this->assertEquals("en", $participant->getLanguage());
+        $this->assertTrue($participant->getScheduleForceSend());
+        $this->assertEquals(1, $participant->getScheduleSequence());
+
+        $participant = next($this->jsCalendar->getParticipants());
+
+        $this->assertEquals("Participant", $participant->getType());
+        $this->assertEquals("Jane Smith", $participant->getName());
+        $this->assertEquals("Outside Contractor", $participant->getDescription());
+        $this->assertEquals("jane.smith@another.domain.net", $participant->getEmail());
+        $this->assertEquals(array("imip" => "mailto:jane.smith@another.domain.net"), $participant->getSendTo());
+        $this->assertEquals("individual", $participant->getKind());
+        $this->assertEquals("tentative", $participant->getParticipationStatus());
+        $this->assertEquals(array(
+            "attendee" => true,
+            "contact" => true
+        ), $participant->getRoles());
+        $this->assertEquals("en", $participant->getLanguage());
+        $this->assertEquals("Will not be attending in person", $participant->getParticipationComment());
+
+        $participant = end($this->jsCalendar->getParticipants());
+
+        $this->assertEquals("Participant", $participant->getType());
+        $this->assertEquals("Max Mustermann", $participant->getName());
+        $this->assertEquals("max.musterman@different.domain.de", $participant->getEmail());
+        $this->assertEquals(array("imip" => "mailto:max.musterman@different.domain.de"), $participant->getSendTo());
+        $this->assertEquals("declined", $participant->getParticipationStatus());
+        $this->assertEquals(array(
+            "attendee" => true,
+            "optional" => true
+        ), $participant->getRoles());
+        $this->assertTrue($participant->getExpectReply());
+        $this->assertEquals("mtf1xo-qgxmf5-eut5-jvcb", $participant->getLocationId());
+        $this->assertEquals("none", $participant->getScheduleAgent());
+        $this->assertEquals("2022-12-30T12:00:00Z", $participant->getScheduleUpdated());
     }
 }

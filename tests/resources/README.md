@@ -26,3 +26,4 @@ JSCalendars:
 * `jscalendar_with_alerts.json` - JSCalendar containing alerts.
 * `jscalendar_with_recurrence_rules.json` - JSCalendar containing recurrence rules and recurrence overrides.
 * `jscalendar_with_virtual_locations.json` - JSCalendar containing multiple virtual locations.
+* `jscalendar_with_participants.json` - JSCalendar containing multiple participants and a location.
