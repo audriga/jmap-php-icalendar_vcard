@@ -78,8 +78,10 @@ final class OpenXPortCoreTest extends Testcase
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_locations.json")
         );
 
+        $locations = $this->jsCalendar->getLocations();
+
         // Check the parsing of the first location.
-        $curentLocation = reset($this->jsCalendar->getLocations());
+        $curentLocation = current($locations);
         $this->assertEquals("Location", $curentLocation->getType());
         $this->assertEquals("Conference Room 101", $curentLocation->getName());
         $this->assertEquals("Biggest conference room in the upper level of the main building", $curentLocation->getDescription());
@@ -87,7 +89,7 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("geo:49.00937,8.40444", $curentLocation->getCoordinates());
         
         // Check the parsing of the second location.
-        $curentLocation = next($this->jsCalendar->getLocations());
+        $curentLocation = next($locations);
         $this->assertEquals("Location", $curentLocation->getType());
         $this->assertEquals("Flight to New York", $curentLocation->getName());
         $this->assertEquals("Starting point of a flight from Stuttgart Airport to New York JFK", $curentLocation->getDescription());
@@ -102,7 +104,9 @@ final class OpenXPortCoreTest extends Testcase
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_links.json")
         );
 
-        $currentLink = current($this->jsCalendar->getLinks());
+        $links = $this->jsCalendar->getLinks();
+
+        $currentLink = current($links);
         $this->assertEquals("Link", $currentLink->getType());
         $this->assertEquals("some://example.com:1234/some/dir?name=foo#bar", $currentLink->getHref());
         $this->assertEquals("image", $currentLink->getContentType());
@@ -164,7 +168,10 @@ final class OpenXPortCoreTest extends Testcase
             array_keys($this->jsCalendar->getRecurrenceOverrides()),
             array("2023-01-23T17:00:00", "2022-12-18T17:00:00", "2022-12-26T17:00:00")
         );
-        $recurrenceOverride = current($this->jsCalendar->getRecurrenceOverrides());
+
+        $recurrenceOverrides = $this->jsCalendar->getRecurrenceOverrides();
+
+        $recurrenceOverride = current($recurrenceOverrides);
 
         $this->assertTrue($recurrenceOverride instanceof CalendarEvent);
         $this->assertEquals("2023-01-23T15:00:00", $recurrenceOverride->getStart());
@@ -172,11 +179,11 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("Some Exam", $recurrenceOverride->getTitle());
         $this->assertEquals("Bring your own paper!", $recurrenceOverride->getDescription());
 
-        $recurrenceOverride = next($this->jsCalendar->getRecurrenceOverrides());
+        $recurrenceOverride = next($recurrenceOverrides);
 
         $this->assertEquals("Register for exam!", $recurrenceOverride->getDescription());
 
-        $recurrenceOverride = end($this->jsCalendar->getRecurrenceOverrides());
+        $recurrenceOverride = end($recurrenceOverrides);
 
         $this->assertTrue($recurrenceOverride->getExcluded());
     }
@@ -187,7 +194,9 @@ final class OpenXPortCoreTest extends Testcase
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_virtual_locations.json")
         );
 
-        $virtualLocation = current($this->jsCalendar->getVirtualLocations());
+        $virtualLocations = $this->jsCalendar->getVirtualLocations();
+
+        $virtualLocation = current($virtualLocations);
         
         $this->assertEquals("VirtualLocation", $virtualLocation->getType());
         $this->assertEquals("Video Call", $virtualLocation->getName());
@@ -198,7 +207,7 @@ final class OpenXPortCoreTest extends Testcase
             $virtualLocation->getFeatures()
         );
 
-        $virtualLocation = next($this->jsCalendar->getVirtualLocations());
+        $virtualLocation = next($virtualLocations);
         
         $this->assertEquals("VirtualLocation", $virtualLocation->getType());
         $this->assertEquals("Feature Keynote", $virtualLocation->getName());
@@ -216,8 +225,9 @@ final class OpenXPortCoreTest extends Testcase
             file_get_contents(__DIR__ . "/../resources/jscalendar_with_participants.json")
         );
 
-        var_dump($this->jsCalendar);
-        $participant = current($this->jsCalendar->getParticipants());
+        $participants = $this->jsCalendar->getParticipants();
+
+        $participant = current($participants);
 
         $this->assertEquals("Participant", $participant->getType());
         $this->assertEquals("John Doe", $participant->getName());
@@ -233,7 +243,7 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertTrue($participant->getScheduleForceSend());
         $this->assertEquals(1, $participant->getScheduleSequence());
 
-        $participant = next($this->jsCalendar->getParticipants());
+        $participant = next($participants);
 
         $this->assertEquals("Participant", $participant->getType());
         $this->assertEquals("Jane Smith", $participant->getName());
@@ -251,7 +261,7 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("en", $participant->getLanguage());
         $this->assertEquals("Will not be attending in person", $participant->getParticipationComment());
 
-        $participant = end($this->jsCalendar->getParticipants());
+        $participant = end($participants);
 
         $this->assertEquals("Participant", $participant->getType());
         $this->assertEquals("Max Mustermann", $participant->getName());
@@ -268,5 +278,21 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("mtf1xo-qgxmf5-eut5-jvcb", $participant->getLocationId());
         $this->assertEquals("none", $participant->getScheduleAgent());
         $this->assertEquals("2022-12-30T12:00:00Z", $participant->getScheduleUpdated());
+    }
+    
+    public function testParseEventWithRelations()
+    {
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_relations.json")
+        );
+
+        $this->assertEquals("1234-relation-parent-OpenXPort-TestFiles", $this->jsCalendar[0]->getUid());
+        $this->assertEquals("Relation", current($this->jsCalendar[0]->getRelatedTo())->getType());
+        $this->assertEquals(array("parent" => true), current($this->jsCalendar[0]->getRelatedTo())->getRelation());
+
+
+        $this->assertEquals("1234-relation-child-OpenXPort-TestFiles", $this->jsCalendar[1]->getUid());
+        $this->assertEquals("Relation", current($this->jsCalendar[0]->getRelatedTo())->getType());
+        $this->assertEquals(array("parent" => true), current($this->jsCalendar[0]->getRelatedTo())->getRelation());
     }
 }
