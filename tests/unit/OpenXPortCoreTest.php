@@ -239,7 +239,9 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("Jane Smith", $participant->getName());
         $this->assertEquals("Outside Contractor", $participant->getDescription());
         $this->assertEquals("jane.smith@another.domain.net", $participant->getEmail());
-        $this->assertEquals(array("imip" => "mailto:jane.smith@another.domain.net"), $participant->getSendTo());
+        $this->assertEquals(array(
+            "imip" => "mailto:jane.smith@another.domain.net"
+        ), $participant->getSendTo());
         $this->assertEquals("individual", $participant->getKind());
         $this->assertEquals("tentative", $participant->getParticipationStatus());
         $this->assertEquals(array(
@@ -254,7 +256,9 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("Participant", $participant->getType());
         $this->assertEquals("Max Mustermann", $participant->getName());
         $this->assertEquals("max.musterman@different.domain.de", $participant->getEmail());
-        $this->assertEquals(array("imip" => "mailto:max.musterman@different.domain.de"), $participant->getSendTo());
+        $this->assertEquals(array(
+            "imip" => "mailto:max.musterman@different.domain.de"
+        ), $participant->getSendTo());
         $this->assertEquals("declined", $participant->getParticipationStatus());
         $this->assertEquals(array(
             "attendee" => true,
