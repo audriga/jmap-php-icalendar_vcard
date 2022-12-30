@@ -1,0 +1,26 @@
+[{
+    "@type": "Event",
+    "uid": "1234-relation-parent-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "relatedTo": {
+        "1234-relation-child-OpenXPort-TestFiles": {
+            "@type": "Relation",
+            "relation": {
+                "parent": true
+            }
+        }
+    }
+},
+{
+    "@type": "Event",
+    "uid": "1234-relation-child-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "relatedTo": {
+        "1234-relation-parent-OpenXPort-TestFiles": {
+            "@type": "Relation",
+            "relation": {
+                "child": true
+            }
+        }
+    }
+}]
