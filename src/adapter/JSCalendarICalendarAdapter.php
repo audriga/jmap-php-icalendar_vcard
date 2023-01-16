@@ -581,7 +581,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $locationsArray = json_decode(json_encode($locations), true);
 
         // Only use the first location and add iCal escaping to it.
-        $locationICalEscaped = addcslashes(stripslashes($locationsArray["1"]["title"]), "[,;]");
+        $locationICalEscaped = addcslashes(stripslashes($locationsArray["1"]["name"]), "[,;]");
 
         $this->iCalEvent->VEVENT->add("LOCATION", $locationICalEscaped);
     }

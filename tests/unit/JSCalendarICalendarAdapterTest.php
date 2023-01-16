@@ -102,8 +102,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarEvent->getDescription(), "Event with a tag, a notification\nand a recurrence.");
         $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
         $this->assertEquals($this->jsCalendarEvent->getStatus(), "confirmed");
-        // color needs to be added to the CalendarEvent objects.
-        // $this->assertEquals($this->jsCalendarEvent->getColor(), "palevioletred");
+        $this->assertEquals($this->jsCalendarEvent->getColor(), "palevioletred");
         $this->assertEquals($this->jsCalendarEvent->getKeywords(), array("Holiday" => true));
         $this->assertEquals(array_values($this->jsCalendarEvent->getLocations())[0]->getName(), "Some Hotel, Some Country");
         $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
@@ -188,7 +187,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($jsCalendarData->freeBusyStatus, $jsCalendarDataAfter->getFreeBusyStatus());
         $this->assertEquals($jsCalendarData->privacy, $jsCalendarDataAfter->getPrivacy());
         $this->assertEquals(json_encode($jsCalendarData->keywords), json_encode($jsCalendarDataAfter->getKeywords()));
-        $this->assertEquals($jsCalendarData->locations->{'1'}->{'title'},
+        $this->assertEquals($jsCalendarData->locations->{'1'}->{'name'},
             $jsCalendarDataAfter->getLocations()["1"]->getName());
         $this->assertEquals($jsCalendarData->prodid, $jsCalendarDataAfter->getProdId());
         $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"frequency"}, $jsCalendarDataAfter->getRecurrenceRules()[0]->getFrequency());
