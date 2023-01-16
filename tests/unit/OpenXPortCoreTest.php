@@ -81,12 +81,12 @@ final class OpenXPortCoreTest extends Testcase
         $locations = $this->jsCalendar->getLocations();
 
         // Check the parsing of the first location.
-        $curentLocation = current($locations);
-        $this->assertEquals("Location", $curentLocation->getType());
-        $this->assertEquals("Conference Room 101", $curentLocation->getName());
-        $this->assertEquals("Biggest conference room in the upper level of the main building", $curentLocation->getDescription());
-        $this->assertEquals("Europe/Amsterdam", $curentLocation->getTimeZone());
-        $this->assertEquals("geo:49.00937,8.40444", $curentLocation->getCoordinates());
+        $currentLocation = reset($locations);
+        $this->assertEquals("Location", $currentLocation->getType());
+        $this->assertEquals("Conference Room 101", $currentLocation->getName());
+        $this->assertEquals("Biggest conference room in the upper level of the main building", $currentLocation->getDescription());
+        $this->assertEquals("Europe/Amsterdam", $currentLocation->getTimeZone());
+        $this->assertEquals("geo:49.00937,8.40444", $currentLocation->getCoordinates());
         
         // Check the parsing of the second location.
         $curentLocation = next($locations);
@@ -113,8 +113,7 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals(512, $currentLink->getSize());
         $this->assertEquals("current", $currentLink->getRel());
         $this->assertEquals("fullsize", $currentLink->getDisplay());
-        // Currently not active due to conflicts in the property naming conventions.
-        //$this->assertEquals("foo.png", $currentLink->getTitle());
+        $this->assertEquals("foo.png", $currentLink->getTitle());
     }
 
     public function testParseEventWithAlerts()
@@ -294,5 +293,65 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("1234-relation-child-OpenXPort-TestFiles", $this->jsCalendar[1]->getUid());
         $this->assertEquals("Relation", current($this->jsCalendar[0]->getRelatedTo())->getType());
         $this->assertEquals(array("parent" => true), current($this->jsCalendar[0]->getRelatedTo())->getRelation());
+    }
+
+    public function testParseEventWithCustomProperties()
+    {
+        $this->jsCalendar = CalendarEvent::fromJson(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_custom_properties.json")
+        );
+
+        // Check that properties are read correctly.
+        $customProperties = $this->jsCalendar->getCustomProperties();
+        
+        $this->assertEquals("Bar", $customProperties["foo"]);
+        $this->assertEquals("SomeObject", $customProperties["someObjects"]->{"abc-123"}->{"@type"});
+        $this->assertEquals("1234-someObject-OpenXPort-TestFiles", $customProperties["someObjects"]->{"abc-123"}->{"uid"});
+
+        $location = $this->jsCalendar->getLocations()["mtf1xo-qgxmf5-eut5-jvcb"];
+        $this->assertEquals(50, $location->getCustomProperties()["capacity"]);
+
+        $virtualLocation = $this->jsCalendar->getVirtualLocations()["mtf1xo-qgxmf5-eut5-bcvj"];
+        $this->assertEquals("public", $virtualLocation->getCustomProperties()["access"]);
+
+        $link = $this->jsCalendar->getLinks()["2j3j5d-6ygpgd-aljx-xup8"];
+        $this->assertEquals("2023-01-01T00:00:00Z", $link->getCustomProperties()["until"]);
+        
+        $relation = $this->jsCalendar->getRelatedTo()["1234-someTask-OpenXPort-TestFiles"];
+        $this->assertEquals(true, $relation->getCustomProperties()["requiredFinished"]);
+
+        $alerts = $this->jsCalendar->getAlerts();
+        $alert = $alerts["1"];
+        $this->assertEquals(3, $alert->getCustomProperties()["reminders"]);
+        $this->assertEquals("some info", $alert->getTrigger()->getCustomProperties()["//comment"]);
+
+        $alert = $alerts["2"];
+        $this->assertEquals("some other info", $alert->getTrigger()->getCustomProperties()["//comment"]);
+
+        $alert = $alerts["3"];
+        $this->assertEquals(90, $alert->getTrigger()->getCustomProperties()["percentComplete"]);
+        $this->assertEquals("This is just a made up trigger", $alert->getTrigger()->getCustomProperties()["//comment"]);
+
+        $recurrenceRule = $this->jsCalendar->getRecurrenceRules()[0];
+        $this->assertEquals("1234-someTask-OpenXPort-TestFiles", $recurrenceRule->getCustomProperties()["whileNotFinished"]);
+
+        $nDay = $recurrenceRule->getByDay()[0];
+        $this->assertEquals("some info about the day", $nDay->getCustomProperties()["//comment"]);
+
+        // Check that properties are added back into the json correctly.
+        @$json = json_encode($this->jsCalendar);
+
+        $this->assertStringContainsString('"foo":"Bar', $json);
+        $this->assertStringContainsString('"someObjects":{"abc-123":{"@type":"SomeObject","uid":"1234-someObject-OpenXPort-TestFiles"}}', $json);
+        $this->assertStringContainsString('"capacity":50', $json);
+        $this->assertStringContainsString('"access":"public"', $json);
+        $this->assertStringContainsString('"until":"2023-01-01T00:00:00Z"', $json);
+        $this->assertStringContainsString('"requiredFinished":true', $json);
+        $this->assertStringContainsString('"reminders":3', $json);
+        $this->assertStringContainsString('"\/\/comment":"some info"', $json);
+        $this->assertStringContainsString('"\/\/comment":"some other info"', $json);
+        $this->assertStringContainsString('"percentComplete":90,"\/\/comment":"This is just a made up trigger"', $json);
+        $this->assertStringContainsString('"whileNotFinished":"1234-someTask-OpenXPort-TestFiles"', $json);
+        $this->assertStringContainsString('"\/\/comment":"some info about the day"', $json);
     }
 }
