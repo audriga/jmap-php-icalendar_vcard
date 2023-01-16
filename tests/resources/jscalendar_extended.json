@@ -11,7 +11,7 @@
     "locations": {
         "1": {
             "@type": "Location",
-            "title": "Some Hotel, Some Country"
+            "name": "Some Hotel, Some Country"
         }
     },
     "alerts": {

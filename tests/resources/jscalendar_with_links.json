@@ -10,7 +10,7 @@
             "size": 512,
             "rel": "current",
             "display": "fullsize",
-            "filename": "foo.png"
+            "title": "foo.png"
         }
     }
 }

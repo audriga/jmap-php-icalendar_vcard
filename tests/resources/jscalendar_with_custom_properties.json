@@ -1,0 +1,109 @@
+{
+    "@type": "Event",
+    "uid": "1234-customProperties-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "title": "",
+    "foo": "Bar",
+    "someObjects": {
+        "abc-123": {
+            "@type": "SomeObject",
+            "uid": "1234-someObject-OpenXPort-TestFiles"
+        }
+    },
+    "locations": {
+        "mtf1xo-qgxmf5-eut5-jvcb": {
+            "@type": "Location",
+            "name": "Conference Room 101",
+            "description": "Biggest conference room in the upper level of the main building",
+            "timeZone": "Europe/Amsterdam",
+            "coordinates": "geo:49.00937,8.40444",
+            "capacity": 50
+        }
+    },
+    "virtualLocations": {
+        "mtf1xo-qgxmf5-eut5-bcvj": {
+            "@type": "VirtualLocation",
+            "name": "Video Call",
+            "description": "Internal video call",
+            "uri": "www.some-video-call-service.com/r123",
+            "access": "public",
+            "features": {
+                "video": true,
+                "audio": true
+            }
+        }
+    },
+    "links": {
+        "2j3j5d-6ygpgd-aljx-xup8": {
+            "@type": "Link",
+            "href": "some://example.com:1234/some/dir?name=foo#bar",
+            "contentType": "image",
+            "size": 512,
+            "rel": "current",
+            "display": "fullsize",
+            "title": "foo.png",
+            "until": "2023-01-01T00:00:00Z"
+        }
+    },
+    "participants": {
+        "jrwkee-anqwen-43jk-lsz4": {
+            "@type": "Participant",
+            "name": "John Doe",
+            "email": "john.doe@some.domain.com",
+            "sendTo": {
+                "imip": "mailto:john.doe@some.domain.com"
+            },
+            "employee": true
+        }
+    },
+    "relatedTo": {
+        "1234-someTask-OpenXPort-TestFiles": {
+            "@type": "Relation",
+            "relation": {
+                "child": true
+            },
+            "requiredFinished": true
+        }
+    },
+    "alerts": {
+        "1": {
+            "@type": "Alert",
+            "action": "display",
+            "reminders": 3,
+            "trigger": {
+                "@type": "AbsoluteTrigger",
+                "when": "2022-12-05T18:00:00",
+                "//comment": "some info"
+            }
+        },
+        "2": {
+            "@type": "Alert",
+            "action": "email",
+            "trigger": {
+                "@type": "OffsetTrigger",
+                "offset": "-PT30M",
+                "relativeTo": "end",
+                "//comment": "some other info"
+            }
+        },
+        "3": {
+            "@type": "Alert",
+            "action": "display",
+            "trigger": {
+                "@type": "CompletionTrigger",
+                "percentComplete": 90,
+                "//comment": "This is just a made up trigger"
+            }
+        }
+    },
+    "recurrenceRules": [{
+        "@type": "RecurrenceRule",
+        "byDay": [{
+            "@type": "NDay",
+            "day": "su",
+            "//comment": "some info about the day"
+        }],
+        "count": "10",
+        "whileNotFinished": "1234-someTask-OpenXPort-TestFiles"
+    }]
+}

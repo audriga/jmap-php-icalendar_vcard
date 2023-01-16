@@ -27,3 +27,5 @@ JSCalendars:
 * `jscalendar_with_recurrence_rules.json` - JSCalendar containing recurrence rules and recurrence overrides.
 * `jscalendar_with_virtual_locations.json` - JSCalendar containing multiple virtual locations.
 * `jscalendar_with_participants.json` - JSCalendar containing multiple participants and a location.
+* `jscalendar_with_relations.json` - JSCalendar with two related events.
+* `jscalendar_with_custom_properties.json` - JSCalendar containing custom properties for every OXP core object.
