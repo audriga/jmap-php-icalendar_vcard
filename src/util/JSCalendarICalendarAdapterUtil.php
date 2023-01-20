@@ -150,8 +150,8 @@ class JSCalendarICalendarAdapterUtil
         foreach ($byDay as $bd) {
             $iCalByDayString = null;
 
-            $day = $bd->day;
-            $nthOfPeriod = $bd->nthOfPeriod;
+            $day = $bd->getDay();
+            $nthOfPeriod = $bd->getNthOfPeriod();
 
             if (AdapterUtil::isSetNotNullAndNotEmpty($nthOfPeriod)) {
                 $iCalByDayString = $iCalByDayString . (string)$nthOfPeriod;
