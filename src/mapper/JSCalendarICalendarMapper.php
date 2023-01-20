@@ -24,14 +24,14 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             // If the event has no overrides, simply skip the next steps and just add the event
             // to the array that is returned.
-            if (!AdapterUtil::isSetNotNullAndNotEmpty($jsCalendarEvent->recurrenceOverrides)) {
+            if (!AdapterUtil::isSetNotNullAndNotEmpty($jsCalendarEvent->getRecurrenceOverrides())) {
                 array_push($map, array($creationId => $masterEvent->serialize()));
                 continue;
             }
 
             // Use any recurrenceOverrides saved in the JSCal event to create new VEVENTs for each
             // one.
-            foreach ($jsCalendarEvent->recurrenceOverrides as $recurrenceId => $recurrenceOverride) {
+            foreach ($jsCalendarEvent->getRecurrenceOverrides() as $recurrenceId => $recurrenceOverride) {
                 $adapter->setRecurrenceId($recurrenceId);
 
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.
@@ -60,39 +60,39 @@ class JSCalendarICalendarMapper extends AbstractMapper
             return;
         }
         // Map any properites that can be set in events and their recurrence overrides.
-        $adapter->setSummary($jsEvent->title);
-        $adapter->setDescription($jsEvent->description);
-        $adapter->setCreated($jsEvent->created);
-        $adapter->setUpdated($jsEvent->updated);
+        $adapter->setSummary($jsEvent->getTitle());
+        $adapter->setDescription($jsEvent->getDescription());
+        $adapter->setCreated($jsEvent->getCreated());
+        $adapter->setUpdated($jsEvent->getUpdated());
 
-        $adapter->setDTStart($jsEvent->start, $jsEvent->timeZone);
-        $adapter->setDTEnd($jsEvent->start, $jsEvent->duration, $jsEvent->timeZone);
+        $adapter->setDTStart($jsEvent->getStart(), $jsEvent->getTimeZone());
+        $adapter->setDTEnd($jsEvent->getStart(), $jsEvent->getDuration(), $jsEvent->getTimeZone());
 
-        $adapter->setCategories($jsEvent->keywords);
-        $adapter->setLocation($jsEvent->locations);
+        $adapter->setCategories($jsEvent->getKeywords());
+        $adapter->setLocation($jsEvent->getLocations());
 
-        $adapter->setFreeBusy($jsEvent->freeBusyStatus);
-        $adapter->setStatus($jsEvent->status);
-        $adapter->setColor($jsEvent->color);
+        $adapter->setFreeBusy($jsEvent->getFreeBusyStatus());
+        $adapter->setStatus($jsEvent->getStatus());
+        $adapter->setColor($jsEvent->getColor());
 
-        $adapter->setAlerts($jsEvent->alerts);
+        $adapter->setAlerts($jsEvent->getAlerts());
 
-        $adapter->setParticipants($jsEvent->participants);
+        $adapter->setParticipants($jsEvent->getParticipants());
 
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
-            $adapter->setUid($jsEvent->uid);
-            $adapter->setProdId($jsEvent->prodid);
+            $adapter->setUid($jsEvent->getUid());
+            $adapter->setProdId($jsEvent->getProdId());
 
-            $adapter->setSequence($jsEvent->sequence);
-            $adapter->setClass($jsEvent->privacy);
+            $adapter->setSequence($jsEvent->getSequence());
+            $adapter->setClass($jsEvent->getPrivacy());
 
-            $adapter->setRRule($jsEvent->recurrenceRules);
+            $adapter->setRRule($jsEvent->getRecurrenceRules());
         } else {
-            $adapter->setUid($masterEvent->uid);
+            $adapter->setUid($masterEvent->getUid());
 
-            $adapter->setSequence($masterEvent->sequence);
-            $adapter->setClass($masterEvent->privacy);
+            $adapter->setSequence($masterEvent->getSequence());
+            $adapter->setClass($masterEvent->getPrivacy());
         }
     }
 
