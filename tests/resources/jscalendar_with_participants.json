@@ -1,0 +1,67 @@
+{
+    "@type": "Event",
+    "uid": "1234-participants-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "participants": {
+        "jrwkee-anqwen-43jk-lsz4": {
+            "@type": "Participant",
+            "name": "John Doe",
+            "email": "john.doe@some.domain.com",
+            "sendTo": {
+                "imip": "mailto:john.doe@some.domain.com"
+            },
+            "participationStatus": "accepted",
+            "roles": {
+                "attendee": true,
+                "organizer": true,
+                "owner": true
+            },
+            "language": "en",
+            "scheduleForceSend": true,
+            "scheduleSequence": 1
+        },
+        "sdl5kf-ja78s3-asdj-70kv": {
+            "@type": "Participant",
+            "name": "Jane Smith",
+            "description": "Outside Contractor",
+            "email": "jane.smith@another.domain.net",
+            "sendTo": {
+                "imip": "mailto:jane.smith@another.domain.net"
+            },
+            "kind": "individual",
+            "participationStatus": "tentative",
+            "roles": {
+                "attendee": true,
+                "contact": true
+            },
+            "language": "en",
+            "participationComment": "Will not be attending in person"
+        },
+        "alskdj-as408s-mmld-ujmr": {
+            "@type": "Participant",
+            "name": "Max Mustermann",
+            "email": "max.musterman@different.domain.de",
+            "sendTo": {
+                "imip": "mailto:max.musterman@different.domain.de"
+            },
+            "participationStatus": "declined",
+            "roles": {
+                "attendee": true,
+                "optional": true
+            },
+            "expectReply": true,
+            "locationId": "mtf1xo-qgxmf5-eut5-jvcb",
+            "scheduleAgent": "none",
+            "scheduleUpdated": "2022-12-30T12:00:00Z"
+        }
+    },
+    "locations": {
+        "mtf1xo-qgxmf5-eut5-jvcb": {
+            "@type": "Location",
+            "name": "Conference Room 101",
+            "description": "Biggest conference room in the upper level of the main building",
+            "timeZone": "Europe/Amsterdam",
+            "coordinates": "geo:49.00937,8.40444"
+        }
+    }
+}

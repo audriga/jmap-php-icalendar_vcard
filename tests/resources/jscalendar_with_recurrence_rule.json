@@ -1,0 +1,36 @@
+{
+    "@type": "Event",
+    "uid": "1234-recurrenceRules-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "title": "Some Lecture",
+    "start": "2022-12-12T17:00:00",
+    "timeZone": "Europe/Amsterdam",
+    "duration": "PT1H30M",
+    "recurrenceRules": [{
+        "@type": "RecurrenceRule",
+        "frequency": "weekly",
+        "count": "6"
+    },
+    {
+        "@type": "RecurrenceRule",
+        "byDay": [{
+            "@type": "NDay",
+            "day": "su"
+        }],
+        "count": "1"
+    }],
+    "recurrenceOverrides": {
+        "2023-01-23T17:00:00": {
+            "title": "Some Exam",
+            "start": "2023-01-23T15:00:00",
+            "duration": "PT2H",
+            "description": "Bring your own paper!"
+        },
+        "2022-12-18T17:00:00": {
+            "description": "Register for exam!"
+        },
+        "2022-12-26T17:00:00": {
+            "excluded": true
+        }
+    }
+}

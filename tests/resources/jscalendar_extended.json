@@ -1,6 +1,6 @@
 {
     "@type": "Event",
-    "prodid": "-//IDN nextcloud.com//Calendar app 3.4.3//EN",
+    "prodId": "-//IDN nextcloud.com//Calendar app 3.4.3//EN",
     "uid": "c9876d46-b3e1-4536-9b6b-1fe1001e4b01",
     "updated": "2022-09-16T14:46:46Z",
     "title": "Some more complex event",
@@ -37,13 +37,20 @@
         "dG9tQGZvb2Jhci5xlLmNvbQ": {
             "@type": "Participant",
             "name": "Some Attendee",
+            "language": "en",
             "sendTo": {
                 "imip": "mailto:some.attendee@example.com"
             },
             "participationStatus": "accepted",
             "roles": {
                 "attendee": true
-            }
+            },
+            "scheduleAgent": "client",
+            "scheduleForceSend": true,
+            "scheduleStatus": [
+                "1.01",
+                "2.02"
+            ]
         },
         "em9lQGZvb2GFtcGxlLmNvbQ": {
             "@type": "Participant",
@@ -56,7 +63,9 @@
                 "owner": true,
                 "attendee": true,
                 "chair": true
-            }
+            },
+            "scheduleAgent": "server",
+            "scheduleForceSend": false
         },
         "ajksdgasjgjgdleqwueqwe": {
             "@type": "Participant",

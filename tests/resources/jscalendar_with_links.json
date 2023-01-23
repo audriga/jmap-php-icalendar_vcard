@@ -1,0 +1,16 @@
+{
+    "@type": "Event",
+    "uid": "1234-links-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "links": {
+        "2j3j5d-6ygpgd-aljx-xup8": {
+            "@type": "Link",
+            "href": "some://example.com:1234/some/dir?name=foo#bar",
+            "contentType": "image",
+            "size": 512,
+            "rel": "current",
+            "display": "fullsize",
+            "title": "foo.png"
+        }
+    }
+}

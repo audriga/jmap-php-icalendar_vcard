@@ -4,6 +4,7 @@ namespace OpenXPort\Test\ICalendar;
 
 use OpenXPort\Adapter\JSCalendarICalendarAdapter;
 use OpenXPort\Mapper\JSCalendarICalendarMapper;
+use OpenXPort\Jmap\Calendar\CalendarEvent;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Reader;
 
@@ -70,7 +71,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
      */
     public function testRoundtrip()
     {
-        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_basic.json'));
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_basic.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
 
@@ -78,12 +79,12 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
 
         // Assert that the value of the properties is still the same
-        $this->assertEquals($jsCalendarData->title, $jsCalendarDataAfter->getTitle());
-        $this->assertEquals($jsCalendarData->updated, $jsCalendarDataAfter->getUpdated());
-        $this->assertEquals($jsCalendarData->uid, $jsCalendarDataAfter->getUid());
-        $this->assertEquals($jsCalendarData->start, $jsCalendarDataAfter->getStart());
-        $this->assertEquals($jsCalendarData->duration, $jsCalendarDataAfter->getDuration());
-        $this->assertEquals($jsCalendarData->timeZone, $jsCalendarDataAfter->getTimezone());
+        $this->assertEquals($jsCalendarData->getTitle(), $jsCalendarDataAfter->getTitle());
+        $this->assertEquals($jsCalendarData->getUpdated(), $jsCalendarDataAfter->getUpdated());
+        $this->assertEquals($jsCalendarData->getUid(), $jsCalendarDataAfter->getUid());
+        $this->assertEquals($jsCalendarData->getStart(), $jsCalendarDataAfter->getStart());
+        $this->assertEquals($jsCalendarData->getDuration(), $jsCalendarDataAfter->getDuration());
+        $this->assertEquals($jsCalendarData->getTimeZone(), $jsCalendarDataAfter->getTimezone());
     }
 
     /**
@@ -102,6 +103,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarEvent->getDescription(), "Event with a tag, a notification\nand a recurrence.");
         $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
         $this->assertEquals($this->jsCalendarEvent->getStatus(), "confirmed");
+        $this->assertEquals($this->jsCalendarEvent->getColor(), "palevioletred");
         $this->assertEquals($this->jsCalendarEvent->getKeywords(), array("Holiday" => true));
         $this->assertEquals(array_values($this->jsCalendarEvent->getLocations())[0]->getName(), "Some Hotel, Some Country");
         $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
@@ -140,6 +142,9 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($currentParticipant->getRoles(), array("attendee" => true, "optional" => true));
         $this->assertNull($currentParticipant->getParticipationStatus());
         $this->assertTrue($currentParticipant->getExpectReply());
+        $this->assertEquals($currentParticipant->getLanguage(), "en");
+        $this->assertNull($currentParticipant->getScheduleAgent());
+        $this->assertFalse($currentParticipant->getScheduleForceSend());
         $this->assertEquals($currentParticipant->getSendTo()["imip"], "mailto:user-2@file-sharing-test.com");
         // 2nd ATTENDEE mapping.
         $currentParticipant = next($participants);
@@ -148,6 +153,10 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($currentParticipant->getRoles(), array("informational" => true));
         $this->assertEquals($currentParticipant->getParticipationStatus(), "accepted");
         $this->assertNull($currentParticipant->getExpectReply());
+        $this->assertEquals($currentParticipant->getLanguage(), "en");
+        $this->assertEquals($currentParticipant->getSCheduleAgent(), "client");
+        $this->assertEquals($currentParticipant->getScheduleStatus(), array("1.1"));
+        $this->assertTrue($currentParticipant->getScheduleForceSend());
         $this->assertEquals($currentParticipant->getSendTo()["imip"], "mailto:user-3@file-sharing-test.com");
         // ORGANIZER mapping.
         $currentParticipant = end($participants);
@@ -163,67 +172,72 @@ final class JSCalendarICalendarAdapterTest extends TestCase
      */
     public function testRoundtripExtended()
     {
-        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
     
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Makes sure that the objects are created correctly.
-        $this->assertEquals($jsCalendarData->title, $jsCalendarDataAfter->getTitle());
+        $this->assertEquals($jsCalendarData->getTitle(), $jsCalendarDataAfter->getTitle());
 
 
-        $this->assertEquals($jsCalendarData->description, $jsCalendarDataAfter->getDescription());
-        $this->assertEquals($jsCalendarData->sequence, $jsCalendarDataAfter->getSequence());
-        $this->assertEquals($jsCalendarData->status, $jsCalendarDataAfter->getStatus());
-        $this->assertEquals($jsCalendarData->freeBusyStatus, $jsCalendarDataAfter->getFreeBusyStatus());
-        $this->assertEquals($jsCalendarData->privacy, $jsCalendarDataAfter->getPrivacy());
-        $this->assertEquals(json_encode($jsCalendarData->keywords), json_encode($jsCalendarDataAfter->getKeywords()));
-        $this->assertEquals($jsCalendarData->locations->{'1'}->{'name'},
+        $this->assertEquals($jsCalendarData->getDescription(), $jsCalendarDataAfter->getDescription());
+        $this->assertEquals($jsCalendarData->getSequence(), $jsCalendarDataAfter->getSequence());
+        $this->assertEquals($jsCalendarData->getStatus(), $jsCalendarDataAfter->getStatus());
+        $this->assertEquals($jsCalendarData->getFreeBusyStatus(), $jsCalendarDataAfter->getFreeBusyStatus());
+        $this->assertEquals($jsCalendarData->getPrivacy(), $jsCalendarDataAfter->getPrivacy());
+        $this->assertEquals(json_encode($jsCalendarData->getKeywords()), json_encode($jsCalendarDataAfter->getKeywords()));
+        $this->assertEquals($jsCalendarData->getLocations()["1"]->getName(),
             $jsCalendarDataAfter->getLocations()["1"]->getName());
-        $this->assertEquals($jsCalendarData->prodid, $jsCalendarDataAfter->getProdId());
-        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"frequency"}, $jsCalendarDataAfter->getRecurrenceRules()[0]->getFrequency());
-        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byMonth"}, $jsCalendarDataAfter->getRecurrenceRules()[0]->getByMonth());
-        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byDay"}[0]->{"day"},
+        $this->assertEquals($jsCalendarData->getProdId(), $jsCalendarDataAfter->getProdId());
+        $this->assertEquals($jsCalendarData->getRecurrenceRules()[0]->getFrequency(), $jsCalendarDataAfter->getRecurrenceRules()[0]->getFrequency());
+        $this->assertEquals($jsCalendarData->getRecurrenceRules()[0]->getByMonth(), $jsCalendarDataAfter->getRecurrenceRules()[0]->getByMonth());
+        $this->assertEquals($jsCalendarData->getRecurrenceRules()[0]->getByDay()[0]->getDay(),
             $jsCalendarDataAfter->getRecurrenceRules()[0]->getByDay()->getDay());
-        $this->assertEquals($jsCalendarData->recurrenceRules[0]->{"byDay"}[0]->{"nthOfPeriod"},
+        $this->assertEquals($jsCalendarData->getRecurrenceRules()[0]->getByDay()[0]->getNthOfPeriod(),
             $jsCalendarDataAfter->getRecurrenceRules()[0]->getByDay()->getNthOfPeriod());
 
         // Check for correct mapping of alerts.
         $this->assertEquals(sizeof($jsCalendarDataAfter->getAlerts()), 2);
-        $this->assertEquals($jsCalendarData->alerts->{"1"}->trigger->offset, $jsCalendarDataAfter->getAlerts()[1]->getTrigger()->getOffset());
-        $this->assertEquals($jsCalendarData->alerts->{"1"}->trigger->relativeTo, $jsCalendarDataAfter->getAlerts()[1]->getTrigger()->getRelativeTo()); 
-        $this->assertEquals($jsCalendarData->alerts->{"2"}->trigger->when, $jsCalendarDataAfter->getAlerts()[2]->getTrigger()->getwhen());
-        $this->assertEquals($jsCalendarData->alerts->{"1"}->action, $jsCalendarDataAfter->getAlerts()[1]->getAction());
-        $this->assertEquals($jsCalendarData->alerts->{"2"}->action, $jsCalendarDataAfter->getAlerts()[2]->getAction());
+        $this->assertEquals($jsCalendarData->getAlerts()[1]->getTrigger()->getOffset(), $jsCalendarDataAfter->getAlerts()[1]->getTrigger()->getOffset());
+        $this->assertEquals($jsCalendarData->getAlerts()[1]->getTrigger()->getRelativeTo(), $jsCalendarDataAfter->getAlerts()[1]->getTrigger()->getRelativeTo()); 
+        $this->assertEquals($jsCalendarData->getAlerts()[2]->getTrigger()->getWhen(), $jsCalendarDataAfter->getAlerts()[2]->getTrigger()->getwhen());
+        $this->assertEquals($jsCalendarData->getAlerts()[1]->getAction(), $jsCalendarDataAfter->getAlerts()[1]->getAction());
+        $this->assertEquals($jsCalendarData->getAlerts()[2]->getAction(), $jsCalendarDataAfter->getAlerts()[2]->getAction());
 
         //Ceck for mapping of participants.
         $mappedParticipants = $jsCalendarDataAfter->getParticipants();
-        $this->assertEquals(sizeof(get_object_vars($jsCalendarData->participants)), sizeof($mappedParticipants));
+        $this->assertEquals(sizeof($jsCalendarData->getParticipants()), sizeof($mappedParticipants));
         // Check first participant.
-        $currentParticipant = $jsCalendarData->participants->{"dG9tQGZvb2Jhci5xlLmNvbQ"};
+        $currentParticipant = $jsCalendarData->getParticipants()["dG9tQGZvb2Jhci5xlLmNvbQ"];
         $currentMappedParticipant = reset($mappedParticipants);
-        $this->assertEquals($currentParticipant->name, $currentMappedParticipant->getName());
-        $this->assertEquals($currentParticipant->sendTo->imip, $currentMappedParticipant->getSendTo()["imip"]);
-        $this->assertEquals($currentParticipant->participationStatus, $currentMappedParticipant->getParticipationStatus());
-        $this->assertEquals($currentParticipant->roles->attendee, $currentMappedParticipant->getRoles()["attendee"]);
+        $this->assertEquals($currentParticipant->getName(), $currentMappedParticipant->getName());
+        $this->assertEquals($currentParticipant->getSendTo()["imip"], $currentMappedParticipant->getSendTo()["imip"]);
+        $this->assertEquals($currentParticipant->getLanguage(), $currentMappedParticipant->getLanguage());
+        $this->assertEquals($currentParticipant->getParticipationStatus(), $currentMappedParticipant->getParticipationStatus());
+        $this->assertEquals($currentParticipant->getRoles()["attendee"], $currentMappedParticipant->getRoles()["attendee"]);
+        $this->assertEquals($currentParticipant->getScheduleAgent(), $currentMappedParticipant->getScheduleAgent());
+        $this->assertEquals($currentParticipant->getScheduleForceSend(), $currentMappedParticipant->getScheduleForceSend());
+        $this->assertEquals($currentParticipant->getScheduleStatus(), $currentMappedParticipant->getScheduleStatus());
         // Check second participant and owner.
-        $currentParticipant = $jsCalendarData->participants->{"em9lQGZvb2GFtcGxlLmNvbQ"};
+        $currentParticipant = $jsCalendarData->getParticipants()["em9lQGZvb2GFtcGxlLmNvbQ"];
         $currentMappedParticipant = next($mappedParticipants);
-        $this->assertEquals($currentParticipant->name, $currentMappedParticipant->getName());
-        $this->assertEquals($currentParticipant->sendTo->imip, $currentMappedParticipant->getSendTo()["imip"]);
-        $this->assertEquals($currentParticipant->participationStatus, $currentMappedParticipant->getParticipationStatus());
-        $this->assertEquals($currentParticipant->roles->owner, $currentMappedParticipant->getRoles()["owner"]);
-        $this->assertEquals($currentParticipant->roles->attendee, $currentMappedParticipant->getRoles()["attendee"]);
-        $this->assertEquals($currentParticipant->roles->chair, $currentMappedParticipant->getRoles()["chair"]);
+        $this->assertEquals($currentParticipant->getName(), $currentMappedParticipant->getName());
+        $this->assertEquals($currentParticipant->getSendTo()["imip"], $currentMappedParticipant->getSendTo()["imip"]);
+        $this->assertEquals($currentParticipant->getParticipationStatus(), $currentMappedParticipant->getParticipationStatus());
+        $this->assertEquals($currentParticipant->getRoles()["owner"], $currentMappedParticipant->getRoles()["owner"]);
+        $this->assertEquals($currentParticipant->getRoles()["attendee"], $currentMappedParticipant->getRoles()["attendee"]);
+        $this->assertEquals($currentParticipant->getRoles()["chair"], $currentMappedParticipant->getRoles()["chair"]);
+        $this->assertNotEquals($currentParticipant->getScheduleAgent(), $currentMappedParticipant->getScheduleAgent());
         // Check third participant and owner.
-        $currentParticipant = $jsCalendarData->participants->{"ajksdgasjgjgdleqwueqwe"};
+        $currentParticipant = $jsCalendarData->getParticipants()["ajksdgasjgjgdleqwueqwe"];
         $currentMappedParticipant = end($mappedParticipants);
-        $this->assertEquals($currentParticipant->name, $currentMappedParticipant->getName());
-        $this->assertEquals($currentParticipant->expectReply, $currentMappedParticipant->getExpectReply());
-        $this->assertEquals($currentParticipant->sendTo->other, $currentMappedParticipant->getSendTo()["other"]);
-        $this->assertEquals($currentParticipant->roles->attendee, $currentMappedParticipant->getRoles()["attendee"]);
-        $this->assertEquals($currentParticipant->roles->optional, $currentMappedParticipant->getRoles()["optional"]);
+        $this->assertEquals($currentParticipant->getName(), $currentMappedParticipant->getName());
+        $this->assertEquals($currentParticipant->getExpectReply(), $currentMappedParticipant->getExpectReply());
+        $this->assertEquals($currentParticipant->getSendTo()["other"], $currentMappedParticipant->getSendTo()["other"]);
+        $this->assertEquals($currentParticipant->getRoles()["attendee"], $currentMappedParticipant->getRoles()["attendee"]);
+        $this->assertEquals($currentParticipant->getRoles()["optional"], $currentMappedParticipant->getRoles()["optional"]);
     }
 
     /**
@@ -245,24 +259,24 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
     public function testRecurrenceOverrideRoundtrip()
     {
-        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_with_recurrence_overrides.json'));
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_with_recurrence_overrides.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
 
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Check that the recurrence ids were mapped correctly.
-        $this->assertEquals(array_keys(get_object_vars($jsCalendarData->recurrenceOverrides)),
+        $this->assertEquals(array_keys($jsCalendarData->getRecurrenceOverrides()),
             array_keys($jsCalendarDataAfter->getRecurrenceOverrides())
         );
 
         // Check that the title was changed and does not equal the one set for the master event.
-        $this->assertNotEquals($jsCalendarData->title,
+        $this->assertNotEquals($jsCalendarData->getTitle(),
             $jsCalendarDataAfter->getRecurrenceOverrides()["2020-01-08T14:00:00"]->getTitle()
         );
 
         // Check that the title of a single override matches
-        $this->assertEquals($jsCalendarData->recurrenceOverrides->{"2020-06-26T09:00:00"}->title,
+        $this->assertEquals($jsCalendarData->getRecurrenceOverrides()["2020-06-26T09:00:00"]->getTitle(),
             $jsCalendarDataAfter->getRecurrenceOverrides()["2020-06-26T09:00:00"]->getTitle()
         );
 
@@ -297,30 +311,30 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
     public function testMultipleEventsRoundtrip()
     {
-        $jsCalendarData = json_decode(file_get_contents(__DIR__ . '/../resources/jscalendar_two_events.json'));
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_two_events.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData[0], "c2" => $jsCalendarData[1]), $this->adapter);
 
         $jsCalendarDataAfter = $this->mapper->mapToJmap(array("c1" => reset($iCalendarData[0]), "c2" => reset($iCalendarData[1])), $this->adapter);
 
         // Check that properties were mapped correctly to their counterpart.
-        $this->assertEquals($jsCalendarData[0]->title, $jsCalendarDataAfter[0]->getTitle());
-        $this->assertEquals($jsCalendarData[1]->title, $jsCalendarDataAfter[1]->getTitle());
+        $this->assertEquals($jsCalendarData[0]->getTitle(), $jsCalendarDataAfter[0]->getTitle());
+        $this->assertEquals($jsCalendarData[1]->getTitle(), $jsCalendarDataAfter[1]->getTitle());
 
-        $this->assertEquals($jsCalendarData[0]->start, $jsCalendarDataAfter[0]->getStart());
-        $this->assertEquals($jsCalendarData[1]->start, $jsCalendarDataAfter[1]->getStart());
+        $this->assertEquals($jsCalendarData[0]->getStart(), $jsCalendarDataAfter[0]->getStart());
+        $this->assertEquals($jsCalendarData[1]->getStart(), $jsCalendarDataAfter[1]->getStart());
 
-        $this->assertEquals($jsCalendarData[0]->timeZone, $jsCalendarDataAfter[0]->getTimezone());
-        $this->assertEquals($jsCalendarData[1]->timeZone, $jsCalendarDataAfter[1]->getTimezone());
+        $this->assertEquals($jsCalendarData[0]->getTimeZone(), $jsCalendarDataAfter[0]->getTimezone());
+        $this->assertEquals($jsCalendarData[1]->getTimeZone(), $jsCalendarDataAfter[1]->getTimezone());
 
-        $this->assertEquals($jsCalendarData[0]->uid, $jsCalendarDataAfter[0]->getUid());
-        $this->assertEquals($jsCalendarData[1]->uid, $jsCalendarDataAfter[1]->getUid());
+        $this->assertEquals($jsCalendarData[0]->getUid(), $jsCalendarDataAfter[0]->getUid());
+        $this->assertEquals($jsCalendarData[1]->getUid(), $jsCalendarDataAfter[1]->getUid());
 
-        $this->assertEquals($jsCalendarData[0]->duration, $jsCalendarDataAfter[0]->getDuration());
-        $this->assertEquals($jsCalendarData[1]->duration, $jsCalendarDataAfter[1]->getDuration());
+        $this->assertEquals($jsCalendarData[0]->getDuration(), $jsCalendarDataAfter[0]->getDuration());
+        $this->assertEquals($jsCalendarData[1]->getDuration(), $jsCalendarDataAfter[1]->getDuration());
 
         // Test whether properties are overwirtten by previous events.
-        $this->assertEquals($jsCalendarData[0]->description, $jsCalendarDataAfter[0]->getDescription());
+        $this->assertEquals($jsCalendarData[0]->getDescription(), $jsCalendarDataAfter[0]->getDescription());
         $this->assertNotNull($jsCalendarDataAfter[0]->getDescription());
         $this->assertNull($jsCalendarDataAfter[1]->getDescription());
 

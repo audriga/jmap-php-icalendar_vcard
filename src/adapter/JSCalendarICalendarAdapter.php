@@ -484,6 +484,26 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->add("STATUS", $iCalStatus);
     }
 
+    public function getColor()
+    {
+        $color = $this->iCalEvent->VEVENT->COLOR;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($color)) {
+            return null;
+        }
+
+        return $color;
+    }
+
+    public function setColor($color)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($color)) {
+            return;
+        }
+
+        $this->iCalEvent->VEVENT->add("COLOR", $color);
+    }
+
     public function getCategories()
     {
         $categories = $this->iCalEvent->VEVENT->CATEGORIES;
@@ -557,11 +577,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return;
         }
 
-        // Turn the jmap object into an array.
-        $locationsArray = json_decode(json_encode($locations), true);
-
         // Only use the first location and add iCal escaping to it.
-        $locationICalEscaped = addcslashes(stripslashes($locationsArray["1"]["name"]), "[,;]");
+        $locationICalEscaped = addcslashes(stripslashes($locations[1]->getName()), "[,;]");
 
         $this->iCalEvent->VEVENT->add("LOCATION", $locationICalEscaped);
     }
@@ -696,7 +713,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         foreach ($alerts as $id => $alert) {
             $this->iCalEvent->VEVENT->add("VALARM", []);
 
-            $jsCalAction = $alert->{"action"};
+            $jsCalAction = $alert->getAction();
 
             // Set the ACTION property. "EMAIL" and "DISPLAY" are the only ones relevant for mapping.
             if (strcmp($jsCalAction, "email") === 0) {
@@ -707,15 +724,18 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("ACTION", $iCalAction);
 
-            $jsCalTrigger = $alert->{"trigger"};
+            $jsCalTrigger = $alert->getTrigger();
+            $triggerType = $jsCalTrigger->getType();
 
             // Set the TRIGGER property.
-            if (strcmp($jsCalTrigger->{"@type"}, "OffsetTrigger") === 0) {
-                $triggerValue = $jsCalTrigger->{"offset"};
+            if (strcmp($triggerType, "OffsetTrigger") === 0) {
+                $triggerValue = $jsCalTrigger->getOffset();
 
                 // An offset trigger can contain a relativeTo parameter, which needs to be mapped as well.
-                if (!is_null($jsCalTrigger->{"relativeTo"})) {
-                    $iCalRelated = strtoupper($jsCalTrigger->{"relativeTo"});
+                $relativeTo = $jsCalTrigger->getRelativeTo();
+
+                if (!is_null($relativeTo)) {
+                    $iCalRelated = strtoupper($relativeTo);
 
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add(
                         "TRIGGER",
@@ -725,15 +745,16 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 } else {
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue);
                 }
-            } elseif (strcmp($jsCalTrigger->{"@type"}, "AbsoluteTrigger") === 0) {
-                $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->{"when"});
+            } elseif (strcmp($triggerType, "AbsoluteTrigger") === 0) {
+                $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->getWhen());
 
                 // If the date time is false, it was probably not in UTC, which is the standard for both formats.
                 // Log and skip to the next alert.
                 if (!$triggerValue) {
+                    // TODO: Add the alert to the event as some sort of custom alert if this happens.
                     $this->logger->error(
                         "Unable to create date time for absolute trigger from value: "
-                        . $jsCalTrigger->{"when"}
+                        . $jsCalTrigger->getWhen()
                     );
 
                     continue;
@@ -742,7 +763,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue, ["VALUE" => "DATE-TIME"]);
             } else {
                 // The trigger type is not one of the two known ones.
-                $this->logger->error("Unable to created trigger value from trigger type: " . $jsCalTrigger->{"@type"});
+                $this->logger->error("Unable to created trigger value from trigger type: " . $jsCalTrigger->getType());
 
                 continue;
             }
@@ -929,131 +950,141 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         foreach ($recurrenceRules as $rec) {
+            // Read the values of every RecurrenceRule object and convert them to
+            // their iCal counterpart if they are not null. Then, add each key-value-
+            // pair to an array that is combined into a string and added to the VEVENT
+            // after each iteration.
             $iCalRRule = [];
 
-            foreach ($rec as $key => $value) {
-                $iCalKeyword = null;
-                $iCalValue = null;
+            $frequency = $rec->getFrequency();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($frequency)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapFrequencyToICalFreq($frequency);
 
-                switch ($key) {
-                    case 'frequency':
-                        $iCalKeyword = "FREQ";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapFrequencyToICalFreq($value);
-                        break;
-
-                    case 'interval':
-                        $iCalKeyword = "INTERVAL";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapIntervalToICalInterval($value);
-                        break;
-
-                    case 'rscale':
-                        $iCalKeyword = "RSCALE";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapRScaleToICalRScale($value);
-                        break;
-
-                    case 'skip':
-                        $iCalKeyword = "SKIP";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapSkipToICalSkip($value);
-                        break;
-
-                    case 'firstDayOfWeek':
-                        $iCalKeyword = "WKST";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapFirstDayOfWeekToICalWKST($value);
-                        break;
-
-                    case 'byDay':
-                        $iCalKeyword = "BYDAY";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapByDayToICalByDay($value);
-                        break;
-
-                    case 'byMonthDay':
-                        $iCalKeyword = "BYMONTHDAY";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapByMonthDayToICalByMonthDay($value);
-                        break;
-
-                    case 'byMonth':
-                        $iCalKeyword = "BYMONTH";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapByMonthToICalByMonth($value);
-                        break;
-
-                    case 'byYearDay':
-                        $iCalKeyword = "BYYEARDAY";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapByYearDayToICalByYearDay($value);
-                        break;
-
-                    case 'byWeekNo':
-                        $iCalKeyword = "BYWEEKNO";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapByWeekNoToICalByWeekNo($value);
-                        break;
-
-                    case 'byHour':
-                        $iCalKeyword = "BYHOUR";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapByHourToICalByHour($value);
-                        break;
-
-                    case 'byMinute':
-                        $iCalKeyword = "BYMINUTE";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapByMinuteToICalByMinute($value);
-                        break;
-
-                    case 'bySecond':
-                        $iCalKeyword = "BYSECOND";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapBySecondToICalBySecond($value);
-                        break;
-
-                    case 'bySetPosition':
-                        $iCalKeyword = "BYSETPOS";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapBySetPositionToICalBySetPosition($value);
-                        break;
-
-                    case 'count':
-                        $iCalKeyword = "COUNT";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapCountToICalCount($value);
-                        break;
-
-                    case 'until':
-                        $iCalKeyword = "UNTIL";
-                        $iCalValue = JSCalendarICalendarAdapterUtil::
-                        convertFromJmapUntilToICalUntil($value);
-                        break;
-
-                    case '@type':
-                        // Ignored in the iCal format.
-                        break;
-
-                    default:
-                        // TODO: consider logging as this shouldn't happen.
-                        break;
-                }
-
-                // If a recurrence rule was found and a corresponding value could be converted from
-                // the JSCalendar event, add it to the properties mapped to the iCal event.
-                if (
-                    AdapterUtil::isSetNotNullAndNotEmpty($iCalKeyword) &&
-                    AdapterUtil::isSetNotNullAndNotEmpty($iCalValue)
-                ) {
-                    $newRRule = $iCalKeyword . "=" . $iCalValue;
-                    array_push($iCalRRule, $newRRule);
-                }
+                array_push($iCalRRule, "FREQ=" . $iCalValue);
             }
 
-            // Add each RRULE by combining the components. Each recurrence rule in the JSCal event
-            // can be transformed into its own RRULE.
+            $jsCalValue = $rec->getInterval();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapIntervalToICalInterval($jsCalValue);
+
+                array_push($iCalRRule, "INTERVAL=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getRscale();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapRScaleToICalRScale($jsCalValue);
+
+                array_push($iCalRRule, "RSCALE=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getSkip();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapSkipToICalSkip($jsCalValue);
+
+                array_push($iCalRRule, "SKIP=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getFirstDayOfWeek();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapFirstDayOfWeekToICalWKST($jsCalValue);
+
+                array_push($iCalRRule, "WKST=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getByDay();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapByDayToICalByDay($jsCalValue);
+
+                array_push($iCalRRule, "BYDAY=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getByMonthDay();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapByMonthDayToICalByMonthDay($jsCalValue);
+
+                array_push($iCalRRule, "BYMONTHDAY=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getByMonth();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapByMonthDayToICalByMonthDay($jsCalValue);
+
+                array_push($iCalRRule, "BYMONTH=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getByYearDay();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapByYearDayToICalByYearDay($jsCalValue);
+
+                array_push($iCalRRule, "BYYEARDAY=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getByWeekNo();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapByWeekNoToICalByWeekNo($jsCalValue);
+
+                array_push($iCalRRule, "BYWEEKNO=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getByHour();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapByHourToICalByHour($jsCalValue);
+
+                array_push($iCalRRule, "BYHOUR=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getByMinute();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapByMinuteToICalByMinute($jsCalValue);
+
+                array_push($iCalRRule, "BYMINUTE=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getBySecond();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapBySecondToICalBySecond($jsCalValue);
+
+                array_push($iCalRRule, "BYSECOND=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getBySetPosition();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapBySetPositionToICalBySetPosition($jsCalValue);
+
+                array_push($iCalRRule, "BYSETPOS=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getCount();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapCountToICalCount($jsCalValue);
+
+                array_push($iCalRRule, "COUNT=" . $iCalValue);
+            }
+
+            $jsCalValue = $rec->getUntil();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $iCalValue = JSCalendarICalendarAdapterUtil::
+                    convertFromJmapUntilToICalUntil($jsCalValue);
+
+                array_push($iCalRRule, "UNTIL=" . $iCalValue);
+            }
+
+            // Add the RRULEs to the current event.
             if (AdapterUtil::isSetNotNullAndNotEmpty($iCalRRule)) {
                 $this->iCalEvent->VEVENT->add("RRULE", implode(";", $iCalRRule));
             }
@@ -1213,8 +1244,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     // TODO: implement me
                     break;
 
-                case "LANG":
-                    // Not a part of our OXP Participant class.
+                case "LANGUAGE":
+                    $participant->setLanguage($param->getValue());
                     break;
 
                 case "MEMBER":
@@ -1232,7 +1263,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
                 case "ROLE":
                     $participant->setRoles(
-                        JSCalendarICalendarAdapterUtil::convertFormICalRoleToJmapRoles($param->getValue())
+                        JSCalendarICalendarAdapterUtil::convertFromICalRoleToJmapRoles($param->getValue())
                     );
                     break;
 
@@ -1243,15 +1274,27 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     break;
 
                 case "SCHEDULE-AGENT":
-                    // Not a part of our OXP Participant class.
+                    $participant->setScheduleAgent(
+                        JSCalendarICalendarAdapterUtil::convertFromICalScheduleAgentToJmapScheduleAgent(
+                            $param->getValue()
+                        )
+                    );
                     break;
 
                 case "SCHEDULE-FORCE-SEND":
-                    // Not a part of our OXP Participant class.
+                    $participant->setScheduleForceSend(
+                        JSCalendarICalendarAdapterUtil::convertFromICalScheduleForceSendToJmapScheduleForceSend(
+                            $param->getValue()
+                        )
+                    );
                     break;
 
                 case "SCHEDULE-STATUS":
-                    // Not a part of our OXP Participant class.
+                    $participant->setScheduleStatus(
+                        JSCalendarICalendarAdapterUtil::convertFromICalScheduleStatusToJmapScheduleStatus(
+                            $param->getValue()
+                        )
+                    );
                     break;
 
                 case "SENT-BY":
@@ -1271,12 +1314,9 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         foreach ($participants as $id => $participant) {
-            $participantValues = get_object_vars($participant);
-
             // Define the value (mail address or other) for this property.
-            if (array_key_exists("sendTo", $participantValues)) {
-                $sendTo = get_object_vars($participantValues["sendTo"]);
-
+            $sendTo = $participant->getSendTo();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($sendTo)) {
                 $propertyValue = array_key_exists("imip", $sendTo) ? $sendTo["imip"] : $sendTo["other"];
             } else {
                 // The property has no value and can't be parsed to iCal, so skip it.
@@ -1284,11 +1324,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 continue;
             }
 
-            $parameters = $this->extractParticipantParameters($participantValues);
+            $parameters = $this->extractParticipantParameters($participant);
 
             // Handle roles outside of the helper method to make deciding between ORGANIZER and
             // ATTENDEE easier.
-            $jmapRoles = get_object_vars($participantValues["roles"]);
+            $jmapRoles = $participant->getRoles();
 
             if (array_key_exists("owner", $jmapRoles)) {
                 $this->iCalEvent->VEVENT->add("ORGANIZER", $propertyValue, $parameters);
@@ -1324,55 +1364,76 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
     }
 
-    private function extractParticipantParameters($participantValues)
+    private function extractParticipantParameters($participant)
     {
+        // Parse through each property of the participant and add it to an array that is
+        // then used to add the parameters to the ATTENDEE.
         $parameters = [];
 
-        foreach ($participantValues as $key => $value) {
-            switch ($key) {
-                case "name":
-                    $parameters["CN"] = $value;
-                    break;
-
-                case "kind":
-                    $parameters["CUTYPE"] = JSCalendarICalendarAdapterUtil::convertFromJmapKindToICalCUType($value);
-                    break;
-
-                case "participationStatus":
-                    $parameters["PARTSTAT"] = JSCalendarICalendarAdapterUtil::convertFromJmapKindToICalCUType($value);
-                    break;
-
-                case "expectReply":
-                    $parameters["RSVP"] = JSCalendarICalendarAdapterUtil::convertFromJmapExpectReplyToICalRSVP($value);
-                    break;
-
-                case "delegatedFrom":
-                    $parameters["DELEGATED-FROM"] =
-                    JSCalendarICalendarAdapterUtil::convertFromJmapDelegatedFromToICalDelegatedFrom($value);
-                    break;
-
-                case "delegatedTo":
-                    $parameters["DELEGATED-TO"] =
-                    JSCalendarICalendarAdapterUtil::convertFromJmapDelegatedToToICalDelegatedTo($value);
-                    break;
-
-                case "memberOf":
-                    //TODO: implement me. The conversion specs suggest to map participants that are groups first
-                    // so we would need to do some filtering/sorting ahead of the conversions.
-                    break;
-
-                case "links":
-                    //TODO: implement me
-                    break;
-
-                case "invitedBy":
-                    $parameters["SENT-BY"] = $value;
-                    break;
-
-                default:
-                    break;
-            }
+        $jsCalValue = $participant->getName();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["CN"] = $jsCalValue;
         }
+
+        $jsCalValue = $participant->getKind();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["CN"] = JSCalendarICalendarAdapterUtil
+                ::convertFromJmapKindToICalCUType($jsCalValue);
+        }
+
+        $jsCalValue = $participant->getLanguage();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["LANGUAGE"] = $jsCalValue;
+        }
+
+        $jsCalValue = $participant->getParticipationStatus();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["PARTSTAT"] = JSCalendarICalendarAdapterUtil
+                ::convertFromJmapParticipationStatusToICalPartStat($jsCalValue);
+        }
+
+        $jsCalValue = $participant->getExpectReply();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["RSVP"] = JSCalendarICalendarAdapterUtil
+                ::convertFromJmapExpectReplyToICalRSVP($jsCalValue);
+        }
+
+        $jsCalValue = $participant->getDelegatedFrom();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["DELEGATED-FROM"] = JSCalendarICalendarAdapterUtil
+                ::convertFromJmapDelegatedFromToICalDelegatedFrom($jsCalValue);
+        }
+
+        $jsCalValue = $participant->getDelegatedTo();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["DELEGATED-TO"] = JSCalendarICalendarAdapterUtil
+                ::convertFromJmapDelegatedToToICalDelegatedTo($jsCalValue);
+        }
+
+        $jsCalValue = $participant->getScheduleAgent();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["SCHEDULE-AGENT"] = JSCalendarICalendarAdapterUtil
+                ::convertFromJmapScheduleAgentToICalScheduleAgent($jsCalValue);
+        }
+
+        $jsCalValue = $participant->getScheduleForceSend();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["SCHEDULE-FORCE-SEND"] = JSCalendarICalendarAdapterUtil
+                ::convertFromJmapScheduleForceSendToICaleScheduleForceSend($jsCalValue);
+        }
+
+        $jsCalValue = $participant->getScheduleStatus();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["SCHEDULE-STATUS"] = JSCalendarICalendarAdapterUtil
+                ::convertFromJmapScheduleStatusToICalScheduleStatus($jsCalValue);
+        }
+
+        $jsCalValue = $participant->getInvitedBy();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["SENT-BY"] = $jsCalValue;
+        }
+
+        //TODO: implement "memberOf" and "links".
 
         return $parameters;
     }

@@ -1,0 +1,27 @@
+{
+    "@type": "Event",
+    "uid": "1234-5678-90-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "start": "2022-12-05T12:00:00",
+    "timeZone": "Europe/Berlin",
+    "duration": "P1DT5H3M14S",
+    "status": "confirmed",
+    "created": "2022-12-02T13:14:15Z",
+    "updated": "2022-12-02T16:17:18Z",
+    "sequence": 2,
+    "title": "Some other event",
+    "description": "This is just some other event!",
+    "descriptionContentType": "text/plain",
+    "showWithoutTime": false,
+    "keywords": {
+        "Test Events": true,
+        "Work": true
+    },
+    "excluded": false,
+    "priority": 1,
+    "freeBusyStatus": "free",
+    "privacy": "public",
+    "replyTo": {
+        "imip": "mailto:some.user@somedomain.com"
+    }
+}

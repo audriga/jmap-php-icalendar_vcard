@@ -1,0 +1,29 @@
+{
+    "@type": "Event",
+    "uid": "1234-virtualLocations-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "virtualLocations": {
+        "mtf1xo-qgxmf5-eut5-jvcb": {
+            "@type": "VirtualLocation",
+            "name": "Video Call",
+            "description": "Internal video call",
+            "uri": "www.some-video-call-service.com/r123",
+            "features": {
+                "video": true,
+                "audio": true
+            }
+        },
+        "2c21cn-busc6c-6slx-6teq": {
+            "@type": "VirtualLocation",
+            "name": "Feature Keynote",
+            "description": "Keynote of our new Feature to be made public directly afterwards.",
+            "uri": "www.some-streaming-service.com/user#our-company",
+            "features": {
+                "video": true,
+                "chat": true,
+                "moderator": true,
+                "screen": true
+            }
+        }
+    }
+}
