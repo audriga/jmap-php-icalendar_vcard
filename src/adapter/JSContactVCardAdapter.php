@@ -2922,12 +2922,12 @@ class JSContactVCardAdapter extends AbstractAdapter
                         if (AdapterUtil::isSetNotNullAndNotEmpty($vCardPhoneProperty['PREF'])) {
                             $jsContactPhone->setPref($vCardPhoneProperty['PREF']);
                         }
-                    }
 
-                    // Since "phones" is a map and key creation for the map keys is not specified, we use
-                    // the MD5 hash of the vCard TEL's value as the key for the JSContact Phone
-                    // object that corresponds to this key in "phones"
-                    $jsContactPhonesProperty[md5($vCardPhonePropertyValue)] = $jsContactPhone;
+                        // Since "phones" is a map and key creation for the map keys is not specified, we use
+                        // the MD5 hash of the vCard TEL's value as the key for the JSContact Phone
+                        // object that corresponds to this key in "phones"
+                        $jsContactPhonesProperty[md5($vCardPhonePropertyValue)] = $jsContactPhone;
+                    }
                 }
             }
         }
