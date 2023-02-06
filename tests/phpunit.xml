@@ -1,14 +1,8 @@
-<phpunit
-    bootstrap="../vendor/autoload.php"
-    colors="true"
-    cacheResultFile=".phpunit.result.cache"
-    convertErrorsToExceptions="false"
-    convertNoticesToExceptions="false"
-    convertWarningsToExceptions="false"
-    convertDeprecationsToExceptions="true">
-    <testsuites>
-	<testsuite name="Unit">
-	    <directory>unit</directory>
-	</testsuite>
-    </testsuites>
+<?xml version="1.0"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bootstrap="../vendor/autoload.php" colors="true" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.0/phpunit.xsd" cacheDirectory=".phpunit.cache">
+  <testsuites>
+    <testsuite name="Unit">
+      <directory>unit</directory>
+    </testsuite>
+  </testsuites>
 </phpunit>
