@@ -389,14 +389,29 @@ class JSCalendarICalendarAdapterUtil
             return null;
         }
 
+        // The iCal until DateTime format is linked to the "DTSTART" property of the
+        // event it is a part of.
+        //
+        // In JSCalendar however, the until DateTime is always an object of type
+        // LocalDateTime in the "Y-m-d/TH:i:s" format.
         $iCalUntilDate = \DateTime::createFromFormat("Ymd\THis\Z", $until);
 
         if ($iCalUntilDate === false) {
+            $iCalUntilDate = \DateTime::createFromFormat("Ymd\THis", $until);
+        }
+
+        if ($iCalUntilDate === false) {
+            $iCalUntilDate = \DateTime::createFromFormat("Ymd", $until);
+
+            $iCalUntilDate = date_time_set($iCalUntilDate, 0, 0);
+        }
+
+        if ($iCalUntilDate === false) {
             if (self::$logger == null) {
-                self::$logger == Logger::getInstance();
+                self::$logger = Logger::getInstance();
             }
 
-            self::$logger->error("Unable to create date from iCal until: ", $until);
+            self::$logger->error("Unable to create date from iCal until: $until");
 
             return null;
         }
@@ -416,15 +431,15 @@ class JSCalendarICalendarAdapterUtil
 
         if ($jmapUntilDate === false) {
             if (self::$logger == null) {
-                self::$logger == Logger::getInstance();
+                self::$logger = Logger::getInstance();
             }
 
-            self::$logger->error("Unable to create date from JMAP until: ", $until);
+            self::$logger->error("Unable to create date from JMAP until: $until");
 
             return null;
         }
 
-        $iCalUntil = date_format($jmapUntilDate, "Ymd\THis\Z");
+        $iCalUntil = date_format($jmapUntilDate, "Ymd\THis");
 
         return $iCalUntil;
     }
