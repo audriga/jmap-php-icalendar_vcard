@@ -2429,7 +2429,7 @@ class JSContactVCardAdapter extends AbstractAdapter
         $jsContactAddressesProperty = null;
 
         // ADR property mapping
-        if (in_array("ADR", $this->vCardChildren)) {
+        if (in_array("ADR", $this->vCardChildren) && !is_null($this->vCard->ADR)) {
             $vCardAddressProperties = $this->vCard->ADR;
 
             foreach ($vCardAddressProperties as $vCardAddressProperty) {
@@ -2826,7 +2826,7 @@ class JSContactVCardAdapter extends AbstractAdapter
         $jsContactPhonesProperty = null;
 
         // TEL property mapping
-        if (in_array("TEL", $this->vCardChildren)) {
+        if (in_array("TEL", $this->vCardChildren) && !is_null($this->vCard->TEL)) {
             $vCardPhoneProperties = $this->vCard->TEL;
 
             foreach ($vCardPhoneProperties as $vCardPhoneProperty) {
@@ -2922,12 +2922,12 @@ class JSContactVCardAdapter extends AbstractAdapter
                         if (AdapterUtil::isSetNotNullAndNotEmpty($vCardPhoneProperty['PREF'])) {
                             $jsContactPhone->setPref($vCardPhoneProperty['PREF']);
                         }
-                    }
 
-                    // Since "phones" is a map and key creation for the map keys is not specified, we use
-                    // the MD5 hash of the vCard TEL's value as the key for the JSContact Phone
-                    // object that corresponds to this key in "phones"
-                    $jsContactPhonesProperty[md5($vCardPhonePropertyValue)] = $jsContactPhone;
+                        // Since "phones" is a map and key creation for the map keys is not specified, we use
+                        // the MD5 hash of the vCard TEL's value as the key for the JSContact Phone
+                        // object that corresponds to this key in "phones"
+                        $jsContactPhonesProperty[md5($vCardPhonePropertyValue)] = $jsContactPhone;
+                    }
                 }
             }
         }
@@ -3025,7 +3025,7 @@ class JSContactVCardAdapter extends AbstractAdapter
         $jsContactEmailsProperty = null;
 
         // EMAIL property mapping
-        if (in_array("EMAIL", $this->vCardChildren)) {
+        if (in_array("EMAIL", $this->vCardChildren) && !is_null($this->vCard->EMAIL)) {
             $vCardEmailProperties = $this->vCard->EMAIL;
 
             foreach ($vCardEmailProperties as $vCardEmailProperty) {
