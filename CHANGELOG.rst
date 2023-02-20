@@ -4,6 +4,18 @@ JMAP iCalendar/vCard Release Notes
 
 .. contents:: Topics
 
+v0.2.0
+=======
+
+Release summary
+---------------
+Brings proper CalendarEvent deserialization, fixes some warnings.
+
+Details
+-------
+* Proper deserialization of CalendarEvent JSON #5994
+* Squash a bunch of warnings found during testing
+
 v0.1.0
 =======
 
