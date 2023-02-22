@@ -71,6 +71,8 @@ class JSContactVCardMapper extends AbstractMapper
 
                 $adapter->setRev($jsContactCard->updated);
 
+                $adapter->deriveFN($jsContactCard->name);
+
                 array_push($map, array($creationId => $adapter->getVCard()));
             } catch (InvalidArgumentException $e) {
                 $this->logger = Logger::getInstance();

@@ -1,0 +1,15 @@
+{
+    "@type" : "Card",
+    "name": {
+        "@type": "Name",
+        "components":[
+            { "@type": "NameComponent", "type": "prefix", "value": "Mr."  },
+            { "@type": "NameComponent", "type": "given", "value": "John" },
+            { "@type": "NameComponent", "type": "surname", "value": "Public" },
+            { "@type": "NameComponent", "type": "middle", "value": "Quinlan" },
+            { "@type": "NameComponent", "type": "suffix", "value": "Esq." }
+        ]
+    },
+    "uid" : 1,
+    "updated" : "2008-04-24T19:52:43Z"
+}

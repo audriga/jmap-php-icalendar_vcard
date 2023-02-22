@@ -223,4 +223,25 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertEquals($jsContactData->notes, $jsContactDataAfter->getNotes());
         $this->assertEquals((array) $jsContactData->categories, $jsContactDataAfter->getCategories());
     }
+
+    /* *
+     * More complex mapping of JSContact -> vCard -> JSContact
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testAdvancedRoundtrip()
+    {
+        $jsContactData = json_decode(file_get_contents(__DIR__ . '/../resources/jscontact_advanced.json'));
+
+        $vCardData = $this->mapper->mapFromJmap(array("c1" => $jsContactData), $this->adapter);
+
+        $vCardDataReset = reset($vCardData);
+
+        $this->assertNotNull($vCardDataReset["c1"]);
+        $this->assertStringContainsString("DERIVED", $vCardDataReset["c1"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
+
+        // Assert that fullName gets derived from name (roughly)
+        $this->assertGreaterThan(0, strlen($jsContactDataAfter->getFullName()));
+    }
 }

@@ -19,6 +19,7 @@ use OpenXPort\Jmap\JSContact\SpeakToAs;
 use OpenXPort\Jmap\JSContact\StreetComponent;
 use OpenXPort\Jmap\JSContact\Title;
 use OpenXPort\Util\AdapterUtil;
+use OpenXPort\Util\JSContactVCardAdapterUtil;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
 
@@ -1646,58 +1647,9 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        $jsContactNameComponents = $jsContactName->components;
-
-        $vCardPrefix = null;
-        $vCardGivenName = null;
-        $vCardFamilyName = null;
-        $vCardAdditionalName = null;
-        $vCardSuffix = null;
-
-        if (isset($jsContactNameComponents) && !empty($jsContactNameComponents)) {
-            foreach ($jsContactNameComponents as $jsContactNameComponent) {
-                if (isset($jsContactNameComponent) && !empty($jsContactNameComponent)) {
-                    $jsContactNameComponentType = $jsContactNameComponent->type;
-                    if (isset($jsContactNameComponentType) && !empty($jsContactNameComponentType)) {
-                        $jsContactNameComponentValue = $jsContactNameComponent->value;
-
-                        if (isset($jsContactNameComponentValue) && !empty($jsContactNameComponentValue)) {
-                            switch ($jsContactNameComponentType) {
-                                case 'prefix':
-                                    $vCardPrefix = $jsContactNameComponentValue;
-                                    break;
-
-                                case 'given':
-                                    $vCardGivenName = $jsContactNameComponentValue;
-                                    break;
-
-                                case 'surname':
-                                    $vCardFamilyName = $jsContactNameComponentValue;
-                                    break;
-
-                                case 'additional':
-                                    $vCardAdditionalName = $jsContactNameComponentValue;
-                                    break;
-
-                                case 'suffix':
-                                    $vCardSuffix = $jsContactNameComponentValue;
-                                    break;
-
-                                default:
-                                    throw new InvalidArgumentException("Unknown value for the \"type\" property
-                                    of object NameComponent encountered during conversion to the vCard
-                                    N property. Encountered value is: " . $jsContactNameComponentType);
-                                    break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         $vCardNProperty = $this->vCard->createProperty(
             "N",
-            array($vCardFamilyName, $vCardGivenName, $vCardAdditionalName, $vCardPrefix, $vCardSuffix)
+            JSContactVCardAdapterUtil::convertFromNameToN($jsContactName)
         );
         $this->vCard->add($vCardNProperty);
     }
@@ -4137,5 +4089,33 @@ class JSContactVCardAdapter extends AbstractAdapter
         }
 
         $this->vCard->add("UID", $jsContactUid);
+    }
+
+    /**
+     * Basically does
+     * https://www.ietf.org/archive/id/draft-ietf-calext-jscontact-vcard-06.html#section-3.1-2.2
+     */
+    public function deriveFN($jsContactName)
+    {
+        if (
+            isset($this->vCard->FN) &&
+            null != $this->vCard->FN->getValue() &&
+            !empty($this->vCard->FN->getValue())
+        ) {
+            return;
+        }
+
+        $this->logger->info("FN was not set. Trying to derive FN from N.");
+
+        $nameStr = implode(" ", JSContactVCardAdapterUtil::convertFromNameToN($jsContactName));
+
+        if (!strlen($nameStr)) {
+            $this->logger->warning("N components were empty and no FN was set. This is weird, because contacts " .
+                "usually have some name. Falling back to empty string.");
+            $this->vCard->add("FN", "");
+        }
+
+        $this->vCard->add("FN", $nameStr);
+        $this->vCard->FN["DERIVED"] = true;
     }
 }
