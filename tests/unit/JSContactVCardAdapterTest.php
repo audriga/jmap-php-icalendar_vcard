@@ -243,8 +243,25 @@ final class JSContactVCardAdapterTest extends TestCase
 
         // Assert that fullName gets derived from name (roughly)
         $this->assertGreaterThan(0, strlen($jsContactDataAfter->getFullName()));
+    }
 
-        error_log(json_encode($jsContactDataAfter));
+    /* *
+     * Roundtripping of Jmap-specific properties
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testJmapRoundtrip()
+    {
+        $jsContactData = json_decode(file_get_contents(__DIR__ . '/../resources/jscontact_jmap_specific.json'));
+
+        $vCardData = $this->mapper->mapFromJmap(array("c1" => $jsContactData), $this->adapter);
+
+        $vCardDataReset = reset($vCardData);
+
+        $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
+
+        $this->assertEquals("i-am-jmap-specific", $jsContactDataAfter->getAddressBookId());
     }
 
     /* *
@@ -266,7 +283,7 @@ final class JSContactVCardAdapterTest extends TestCase
 
         $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter);
 
-        $this->assertStringContainsString("Forrest Gump", $jsContactDataAfter[0]->getFullName());
-        $this->assertStringContainsString("Kamala Harris", $jsContactDataAfter[1]->getFullName());
+        $this->assertEquals("Forrest Gump", $jsContactDataAfter[0]->getFullName());
+        $this->assertEquals("Kamala Harris", $jsContactDataAfter[1]->getFullName());
     }
 }

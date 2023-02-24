@@ -18,6 +18,8 @@ class JSContactVCardMapper extends AbstractMapper
             try {
                 $adapter->reset();
 
+                $adapter->setAddressBookId($jsContactCard->addressBookId);
+
                 $adapter->setSource($jsContactCard->online);
                 $adapter->setImpp($jsContactCard->online);
                 $adapter->setLogo($jsContactCard->online);
@@ -98,6 +100,14 @@ class JSContactVCardMapper extends AbstractMapper
             $adapter->setFromHash($cHash);
 
             $jsContactCard = new Card();
+
+            if (
+                array_key_exists("oxpProperties", $cHash) &&
+                array_key_exists("addressBookId", $cHash["oxpProperties"])
+            ) {
+                $jsContactCard->setAddressBookId($cHash["oxpProperties"]["addressBookId"]);
+            }
+
             $jsContactCard->setAtType("Card");
             $jsContactCard->setId($contactId);
             $jsContactCard->setOnline($adapter->getOnline());

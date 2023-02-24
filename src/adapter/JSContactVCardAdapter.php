@@ -123,6 +123,21 @@ class JSContactVCardAdapter extends AbstractAdapter
         }
     }
 
+    public function getAddressBookId()
+    {
+        if (!array_key_exists('addressBookId', $oxpProperties)) {
+            $this->logger->warning("addressBookId does not exist for card " . $this->getUid());
+            return;
+        };
+
+        return $this->oxpProperties["addressBookId"];
+    }
+
+    public function setAddressBookId($addressBookId)
+    {
+        $this->oxpProperties["addressBookId"] = $addressBookId;
+    }
+
     // TODO: Everywhere here setLabel() needs to be replaced by setType()
     // by following the specs here:
     // https://datatracker.ietf.org/doc/html/draft-ietf-calext-jscontact-02#section-2.3.3
