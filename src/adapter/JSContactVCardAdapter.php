@@ -37,6 +37,12 @@ class JSContactVCardAdapter extends AbstractAdapter
     protected $vCardChildren = [];
 
     /**
+     * @var array OXP-specific properties not present in vCard:
+     *  * addressBookId
+     */
+    protected $oxpProperties = [];
+
+    /**
      * Constructor of this class
      *
      * Initializes the $vCard property of this class to a new VCard() object
@@ -45,6 +51,48 @@ class JSContactVCardAdapter extends AbstractAdapter
     {
         $this->vCard = new VObject\Component\VCard();
         $this->logger = Logger::getInstance();
+    }
+
+    /**
+     * Return the contents of this adapter as a hash.
+     *
+     * Right now there are two properties:
+     * * "vCard": The serialized vCard is a single property of this hash
+     * * "oxpProperties": properties not present in the vCard like addressBookId
+     *
+     * @return array The hash representation of the adapter
+     */
+    public function getAsHash()
+    {
+        return array(
+            "vCard" =>  $this->vCard->serialize(),
+            "oxpProperties" => $this->oxpProperties
+        );
+    }
+
+    /**
+     * Set vCard and oxpProperties from a hash
+     */
+    public function setFromHash($cHash)
+    {
+        $this->setVCard($cHash["vCard"]);
+
+        if (!array_key_exists('oxpProperties', $cHash)) {
+            return;
+        }
+        if (array_key_exists('addressBookId', $cHash["oxpProperties"])) {
+            $this->oxpProperties["addressBookId"] = $cHash["oxpProperties"]["addressBookId"];
+        }
+    }
+
+    /**
+     * Reset the content in the adapter.
+     */
+    public function reset()
+    {
+        $this->vCardChildren = [];
+        $this->oxpProperties = [];
+        $this->vCard = new VObject\Component\VCard();
     }
 
     /**

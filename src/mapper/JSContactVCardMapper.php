@@ -16,6 +16,8 @@ class JSContactVCardMapper extends AbstractMapper
 
         foreach ($jmapData as $creationId => $jsContactCard) {
             try {
+                $adapter->reset();
+
                 $adapter->setSource($jsContactCard->online);
                 $adapter->setImpp($jsContactCard->online);
                 $adapter->setLogo($jsContactCard->online);
@@ -73,7 +75,7 @@ class JSContactVCardMapper extends AbstractMapper
 
                 $adapter->deriveFN($jsContactCard->name);
 
-                array_push($map, array($creationId => $adapter->getVCard()));
+                array_push($map, array($creationId => $adapter->getAsHash()));
             } catch (InvalidArgumentException $e) {
                 $this->logger = Logger::getInstance();
                 $this->logger->error($e->getMessage());
@@ -91,8 +93,9 @@ class JSContactVCardMapper extends AbstractMapper
     {
         $list = [];
 
-        foreach ($data as $contactId => $vCard) {
-            $adapter->setVCard($vCard);
+        foreach ($data as $contactId => $cHash) {
+            $adapter->reset();
+            $adapter->setFromHash($cHash);
 
             $jsContactCard = new Card();
             $jsContactCard->setAtType("Card");

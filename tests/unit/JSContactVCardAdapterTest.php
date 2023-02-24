@@ -48,7 +48,7 @@ final class JSContactVCardAdapterTest extends TestCase
             fopen(__DIR__ . '/../resources/test_vcard_v3.vcf', 'r')
         );
 
-        $this->vCardData = array("1" => $this->vCard->serialize());
+        $this->vCardData = array("1" => array("vCard" => $this->vCard->serialize()));
         $this->jsContactCard = $this->mapper->mapToJmap($this->vCardData, $this->adapter)[0];
     }
 
@@ -236,12 +236,37 @@ final class JSContactVCardAdapterTest extends TestCase
 
         $vCardDataReset = reset($vCardData);
 
-        $this->assertNotNull($vCardDataReset["c1"]);
-        $this->assertStringContainsString("DERIVED", $vCardDataReset["c1"]);
+        $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("DERIVED", $vCardDataReset["c1"]["vCard"]);
 
         $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
 
         // Assert that fullName gets derived from name (roughly)
         $this->assertGreaterThan(0, strlen($jsContactDataAfter->getFullName()));
+
+        error_log(json_encode($jsContactDataAfter));
+    }
+
+    /* *
+     * Mapping of two cards JSContact -> vCard -> JSContact
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testMultipleRoundtrip()
+    {
+        $jsContactData = json_decode(file_get_contents(__DIR__ . '/../resources/jscontact_two_cards.json'));
+
+        $vCardData = $this->mapper->mapFromJmap(
+            array("c1" => $jsContactData[0], "c2" => $jsContactData[1]),
+            $this->adapter
+        );
+
+        $vCardDataReset = array("c1" => reset($vCardData[0]), "c2" => reset($vCardData[1]));
+
+        $this->assertStringContainsString("Forrest Gump", $vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter);
+
+        $this->assertStringContainsString("Forrest Gump", $jsContactDataAfter[0]->getFullName());
+        $this->assertStringContainsString("Kamala Harris", $jsContactDataAfter[1]->getFullName());
     }
 }

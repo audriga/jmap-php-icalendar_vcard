@@ -37,3 +37,4 @@ JSContacts:
 
 * `jscontact_basic.json` - A more or less basic JSContact Card
 * `jscontact_advanced.json` - A JSContact Card with more advanced properties
+* `jscontact_two_cards.json` - Two cards in a single JSON
