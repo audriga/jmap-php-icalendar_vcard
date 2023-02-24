@@ -1,8 +1,8 @@
 # PHP CS Fixer files
 .php_cs.cache
 
-# PHP Unit cache files
-.phpunit.result.cache
+# PHP Unit cache files (since PHPUnit 10)
+.phpunit.cache/
 
 # Composer
 vendor/
