@@ -4,6 +4,7 @@ vCards:
 
 * `horde.vcf` - a vCard exported from Horde
 * `rc_vcard.vcf` - vCard exported from RC
+* `nextcloud_vcard.vcf` - vCard exported from NC
 * `invalid-vcard.vcf` - Contains incorrectly escaped special char "." (based on `rc_vcard.vcf`)
 * `vcard-special-chars.vcf` - Contains correctly escaped special chars (based on `rc_vcard.vcf`)
 * `test_vcard.vcf` - just a vCard
