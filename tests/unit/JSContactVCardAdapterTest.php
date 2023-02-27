@@ -238,11 +238,13 @@ final class JSContactVCardAdapterTest extends TestCase
 
         $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
         $this->assertStringContainsString("DERIVED", $vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("IMPP", $vCardDataReset["c1"]["vCard"]);
 
         $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
 
         // Assert that fullName gets derived from name (roughly)
         $this->assertGreaterThan(0, strlen($jsContactDataAfter->getFullName()));
+        $this->assertEquals("xmpp:alice@example.com", reset($jsContactDataAfter->getOnlineServices())->getUser());
     }
 
     /* *

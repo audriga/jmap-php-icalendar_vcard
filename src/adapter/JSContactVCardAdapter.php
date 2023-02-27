@@ -10,6 +10,7 @@ use OpenXPort\Jmap\JSContact\EmailAddress;
 use OpenXPort\Jmap\JSContact\File;
 use OpenXPort\Jmap\JSContact\Name;
 use OpenXPort\Jmap\JSContact\NameComponent;
+use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Jmap\JSContact\Organization;
 use OpenXPort\Jmap\JSContact\PersonalInformation;
 use OpenXPort\Jmap\JSContact\Phone;
@@ -52,6 +53,29 @@ class JSContactVCardAdapter extends AbstractAdapter
         $this->vCard = new VObject\Component\VCard();
         $this->logger = Logger::getInstance();
     }
+
+    /**
+     * Collect vCard properties of a certain type
+     *
+     * @return array containing vCard properties that are truly set.
+     */
+    private function collectVcardProps($vCardPropStr)
+    {
+        $res = [];
+
+        if (in_array($vCardPropStr, $this->vCardChildren)) {
+            $vCardPropsFound = $this->vCard->{$vCardPropStr};
+
+            foreach ($vCardPropsFound as $vCardProp) {
+                if (isset($vCardProp)) {
+                    array_push($res, $vCardProp);
+                }
+            }
+        }
+
+        return $res;
+    }
+
 
     /**
      * Return the contents of this adapter as a hash.
@@ -138,6 +162,65 @@ class JSContactVCardAdapter extends AbstractAdapter
         $this->oxpProperties["addressBookId"] = $addressBookId;
     }
 
+    public function getOnlineServices()
+    {
+        // Before trying to map any vCard properties to any JSContact properties,
+        // check if the vCard has any properties at all and directly return if it doesn't have any
+        if (!AdapterUtil::checkVCardChildren($this->vCard)) {
+            return;
+        }
+
+        $jsContactOnlineProperty = null;
+
+        foreach ($this->collectVcardProps("IMPP") as $vCardImppProperty) {
+            $vCardImppPropertyValue = $vCardImppProperty->getValue();
+
+            if (isset($vCardImppPropertyValue) && !empty($vCardImppPropertyValue)) {
+                $jsContactImppEntry = new OnlineService($vCardImppPropertyValue, "impp");
+
+                if (isset($vCardImppProperty['PREF']) && !empty($vCardImppProperty['PREF'])) {
+                    $jsContactImppEntry->setPref($vCardImppProperty['PREF']);
+                }
+
+                $jsContactImppEntry->setContexts(JSContactVCardAdapterUtil::convertFromVCardType($vCardImppProperty));
+
+                // Since "online" is a map and key creation for the map keys is not specified, we use
+                // the MD5 hash of the IMPP property's value to create the key of the entry in "online"
+                $jsContactOnlineProperty[md5($vCardImppPropertyValue)] = $jsContactImppEntry;
+            }
+        }
+
+        foreach ($this->collectVcardProps("SOCIALPROFILE") as $vCardSocialProperty) {
+            $vCardSocialPropertyValue = $vCardSocialProperty->getValue();
+
+            if (isset($vCardSocialPropertyValue) && !empty($vCardSocialPropertyValue)) {
+                if (
+                    isset($vCardSocialProperty['VALUE']) &&
+                    !empty($vCardSocialProperty['VALUE']) &&
+                    $vCardSocialProperty['VALUE'] == "text"
+                ) {
+                    $jsContactSocialEntry = new OnlineService($vCardSocialPropertyValue, "username");
+                } else {
+                    $jsContactSocialEntry = new OnlineService($vCardSocialPropertyValue, "uri");
+                }
+
+                if (isset($vCardSocialProperty['PREF']) && !empty($vCardSocialProperty['PREF'])) {
+                    $jsContactSocialEntry->setPref($vCardSocialProperty['PREF']);
+                }
+
+                $jsContactSocialEntry->setContexts(
+                    JSContactVCardAdapterUtil::convertFromVCardType($vCardSocialProperty)
+                );
+
+                // Since "online" is a map and key creation for the map keys is not specified, we use
+                // the MD5 hash of the IMPP property's value to create the key of the entry in "online"
+                $jsContactOnlineProperty[md5($vCardSocialPropertyValue)] = $jsContactSocialEntry;
+            }
+        }
+
+        return $jsContactOnlineProperty;
+    }
+
     // TODO: Everywhere here setLabel() needs to be replaced by setType()
     // by following the specs here:
     // https://datatracker.ietf.org/doc/html/draft-ietf-calext-jscontact-02#section-2.3.3
@@ -163,9 +246,15 @@ class JSContactVCardAdapter extends AbstractAdapter
      *  * CALURI
      *
      * @return array<string, Resource>|null The "online" JSContact property as a map of IDs to Resource objects
+     * @deprecated replaced by getOnlineServices
      */
     public function getOnline()
     {
+        trigger_error(
+            "Called method " . __METHOD__ . " uses outdated property, use onlineServices instead.",
+            E_USER_DEPRECATED
+        );
+
         // Before trying to map any vCard properties to any JSContact properties,
         // check if the vCard has any properties at all and directly return if it doesn't have any
         if (!AdapterUtil::checkVCardChildren($this->vCard)) {
@@ -865,9 +954,15 @@ class JSContactVCardAdapter extends AbstractAdapter
      *
      * @param array<string, Resource>|null $jsContactOnlineMap
      * The "online" JSContact property as a map of IDs to Resource objects
+     * @deprecated
      */
     public function setImpp($jsContactOnlineMap)
     {
+        trigger_error(
+            "Called method " . __METHOD__ . " uses outdated property, use onlineServices instead.",
+            E_USER_DEPRECATED
+        );
+
         if (!isset($jsContactOnlineMap) || empty($jsContactOnlineMap)) {
             return;
         }
@@ -918,6 +1013,82 @@ class JSContactVCardAdapter extends AbstractAdapter
                     throw new InvalidArgumentException("\"label\" property of \"online\" property entry
                     not set during conversion to vCard IMPP property");
                 }
+            }
+        }
+    }
+
+    /**
+     * This function maps all JSContact onlineServices entries that correspond to the vCard IMPP property to it
+     *
+     * @param array<string, OnlineService>|null $jsContactOnlineMap
+     * The "onlineServices" JSContact property as a map of IDs to OnlineService objects
+     */
+    public function setImppFromServices($jsContactOnlineMap)
+    {
+        if (!isset($jsContactOnlineMap) || empty($jsContactOnlineMap)) {
+            return;
+        }
+
+        foreach ($jsContactOnlineMap as $id => $onlineObject) {
+            if (isset($onlineObject) && !empty($onlineObject) && $onlineObject->type == "impp") {
+                $onlineObjectLabel = $onlineObject->label;
+                $onlineObjectUser = $onlineObject->user;
+                $onlineObjectContexts = $onlineObject->contexts;
+                $onlineObjectPref = $onlineObject->pref;
+
+                $vCardImppParams = [];
+
+                if (isset($onlineObjectLabel) && !empty($onlineObjectLabel)) {
+                    // TODO use X-AB label and groups for mapping.
+                    $this->logger->error("Mapping labels is not yet supported. Dropping label " . $onlineObjectLabel);
+                }
+                $vCardImppParams['TYPE'] = JSContactVCardAdapterUtil::convertFromJscontactContexts($onlineContexts);
+                if (isset($onlineObjectPref)) {
+                    $vCardImppParams['PREF'] = $onlineObjectPref;
+                }
+
+                $this->vCard->add("IMPP", $onlineObjectUser, $vCardImppParams);
+            }
+        }
+    }
+
+    /**
+     * This function maps all JSContact onlineServices entries that correspond to the vCard SOCIALPROFILE property to it
+     *
+     * @param array<string, OnlineService>|null $jsContactOnlineMap
+     * The "onlineServices" JSContact property as a map of IDs to OnlineService objects
+     */
+    public function setSocialFromServices($jsContactOnlineMap)
+    {
+        if (!isset($jsContactOnlineMap) || empty($jsContactOnlineMap)) {
+            return;
+        }
+
+        foreach ($jsContactOnlineMap as $id => $onlineObject) {
+            if (isset($onlineObject) && !empty($onlineObject)) {
+                $vCardSocialParams = [];
+
+                if ($onlineObject->type == "username") {
+                    $vCardSocialParams["VALUE"] = "TEXT";
+                } elseif (!$onlineObject->type == "uri") {
+                    continue;
+                }
+
+                $onlineObjectLabel = $onlineObject->label;
+                $onlineObjectUser = $onlineObject->user;
+                $onlineObjectContexts = $onlineObject->contexts;
+                $onlineObjectPref = $onlineObject->pref;
+
+                if (isset($onlineObjectLabel) && !empty($onlineObjectLabel)) {
+                    // TODO use X-AB label and groups for mapping.
+                    $this->logger->error("Mapping labels is not yet supported. Dropping label " . $onlineObjectLabel);
+                }
+                $vCardSocialParams['TYPE'] = JSContactVCardAdapterUtil::convertFromJscontactContexts($onlineContexts);
+                if (isset($onlineObjectPref)) {
+                    $vCardSocialParams['PREF'] = $onlineObjectPref;
+                }
+
+                $this->vCard->add("SOCIALPROFILE", $onlineObjectUser, $vCardSocialParams);
             }
         }
     }

@@ -72,4 +72,98 @@ class JSContactVCardAdapterUtil
         }
         return array($vCardFamilyName, $vCardGivenName, $vCardAdditionalName, $vCardPrefix, $vCardSuffix);
     }
+
+    /**
+     * Collect vCard properties of a certain type
+     *
+     * @return array containing vCard properties that are truly set.
+     */
+    public static function collectVCardProps($vCardPropStr, $vCardChildren, $vCard)
+    {
+        $res = null;
+
+        if (in_array($vCardPropStr, $vCardChildren)) {
+            $vCardPropsFound = $vCard[$vCardPropStr];
+
+            foreach ($vCardPropsFound as $vCardProp) {
+                if (isset($vCardProp)) {
+                    array_push($res, $vCardProp);
+                }
+            }
+        }
+
+        return $res;
+    }
+
+    /**
+     * Convert from vCardType to JSContact context
+     *
+     * @return array<string, boolean> converted contexts
+     */
+    public static function convertFromVcardType($vCardProp)
+    {
+        if (isset($vCardProp['TYPE']) && !empty($vCardProp['TYPE'])) {
+            $jsContactContexts = [];
+
+            foreach ($vCardProp['TYPE'] as $paramValue) {
+                switch ($paramValue) {
+                    case 'home':
+                        $jsContactContexts['private'] = true;
+                        break;
+
+                    case 'work':
+                        $jsContactContexts['work'] = true;
+                        break;
+
+                    case 'other':
+                        $jsContactContexts = null;
+                        break;
+
+                    default:
+                        self::$logger = Logger::getInstance();
+                        self::$logger->warning("Unknown vCard TYPE parameter value encountered for vCard property " .
+                            $vCardProp . " : " . $paramValue);
+                        break;
+                }
+
+                return AdapterUtil::isSetNotNullAndNotEmpty($jsContactImppContexts) ? $jsContactImppContexts : null;
+            }
+        }
+    }
+
+    /**
+     * Convert from JSContact context to vCard Type
+     *
+     * @return array vCard types
+     * TODO this does not work for multiple contexts
+     */
+    public static function convertFromJscontactContexts($contexts)
+    {
+        $types = [];
+
+        if (isset($contexts) && !empty($contexts)) {
+            foreach ($contexts as $context => $bool) {
+                switch ($context) {
+                    case 'private':
+                        array_push($types, 'home');
+                        break;
+
+                    case 'work':
+                        array_push($types, 'work');
+                        break;
+
+                    default:
+                        self::$logger = Logger::getInstance();
+                        self::$logger->error("Unknown value for the \"contexts\" property of a
+                            OnlineService in JSContact.onlineServices property encountered during
+                            conversion to IMPP vCard property.
+                            Encountered value is: " . $onlineObjectContext);
+                        break;
+                }
+            }
+        } else { // In case $onlineObjectContexts is null, we set the vCard type to be 'other'
+            return ['other'];
+        }
+        return $types;
+    }
 }

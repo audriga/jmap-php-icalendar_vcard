@@ -20,17 +20,27 @@ class JSContactVCardMapper extends AbstractMapper
 
                 $adapter->setAddressBookId($jsContactCard->addressBookId);
 
-                $adapter->setSource($jsContactCard->online);
-                $adapter->setImpp($jsContactCard->online);
-                $adapter->setLogo($jsContactCard->online);
-                $adapter->setContactUri($jsContactCard->online);
-                $adapter->setOrgDirectory($jsContactCard->online);
-                $adapter->setSound($jsContactCard->online);
-                $adapter->setUrl($jsContactCard->online);
-                $adapter->setKey($jsContactCard->online);
-                $adapter->setFbUrl($jsContactCard->online);
-                $adapter->setCalAdrUri($jsContactCard->online);
-                $adapter->setCalUri($jsContactCard->online);
+                // online deprecated
+                // TODO only onlineServices conversion implemented for newest spec
+                if (!empty($jsContactCard->online)) {
+                    $adapter->setSource($jsContactCard->online);
+                    $adapter->setImpp($jsContactCard->online);
+                    $adapter->setLogo($jsContactCard->online);
+                    $adapter->setContactUri($jsContactCard->online);
+                    $adapter->setOrgDirectory($jsContactCard->online);
+                    $adapter->setSound($jsContactCard->online);
+                    $adapter->setUrl($jsContactCard->online);
+                    $adapter->setKey($jsContactCard->online);
+                    $adapter->setFbUrl($jsContactCard->online);
+                    $adapter->setCalAdrUri($jsContactCard->online);
+                    $adapter->setCalUri($jsContactCard->online);
+                }
+
+                // onlineServices
+                if (!empty($jsContactCard->onlineServices)) {
+                    $adapter->setImppFromServices($jsContactCard->onlineServices);
+                    $adapter->setSocialFromServices($jsContactCard->onlineServices);
+                }
 
                 $adapter->setKind($jsContactCard->kind);
 
@@ -111,6 +121,7 @@ class JSContactVCardMapper extends AbstractMapper
             $jsContactCard->setAtType("Card");
             $jsContactCard->setId($contactId);
             $jsContactCard->setOnline($adapter->getOnline());
+            $jsContactCard->setOnlineServices($adapter->getOnlineServices());
             $jsContactCard->setKind($adapter->getKind());
             $jsContactCard->setFullName($adapter->getFullName());
             $jsContactCard->setName($adapter->getName());
