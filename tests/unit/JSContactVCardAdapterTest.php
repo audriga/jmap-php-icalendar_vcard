@@ -42,11 +42,13 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->jsContactCard = null;
     }
 
-    private function mapVCard()
+    private function mapVCard($path = null)
     {
-        $this->vCard = Reader::read(
-            fopen(__DIR__ . '/../resources/test_vcard_v3.vcf', 'r')
-        );
+        if (!is_null($path)) {
+            $this->vCard = Reader::read(fopen(__DIR__ . $path, 'r'));
+        } else {
+            $this->vCard = Reader::read(fopen(__DIR__ . '/../resources/test_vcard_v3.vcf', 'r'));
+        }
 
         $this->vCardData = array("1" => array("vCard" => $this->vCard->serialize()));
         $this->jsContactCard = $this->mapper->mapToJmap($this->vCardData, $this->adapter)[0];
