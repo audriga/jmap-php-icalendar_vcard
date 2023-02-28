@@ -38,10 +38,15 @@ class JSContactVCardAdapter extends AbstractAdapter
     protected $vCardChildren = [];
 
     /**
-     * @var array OXP-specific properties not present in vCard:
+     * @var array<string, X> OXP-specific properties not present in vCard or JSContact:
      *  * addressBookId
+     *  * vCardProps
+     *      https://www.ietf.org/archive/id/draft-ietf-calext-jscontact-vcard-06.html#name-property-vcardprops
+     *  * vCardParams array<PropertyName, array<ObjectId, array<Property, Value>>>
+     *      https://www.ietf.org/archive/id/draft-ietf-calext-jscontact-vcard-06.html#name-property-vcardparams
      */
     protected $oxpProperties = [];
+
 
     /**
      * Constructor of this class
@@ -3589,50 +3594,62 @@ class JSContactVCardAdapter extends AbstractAdapter
         $jsContactOrganizationsProperty = null;
 
         // ORG property mapping
-        if (in_array("ORG", $this->vCardChildren)) {
-            $vCardOrgProperties = $this->vCard->ORG;
+        foreach ($this->collectVcardProps("ORG") as $vCardOrgProperty) {
+            $vCardOrgPropertyValue = $vCardOrgProperty->getValue();
 
-            foreach ($vCardOrgProperties as $vCardOrgProperty) {
-                if (isset($vCardOrgProperty)) {
-                    $vCardOrgPropertyValue = $vCardOrgProperty->getValue();
+            if (isset($vCardOrgPropertyValue) && !empty($vCardOrgPropertyValue)) {
+                $jsContactOrganization = new Organization();
 
-                    if (isset($vCardOrgPropertyValue) && !empty($vCardOrgPropertyValue)) {
-                        $jsContactOrganization = new Organization();
-                        $jsContactOrganization->setAtType("Organization");
+                if (strpos($vCardOrgPropertyValue, ';') !== false) {
+                    $orgValues = explode(';', $vCardOrgPropertyValue);
+                    $jsContactOrganization->setName(array_shift($orgValues));
 
-                        if (strpos($vCardOrgPropertyValue, ';') !== false) {
-                            $vCardOrgPropertyValue = explode(';', $vCardOrgPropertyValue);
-                            $jsContactOrganization->setName($vCardOrgPropertyValue[0]);
-                            $jsContactOrganization->setUnits(array_splice($vCardOrgPropertyValue, 0, 1));
-                        } else {
-                            $jsContactOrganization->setName($vCardOrgPropertyValue);
-                        }
-
-                        $jsContactOrganizationsProperty[md5($vCardOrgPropertyValue[0])] = $jsContactOrganization;
+                    $units = [];
+                    foreach ($orgValues as $unit) {
+                        // TODO Use OrgUnit here in a future version.
+                        //   WARNING: This will then break deserialization in jmap-java
+                        array_push($units, $unit);
                     }
-
-                    // Check if the currently unsupported vCard parameters ALTID and LANGUAGE are present
-                    // If yes, then provide an error log with some information that they're not supported
-                    if (
-                        isset($vCardOrgProperty['ALTID'])
-                        && !empty($vCardOrgProperty['ALTID'])
-                    ) {
-                        $this->logger->error(
-                            "Currently unsupported vCard Parameter ALTID encountered
-                            for vCard property ORG"
-                        );
-                    }
-
-                    if (
-                        isset($vCardOrgProperty['LANGUAGE'])
-                        && !empty($vCardOrgProperty['LANGUAGE'])
-                    ) {
-                        $this->logger->error(
-                            "Currently unsupported vCard Parameter LANGUAGE encountered
-                            for vCard property ORG"
-                        );
-                    }
+                    $jsContactOrganization->setUnits($units);
+                } else {
+                    $jsContactOrganization->setName($vCardOrgPropertyValue);
                 }
+
+                $jsContactOrganizationsProperty[md5($vCardOrgPropertyValue[0])] = $jsContactOrganization;
+            }
+
+            // Check if the currently unsupported vCard parameter ALTID is present
+            // If yes, then provide an error log with some information that it is not supported
+            // TODO I began implementing this as a PoC but did not take the time to finish it,
+            //   because it is unlikely we ever need this :P
+            if (
+                isset($vCardOrgProperty['ALTID'])
+                && !empty($vCardOrgProperty['ALTID'])
+            ) {
+                $this->logger->error("Preserving ALTID as custom property currently not supported");
+                if (!array_key_exists("vCardParams", $this->oxpProperties)) {
+                    $this->oxpProperties["vCardParams"] = [];
+                }
+                if (!array_key_exists("organizations", $this->oxpProperties["vCardParams"])) {
+                    $this->oxpProperties["vCardParams"]["organizations"] = [];
+                }
+                $value = [
+                    md5($vCardOrgPropertyValue[0]) => [
+                        "altid" => $vCardOrgProperty['ALTID']
+                    ]
+                ];
+                array_push($this->oxpProperties["vCardParams"], $value);
+            }
+
+            // Check if the currently unsupported vCard parameter LANGUAGE is present
+            // If yes, then provide an error log with some information that it is not supported
+            if (
+                isset($vCardOrgProperty['LANGUAGE'])
+                && !empty($vCardOrgProperty['LANGUAGE'])
+            ) {
+                $this->logger->error(
+                    "Currently unsupported vCard Parameter LANGUAGE encountered for vCard property ORG"
+                );
             }
         }
 

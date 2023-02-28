@@ -219,11 +219,21 @@ final class JSContactVCardAdapterTest extends TestCase
 
         $vCardData = $this->mapper->mapFromJmap(array("c1" => $jsContactData), $this->adapter);
 
-        $jsContactDataAfter = $this->mapper->mapToJmap(reset($vCardData), $this->adapter)[0];
+        $vCardDataReset = reset($vCardData);
+        $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("ORG", $vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
 
         // Assert that the value of notes is still the same
         $this->assertEquals($jsContactData->notes, $jsContactDataAfter->getNotes());
         $this->assertEquals((array) $jsContactData->categories, $jsContactDataAfter->getCategories());
+
+        $this->assertEquals(
+            $jsContactData->organizations->{"9d5ed678fe57bcca610140957afab571"}->name,
+            array_values($jsContactDataAfter->getOrganizations())[0]->getName()
+        );
+        $this->assertNull(array_values($jsContactDataAfter->getOrganizations())[0]->getUnits());
     }
 
     /* *
@@ -250,6 +260,15 @@ final class JSContactVCardAdapterTest extends TestCase
         $servicesAsArray = array_values($jsContactDataAfter->getOnlineServices());
         $this->assertEquals("xmpp:alice@example.com", $servicesAsArray[0]->getUser());
         $this->assertEquals("Skype", $servicesAsArray[1]->getService());
+
+        $this->assertEquals(
+            $jsContactData->organizations->{"9d5ed678fe57bcca610140957afab571"}->name,
+            array_values($jsContactDataAfter->getOrganizations())[0]->getName()
+        );
+        $this->assertEquals(
+            "Cleaning department",
+            array_values($jsContactDataAfter->getOrganizations())[0]->getUnits()[0]
+        );
     }
 
     /* *
