@@ -37,6 +37,12 @@
            ]
        }
    },
+   "anniversaries":{
+       "4abcc62e-7e23-4e47-88e4-811f1dd65117":{
+           "@type":"Anniversary",
+           "date":"2023-02-28"
+       }
+   },
     "uid" : 1,
     "updated" : "2008-04-24T19:52:43Z"
 }
