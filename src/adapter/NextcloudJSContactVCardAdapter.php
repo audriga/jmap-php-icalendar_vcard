@@ -52,6 +52,10 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                     $jsContactSocialEntry->setPref($vCardSocialProperty['PREF']);
                 }
 
+                if (isset($vCardSocialProperty['SERVICE-TYPE']) && !empty($vCardSocialProperty['SERVICE-TYPE'])) {
+                    $jsContactSocialEntry->setService($vCardSocialProperty['SERVICE-TYPE']);
+                }
+
                 $jsContactSocialEntry->setContexts(
                     JSContactVCardAdapterUtil::convertFromVCardType($vCardSocialProperty)
                 );
