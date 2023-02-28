@@ -20,6 +20,12 @@
             "user": "xmpp:alice@example.com",
             "type": "impp",
             "pref": 1
+        },
+        "e875a66d43010b9703a7300cc577b941" : {
+            "@type" : "OnlineService",
+            "type" : "username",
+            "service": "Skype",
+            "user" : "PupkinV"
         }
     },
     "uid" : 1,

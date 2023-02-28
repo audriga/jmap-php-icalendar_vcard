@@ -208,6 +208,10 @@ class JSContactVCardAdapter extends AbstractAdapter
                     $jsContactSocialEntry->setPref($vCardSocialProperty['PREF']);
                 }
 
+                if (isset($vCardSocialProperty['SERVICE-TYPE']) && !empty($vCardSocialProperty['SERVICE-TYPE'])) {
+                    $jsContactSocialEntry->setService($vCardSocialProperty['SERVICE-TYPE']);
+                }
+
                 $jsContactSocialEntry->setContexts(
                     JSContactVCardAdapterUtil::convertFromVCardType($vCardSocialProperty)
                 );
@@ -1076,6 +1080,7 @@ class JSContactVCardAdapter extends AbstractAdapter
 
                 $onlineObjectLabel = $onlineObject->label;
                 $onlineObjectUser = $onlineObject->user;
+                $onlineObjectService = $onlineObject->service;
                 $onlineObjectContexts = $onlineObject->contexts;
                 $onlineObjectPref = $onlineObject->pref;
 
@@ -1086,6 +1091,9 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $vCardSocialParams['TYPE'] = JSContactVCardAdapterUtil::convertFromJscontactContexts($onlineContexts);
                 if (isset($onlineObjectPref)) {
                     $vCardSocialParams['PREF'] = $onlineObjectPref;
+                }
+                if (isset($onlineObjectService)) {
+                    $vCardSocialParams['SERVICE-TYPE'] = $onlineObjectService;
                 }
 
                 $this->vCard->add("SOCIALPROFILE", $onlineObjectUser, $vCardSocialParams);

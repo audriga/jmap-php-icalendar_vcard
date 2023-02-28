@@ -246,7 +246,10 @@ final class JSContactVCardAdapterTest extends TestCase
 
         // Assert that fullName gets derived from name (roughly)
         $this->assertGreaterThan(0, strlen($jsContactDataAfter->getFullName()));
-        $this->assertEquals("xmpp:alice@example.com", reset($jsContactDataAfter->getOnlineServices())->getUser());
+
+        $servicesAsArray = array_values($jsContactDataAfter->getOnlineServices());
+        $this->assertEquals("xmpp:alice@example.com", $servicesAsArray[0]->getUser());
+        $this->assertEquals("Skype", $servicesAsArray[1]->getService());
     }
 
     /* *
