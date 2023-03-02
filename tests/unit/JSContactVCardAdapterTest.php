@@ -42,13 +42,15 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->jsContactCard = null;
     }
 
-    private function mapVCard()
+    private function mapVCard($path = null)
     {
-        $this->vCard = Reader::read(
-            fopen(__DIR__ . '/../resources/test_vcard_v3.vcf', 'r')
-        );
+        if (!is_null($path)) {
+            $this->vCard = Reader::read(fopen(__DIR__ . $path, 'r'));
+        } else {
+            $this->vCard = Reader::read(fopen(__DIR__ . '/../resources/test_vcard_v3.vcf', 'r'));
+        }
 
-        $this->vCardData = array("1" => $this->vCard->serialize());
+        $this->vCardData = array("1" => array("vCard" => $this->vCard->serialize()));
         $this->jsContactCard = $this->mapper->mapToJmap($this->vCardData, $this->adapter)[0];
     }
 
@@ -217,10 +219,97 @@ final class JSContactVCardAdapterTest extends TestCase
 
         $vCardData = $this->mapper->mapFromJmap(array("c1" => $jsContactData), $this->adapter);
 
-        $jsContactDataAfter = $this->mapper->mapToJmap(reset($vCardData), $this->adapter)[0];
+        $vCardDataReset = reset($vCardData);
+        $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("ORG", $vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
 
         // Assert that the value of notes is still the same
         $this->assertEquals($jsContactData->notes, $jsContactDataAfter->getNotes());
         $this->assertEquals((array) $jsContactData->categories, $jsContactDataAfter->getCategories());
+
+        $this->assertEquals(
+            $jsContactData->organizations->{"9d5ed678fe57bcca610140957afab571"}->name,
+            array_values($jsContactDataAfter->getOrganizations())[0]->getName()
+        );
+        $this->assertNull(array_values($jsContactDataAfter->getOrganizations())[0]->getUnits());
+    }
+
+    /* *
+     * More complex mapping of JSContact -> vCard -> JSContact
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testAdvancedRoundtrip()
+    {
+        $jsContactData = json_decode(file_get_contents(__DIR__ . '/../resources/jscontact_advanced.json'));
+
+        $vCardData = $this->mapper->mapFromJmap(array("c1" => $jsContactData), $this->adapter);
+
+        $vCardDataReset = reset($vCardData);
+
+        $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("DERIVED", $vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("IMPP", $vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
+
+        // Assert that fullName gets derived from name (roughly)
+        $this->assertGreaterThan(0, strlen($jsContactDataAfter->getFullName()));
+
+        $servicesAsArray = array_values($jsContactDataAfter->getOnlineServices());
+        $this->assertEquals("xmpp:alice@example.com", $servicesAsArray[0]->getUser());
+        $this->assertEquals("Skype", $servicesAsArray[1]->getService());
+
+        $this->assertEquals(
+            $jsContactData->organizations->{"9d5ed678fe57bcca610140957afab571"}->name,
+            array_values($jsContactDataAfter->getOrganizations())[0]->getName()
+        );
+        $this->assertEquals(
+            "Cleaning department",
+            array_values($jsContactDataAfter->getOrganizations())[0]->getUnits()[0]
+        );
+    }
+
+    /* *
+     * Roundtripping of Jmap-specific properties
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testJmapRoundtrip()
+    {
+        $jsContactData = json_decode(file_get_contents(__DIR__ . '/../resources/jscontact_jmap_specific.json'));
+
+        $vCardData = $this->mapper->mapFromJmap(array("c1" => $jsContactData), $this->adapter);
+
+        $vCardDataReset = reset($vCardData);
+
+        $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
+
+        $this->assertEquals("i-am-jmap-specific", $jsContactDataAfter->getAddressBookId());
+    }
+
+    /* *
+     * Mapping of two cards JSContact -> vCard -> JSContact
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testMultipleRoundtrip()
+    {
+        $jsContactData = json_decode(file_get_contents(__DIR__ . '/../resources/jscontact_two_cards.json'));
+
+        $vCardData = $this->mapper->mapFromJmap(
+            array("c1" => $jsContactData[0], "c2" => $jsContactData[1]),
+            $this->adapter
+        );
+
+        $vCardDataReset = array("c1" => reset($vCardData[0]), "c2" => reset($vCardData[1]));
+
+        $this->assertStringContainsString("Forrest Gump", $vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter);
+
+        $this->assertEquals("Forrest Gump", $jsContactDataAfter[0]->getFullName());
+        $this->assertEquals("Kamala Harris", $jsContactDataAfter[1]->getFullName());
     }
 }

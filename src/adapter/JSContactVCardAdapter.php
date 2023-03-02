@@ -10,6 +10,7 @@ use OpenXPort\Jmap\JSContact\EmailAddress;
 use OpenXPort\Jmap\JSContact\File;
 use OpenXPort\Jmap\JSContact\Name;
 use OpenXPort\Jmap\JSContact\NameComponent;
+use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Jmap\JSContact\Organization;
 use OpenXPort\Jmap\JSContact\PersonalInformation;
 use OpenXPort\Jmap\JSContact\Phone;
@@ -19,6 +20,7 @@ use OpenXPort\Jmap\JSContact\SpeakToAs;
 use OpenXPort\Jmap\JSContact\StreetComponent;
 use OpenXPort\Jmap\JSContact\Title;
 use OpenXPort\Util\AdapterUtil;
+use OpenXPort\Util\JSContactVCardAdapterUtil;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
 
@@ -36,6 +38,17 @@ class JSContactVCardAdapter extends AbstractAdapter
     protected $vCardChildren = [];
 
     /**
+     * @var array<string, X> OXP-specific properties not present in vCard or JSContact:
+     *  * addressBookId
+     *  * vCardProps
+     *      https://www.ietf.org/archive/id/draft-ietf-calext-jscontact-vcard-06.html#name-property-vcardprops
+     *  * vCardParams array<PropertyName, array<ObjectId, array<Property, Value>>>
+     *      https://www.ietf.org/archive/id/draft-ietf-calext-jscontact-vcard-06.html#name-property-vcardparams
+     */
+    protected $oxpProperties = [];
+
+
+    /**
      * Constructor of this class
      *
      * Initializes the $vCard property of this class to a new VCard() object
@@ -44,6 +57,101 @@ class JSContactVCardAdapter extends AbstractAdapter
     {
         $this->vCard = new VObject\Component\VCard();
         $this->logger = Logger::getInstance();
+    }
+
+    /**
+     * Collect vCard properties of a certain type
+     *
+     * @return array containing vCard properties that are truly set.
+     */
+    private function collectVcardProps($vCardPropStr)
+    {
+        $res = [];
+
+        if (in_array($vCardPropStr, $this->vCardChildren)) {
+            $vCardPropsFound = $this->vCard->{$vCardPropStr};
+
+            foreach ($vCardPropsFound as $vCardProp) {
+                if (isset($vCardProp)) {
+                    array_push($res, $vCardProp);
+                }
+            }
+        }
+
+        return $res;
+    }
+
+    /*
+     * Check if the currently unsupported vCard parameter ALTID is present
+     * If yes, then provide an error log with some information that it is not supported
+     * TODO I began implementing this as a PoC but did not take the time to finish it,
+     *   because it is unlikely we ever need this :P
+     */
+    public function convertAltId($vCardProp, $jsCardPropPath)
+    {
+        if (
+            isset($vCardProp['ALTID'])
+            && !empty($vCardProp['ALTID'])
+        ) {
+            $this->logger->error("Preserving ALTID as custom property currently not supported");
+            if (!array_key_exists("vCardParams", $this->oxpProperties)) {
+                $this->oxpProperties["vCardParams"] = [];
+            }
+
+            // Create the necessary nested array keys
+            $curArrayPtr = &$this->oxpProperties["vCardParams"];
+            foreach ($jsCardPropPath as $arrayPath) {
+                if (!array_key_exists($arrayPath, $curArrayPtr)) {
+                    $curArrayPtr[$arrayPath] = [];
+                }
+                $curArrayPtr = &$curArrayPtr[$arrayPath];
+            }
+
+            array_push($curArrayPtr, $value);
+        }
+    }
+
+
+    /**
+     * Return the contents of this adapter as a hash.
+     *
+     * Right now there are two properties:
+     * * "vCard": The serialized vCard is a single property of this hash
+     * * "oxpProperties": properties not present in the vCard like addressBookId
+     *
+     * @return array The hash representation of the adapter
+     */
+    public function getAsHash()
+    {
+        return array(
+            "vCard" =>  $this->vCard->serialize(),
+            "oxpProperties" => $this->oxpProperties
+        );
+    }
+
+    /**
+     * Set vCard and oxpProperties from a hash
+     */
+    public function setFromHash($cHash)
+    {
+        $this->setVCard($cHash["vCard"]);
+
+        if (!array_key_exists('oxpProperties', $cHash)) {
+            return;
+        }
+        if (array_key_exists('addressBookId', $cHash["oxpProperties"])) {
+            $this->oxpProperties["addressBookId"] = $cHash["oxpProperties"]["addressBookId"];
+        }
+    }
+
+    /**
+     * Reset the content in the adapter.
+     */
+    public function reset()
+    {
+        $this->vCardChildren = [];
+        $this->oxpProperties = [];
+        $this->vCard = new VObject\Component\VCard();
     }
 
     /**
@@ -74,6 +182,84 @@ class JSContactVCardAdapter extends AbstractAdapter
         }
     }
 
+    public function getAddressBookId()
+    {
+        if (!array_key_exists('addressBookId', $oxpProperties)) {
+            $this->logger->warning("addressBookId does not exist for card " . $this->getUid());
+            return;
+        };
+
+        return $this->oxpProperties["addressBookId"];
+    }
+
+    public function setAddressBookId($addressBookId)
+    {
+        $this->oxpProperties["addressBookId"] = $addressBookId;
+    }
+
+    public function getOnlineServices()
+    {
+        // Before trying to map any vCard properties to any JSContact properties,
+        // check if the vCard has any properties at all and directly return if it doesn't have any
+        if (!AdapterUtil::checkVCardChildren($this->vCard)) {
+            return;
+        }
+
+        $jsContactOnlineProperty = null;
+
+        foreach ($this->collectVcardProps("IMPP") as $vCardImppProperty) {
+            $vCardImppPropertyValue = $vCardImppProperty->getValue();
+
+            if (isset($vCardImppPropertyValue) && !empty($vCardImppPropertyValue)) {
+                $jsContactImppEntry = new OnlineService($vCardImppPropertyValue, "impp");
+
+                if (isset($vCardImppProperty['PREF']) && !empty($vCardImppProperty['PREF'])) {
+                    $jsContactImppEntry->setPref($vCardImppProperty['PREF']);
+                }
+
+                $jsContactImppEntry->setContexts(JSContactVCardAdapterUtil::convertFromVCardType($vCardImppProperty));
+
+                // Since "online" is a map and key creation for the map keys is not specified, we use
+                // the MD5 hash of the IMPP property's value to create the key of the entry in "online"
+                $jsContactOnlineProperty[md5($vCardImppPropertyValue)] = $jsContactImppEntry;
+            }
+        }
+
+        foreach ($this->collectVcardProps("SOCIALPROFILE") as $vCardSocialProperty) {
+            $vCardSocialPropertyValue = $vCardSocialProperty->getValue();
+
+            if (isset($vCardSocialPropertyValue) && !empty($vCardSocialPropertyValue)) {
+                if (
+                    isset($vCardSocialProperty['VALUE']) &&
+                    !empty($vCardSocialProperty['VALUE']) &&
+                    $vCardSocialProperty['VALUE'] == "text"
+                ) {
+                    $jsContactSocialEntry = new OnlineService($vCardSocialPropertyValue, "username");
+                } else {
+                    $jsContactSocialEntry = new OnlineService($vCardSocialPropertyValue, "uri");
+                }
+
+                if (isset($vCardSocialProperty['PREF']) && !empty($vCardSocialProperty['PREF'])) {
+                    $jsContactSocialEntry->setPref($vCardSocialProperty['PREF']);
+                }
+
+                if (isset($vCardSocialProperty['SERVICE-TYPE']) && !empty($vCardSocialProperty['SERVICE-TYPE'])) {
+                    $jsContactSocialEntry->setService($vCardSocialProperty['SERVICE-TYPE']);
+                }
+
+                $jsContactSocialEntry->setContexts(
+                    JSContactVCardAdapterUtil::convertFromVCardType($vCardSocialProperty)
+                );
+
+                // Since "online" is a map and key creation for the map keys is not specified, we use
+                // the MD5 hash of the IMPP property's value to create the key of the entry in "online"
+                $jsContactOnlineProperty[md5($vCardSocialPropertyValue)] = $jsContactSocialEntry;
+            }
+        }
+
+        return $jsContactOnlineProperty;
+    }
+
     // TODO: Everywhere here setLabel() needs to be replaced by setType()
     // by following the specs here:
     // https://datatracker.ietf.org/doc/html/draft-ietf-calext-jscontact-02#section-2.3.3
@@ -99,9 +285,15 @@ class JSContactVCardAdapter extends AbstractAdapter
      *  * CALURI
      *
      * @return array<string, Resource>|null The "online" JSContact property as a map of IDs to Resource objects
+     * @deprecated replaced by getOnlineServices
      */
     public function getOnline()
     {
+        trigger_error(
+            "Called method " . __METHOD__ . " uses outdated property, use onlineServices instead.",
+            E_USER_DEPRECATED
+        );
+
         // Before trying to map any vCard properties to any JSContact properties,
         // check if the vCard has any properties at all and directly return if it doesn't have any
         if (!AdapterUtil::checkVCardChildren($this->vCard)) {
@@ -801,9 +993,15 @@ class JSContactVCardAdapter extends AbstractAdapter
      *
      * @param array<string, Resource>|null $jsContactOnlineMap
      * The "online" JSContact property as a map of IDs to Resource objects
+     * @deprecated
      */
     public function setImpp($jsContactOnlineMap)
     {
+        trigger_error(
+            "Called method " . __METHOD__ . " uses outdated property, use onlineServices instead.",
+            E_USER_DEPRECATED
+        );
+
         if (!isset($jsContactOnlineMap) || empty($jsContactOnlineMap)) {
             return;
         }
@@ -854,6 +1052,86 @@ class JSContactVCardAdapter extends AbstractAdapter
                     throw new InvalidArgumentException("\"label\" property of \"online\" property entry
                     not set during conversion to vCard IMPP property");
                 }
+            }
+        }
+    }
+
+    /**
+     * This function maps all JSContact onlineServices entries that correspond to the vCard IMPP property to it
+     *
+     * @param array<string, OnlineService>|null $jsContactOnlineMap
+     * The "onlineServices" JSContact property as a map of IDs to OnlineService objects
+     */
+    public function setImppFromServices($jsContactOnlineMap)
+    {
+        if (!isset($jsContactOnlineMap) || empty($jsContactOnlineMap)) {
+            return;
+        }
+
+        foreach ($jsContactOnlineMap as $id => $onlineObject) {
+            if (isset($onlineObject) && !empty($onlineObject) && $onlineObject->type == "impp") {
+                $onlineObjectLabel = $onlineObject->label;
+                $onlineObjectUser = $onlineObject->user;
+                $onlineObjectContexts = $onlineObject->contexts;
+                $onlineObjectPref = $onlineObject->pref;
+
+                $vCardImppParams = [];
+
+                if (isset($onlineObjectLabel) && !empty($onlineObjectLabel)) {
+                    // TODO use X-AB label and groups for mapping.
+                    $this->logger->error("Mapping labels is not yet supported. Dropping label " . $onlineObjectLabel);
+                }
+                $vCardImppParams['TYPE'] = JSContactVCardAdapterUtil::convertFromJscontactContexts($onlineContexts);
+                if (isset($onlineObjectPref)) {
+                    $vCardImppParams['PREF'] = $onlineObjectPref;
+                }
+
+                $this->vCard->add("IMPP", $onlineObjectUser, $vCardImppParams);
+            }
+        }
+    }
+
+    /**
+     * This function maps all JSContact onlineServices entries that correspond to the vCard SOCIALPROFILE property to it
+     *
+     * @param array<string, OnlineService>|null $jsContactOnlineMap
+     * The "onlineServices" JSContact property as a map of IDs to OnlineService objects
+     */
+    public function setSocialFromServices($jsContactOnlineMap)
+    {
+        if (!isset($jsContactOnlineMap) || empty($jsContactOnlineMap)) {
+            return;
+        }
+
+        foreach ($jsContactOnlineMap as $id => $onlineObject) {
+            if (isset($onlineObject) && !empty($onlineObject)) {
+                $vCardSocialParams = [];
+
+                if ($onlineObject->type == "username") {
+                    $vCardSocialParams["VALUE"] = "TEXT";
+                } elseif (!$onlineObject->type == "uri") {
+                    continue;
+                }
+
+                $onlineObjectLabel = $onlineObject->label;
+                $onlineObjectUser = $onlineObject->user;
+                $onlineObjectService = $onlineObject->service;
+                $onlineObjectContexts = $onlineObject->contexts;
+                $onlineObjectPref = $onlineObject->pref;
+
+                if (isset($onlineObjectLabel) && !empty($onlineObjectLabel)) {
+                    // TODO use X-AB label and groups for mapping.
+                    $this->logger->error("Mapping labels is not yet supported. Dropping label " . $onlineObjectLabel);
+                }
+                $vCardSocialParams['TYPE'] = JSContactVCardAdapterUtil::convertFromJscontactContexts($onlineContexts);
+                if (isset($onlineObjectPref)) {
+                    $vCardSocialParams['PREF'] = $onlineObjectPref;
+                }
+                if (isset($onlineObjectService)) {
+                    $vCardSocialParams['SERVICE-TYPE'] = $onlineObjectService;
+                }
+
+                $this->vCard->add("SOCIALPROFILE", $onlineObjectUser, $vCardSocialParams);
             }
         }
     }
@@ -1646,58 +1924,9 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        $jsContactNameComponents = $jsContactName->components;
-
-        $vCardPrefix = null;
-        $vCardGivenName = null;
-        $vCardFamilyName = null;
-        $vCardAdditionalName = null;
-        $vCardSuffix = null;
-
-        if (isset($jsContactNameComponents) && !empty($jsContactNameComponents)) {
-            foreach ($jsContactNameComponents as $jsContactNameComponent) {
-                if (isset($jsContactNameComponent) && !empty($jsContactNameComponent)) {
-                    $jsContactNameComponentType = $jsContactNameComponent->type;
-                    if (isset($jsContactNameComponentType) && !empty($jsContactNameComponentType)) {
-                        $jsContactNameComponentValue = $jsContactNameComponent->value;
-
-                        if (isset($jsContactNameComponentValue) && !empty($jsContactNameComponentValue)) {
-                            switch ($jsContactNameComponentType) {
-                                case 'prefix':
-                                    $vCardPrefix = $jsContactNameComponentValue;
-                                    break;
-
-                                case 'given':
-                                    $vCardGivenName = $jsContactNameComponentValue;
-                                    break;
-
-                                case 'surname':
-                                    $vCardFamilyName = $jsContactNameComponentValue;
-                                    break;
-
-                                case 'additional':
-                                    $vCardAdditionalName = $jsContactNameComponentValue;
-                                    break;
-
-                                case 'suffix':
-                                    $vCardSuffix = $jsContactNameComponentValue;
-                                    break;
-
-                                default:
-                                    throw new InvalidArgumentException("Unknown value for the \"type\" property
-                                    of object NameComponent encountered during conversion to the vCard
-                                    N property. Encountered value is: " . $jsContactNameComponentType);
-                                    break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         $vCardNProperty = $this->vCard->createProperty(
             "N",
-            array($vCardFamilyName, $vCardGivenName, $vCardAdditionalName, $vCardPrefix, $vCardSuffix)
+            JSContactVCardAdapterUtil::convertFromNameToN($jsContactName)
         );
         $this->vCard->add($vCardNProperty);
     }
@@ -1860,209 +2089,160 @@ class JSContactVCardAdapter extends AbstractAdapter
         $jsContactAnniversariesProperty = null;
 
         // BDAY property mapping
-        if (in_array("BDAY", $this->vCardChildren)) {
-            $vCardBirthdayProperty = $this->vCard->BDAY;
+        foreach ($this->collectVcardProps("BDAY") as $vCardBirthdayProperty) {
+            $vCardBirthdayPropertyValue = $vCardBirthdayProperty->getValue();
 
-            if (isset($vCardBirthdayProperty)) {
-                $vCardBirthdayPropertyValue = $vCardBirthdayProperty->getValue();
+            // Only if the vCard BDAY property indeed has a value, we transform it as a date string to
+            // follow JSContact's date format and set it as value for "date" in an Anniversary object
+            // which in turn is an element of "anniversaries" in JSContact
+            if (isset($vCardBirthdayPropertyValue) && !empty($vCardBirthdayPropertyValue)) {
+                // Restructure the date string value to follow JSContact's format
+                $jsContactBirthdayPropertyValue = AdapterUtil::parseDateTime(
+                    $vCardBirthdayPropertyValue,
+                    'Ymd\THis\Z',
+                    'Y-m-d'
+                );
 
-                // Only if the vCard BDAY property indeed has a value, we transform it as a date string to
-                // follow JSContact's date format and set it as value for "date" in an Anniversary object
-                // which in turn is an element of "anniversaries" in JSContact
-                if (isset($vCardBirthdayPropertyValue) && !empty($vCardBirthdayPropertyValue)) {
-                    // Restructure the date string value to follow JSContact's format
-                    $jsContactBirthdayPropertyValue = AdapterUtil::parseDateTime(
-                        $vCardBirthdayPropertyValue,
-                        'Ymd\THis\Z',
-                        'Y-m-d'
+                // In case we couldn't parse the BDAY value to JSContact's date format (i.e., it's null),
+                // set the JSContact value to all zeros (default value)
+                if (is_null($jsContactBirthdayPropertyValue)) {
+                    $jsContactBirthdayPropertyValue = "0000-00-00";
+                }
+
+                $jsContactBirthday = new Anniversary($jsContactBirthdayPropertyValue);
+                $jsContactBirthday->setType("birth");
+
+                // In case BIRTHPLACE is present in the vCard, set it as "place" within the JSContact
+                // birthday Anniversary object
+                foreach ($this->collectVcardProps("BIRTHPLACE") as $vCardBirthdayPlaceProperty) {
+                    $vCardBirthdayPlacePropertyValue = $vCardBirthdayPlaceProperty->getValue();
+
+                    if (isset($vCardBirthdayPlacePropertyValue) && !empty($vCardBirthdayPlacePropertyValue)) {
+                        $jsContactBirthdayPlace = new Address();
+
+                        // If place is geo URL, then add it to "coordinates" prop of address,
+                        // else add it to "fullAddress"
+                        if (str_starts_with($vCardBirthdayPlacePropertyValue, "geo:")) {
+                            $jsContactBirthdayPlace->setCoordinates($vCardBirthdayPlacePropertyValue);
+                        } else {
+                            $jsContactBirthdayPlace->setFullAddress($vCardBirthdayPlacePropertyValue);
+                        }
+
+                        $jsContactBirthday->setPlace($jsContactBirthdayPlace);
+                    }
+
+                    $this->convertAltId(
+                        $vCardBirthdayPlaceProperty,
+                        ["anniversaries", md5($vCardBirthdayPropertyValue), "place"]
                     );
 
-                    // In case we couldn't parse the BDAY value to JSContact's date format (i.e., it's null),
-                    // set the JSContact value to all zeros (default value)
-                    if (is_null($jsContactBirthdayPropertyValue)) {
-                        $jsContactBirthdayPropertyValue = "0000-00-00";
+                    if (
+                        isset($vCardBirthdayPlaceProperty['LANGUAGE'])
+                        && !empty($vCardBirthdayPlaceProperty['LANGUAGE'])
+                    ) {
+                        $this->logger->error(
+                            "Currently unsupported vCard Parameter LANGUAGE encountered for vCard property BIRTHPLACE"
+                        );
                     }
-
-                    $jsContactBirthday = new Anniversary();
-                    $jsContactBirthday->setAtType("Anniversary");
-                    $jsContactBirthday->setType("birth");
-                    $jsContactBirthday->setDate($jsContactBirthdayPropertyValue);
-
-                    // In case BIRTHPLACE is present in the vCard, set it as "place" within the JSContact
-                    // birthday Anniversary object
-                    if (in_array("BIRTHPLACE", $this->vCardChildren)) {
-                        $vCardBirthdayPlaceProperty = $this->vCard->BIRTHPLACE;
-
-                        if (isset($vCardBirthdayPlaceProperty)) {
-                            $vCardBirthdayPlacePropertyValue = $vCardBirthdayPlaceProperty->getValue();
-
-                            if (isset($vCardBirthdayPlacePropertyValue) && !empty($vCardBirthdayPlacePropertyValue)) {
-                                $jsContactBirthdayPlace = new Address();
-                                $jsContactBirthdayPlace->setAtType("Address");
-
-                                // If place is geo URL, then add it to "coordinates" prop of address,
-                                // else add it to "fullAddress"
-                                if (str_starts_with($vCardBirthdayPlacePropertyValue, "geo:")) {
-                                    $jsContactBirthdayPlace->setCoordinates($vCardBirthdayPlacePropertyValue);
-                                } else {
-                                    $jsContactBirthdayPlace->setFullAddress($vCardBirthdayPlacePropertyValue);
-                                }
-
-                                $jsContactBirthday->setPlace($jsContactBirthdayPlace);
-                            }
-
-                            // Check if the currently unsupported vCard parameters ALTID and LANGUAGE are present
-                            // If yes, then provide an error log with some information that they're not supported
-                            if (
-                                isset($vCardBirthdayPlaceProperty['ALTID'])
-                                && !empty($vCardBirthdayPlaceProperty['ALTID'])
-                            ) {
-                                $this->logger->error(
-                                    "Currently unsupported vCard Parameter ALTID encountered
-                                    for vCard property BIRTHPLACE"
-                                );
-                            }
-
-                            if (
-                                isset($vCardBirthdayPlaceProperty['LANGUAGE'])
-                                && !empty($vCardBirthdayPlaceProperty['LANGUAGE'])
-                            ) {
-                                $this->logger->error(
-                                    "Currently unsupported vCard Parameter LANGUAGE encountered
-                                    for vCard property BIRTHPLACE"
-                                );
-                            }
-                        }
-                    }
-
-                    // Since "anniversaries" is a map and key creation for the map keys is not specified, we use
-                    // the MD5 hash of the BDAY property's value to create the key of the entry in "anniversaries"
-                    $jsContactAnniversariesProperty[md5($vCardBirthdayPropertyValue)] = $jsContactBirthday;
                 }
+
+                // Since "anniversaries" is a map and key creation for the map keys is not specified, we use
+                // the MD5 hash of the BDAY property's value to create the key of the entry in "anniversaries"
+                $jsContactAnniversariesProperty[md5($vCardBirthdayPropertyValue)] = $jsContactBirthday;
             }
         }
 
         // DEATHDATE property mapping
-        if (in_array("DEATHDATE", $this->vCardChildren)) {
-            $vCardDeathdateProperty = $this->vCard->DEATHDATE;
+        foreach ($this->collectVcardProps("DEATHDATE") as $vCardDeathdateProperty) {
+            $vCardDeathdatePropertyValue = $vCardDeathdateProperty->getValue();
 
-            if (isset($vCardDeathdateProperty)) {
-                $vCardDeathdatePropertyValue = $vCardDeathdateProperty->getValue();
+            // Only if the vCard DEATHDATE property indeed has a value, we transform it as a date string to
+            // follow JSContact's date format and set it as value for "date" in an Anniversary object
+            // which in turn is an element of "anniversaries" in JSContact
+            if (isset($vCardDeathdatePropertyValue) && !empty($vCardDeathdatePropertyValue)) {
+                // Restructure the date string value to follow JSContact's format
+                $jsContactDeathdatePropertyValue = AdapterUtil::parseDateTime(
+                    $vCardDeathdatePropertyValue,
+                    'Ymd\THis\Z',
+                    'Y-m-d'
+                );
 
-                // Only if the vCard DEATHDATE property indeed has a value, we transform it as a date string to
-                // follow JSContact's date format and set it as value for "date" in an Anniversary object
-                // which in turn is an element of "anniversaries" in JSContact
-                if (isset($vCardDeathdatePropertyValue) && !empty($vCardDeathdatePropertyValue)) {
-                    // Restructure the date string value to follow JSContact's format
-                    $jsContactDeathdatePropertyValue = AdapterUtil::parseDateTime(
-                        $vCardDeathdatePropertyValue,
-                        'Ymd\THis\Z',
-                        'Y-m-d'
+                // In case we couldn't parse the DEATHDATE value to JSContact's date format (i.e., it's null),
+                // set the JSContact value to all zeros (default value)
+                if (is_null($jsContactDeathdatePropertyValue)) {
+                    $jsContactDeathdatePropertyValue = "0000-00-00";
+                }
+
+                $jsContactDeathdate = new Anniversary($jsContactDeathdatePropertyValue);
+                $jsContactDeathdate->setType("death");
+
+                // In case DEATHPLACE is present in the vCard, set it as "place" within the JSContact
+                // deathdate Anniversary object
+                foreach ($this->collectVcardProps("DEATHPLACE") as $vCardDeathdatePlaceProperty) {
+                    $vCardDeathdatePlacePropertyValue = $vCardDeathdatePlaceProperty->getValue();
+
+                    if (isset($vCardDeathdatePlacePropertyValue) && !empty($vCardDeathdatePlacePropertyValue)) {
+                        $jsContactDeathdatePlace = new Address();
+
+                        // If place is geo URL, then add it to "coordinates" prop of address,
+                        // else add it to "fullAddress"
+                        if (str_starts_with($vCardDeathdatePlacePropertyValue, "geo:")) {
+                            $jsContactDeathdatePlace->setCoordinates($vCardDeathdatePlacePropertyValue);
+                        } else {
+                            $jsContactDeathdatePlace->setFullAddress($vCardDeathdatePlacePropertyValue);
+                        }
+
+                        $jsContactDeathdate->setPlace($jsContactDeathdatePlace);
+                    }
+
+                    $this->convertAltId(
+                        $jsContactDeathdatePlace,
+                        ["anniversaries", md5($vCardDeathdatePropertyValue), "place"]
                     );
 
-                    // In case we couldn't parse the DEATHDATE value to JSContact's date format (i.e., it's null),
-                    // set the JSContact value to all zeros (default value)
-                    if (is_null($jsContactDeathdatePropertyValue)) {
-                        $jsContactDeathdatePropertyValue = "0000-00-00";
+                    if (
+                        isset($vCardDeathdatePlaceProperty['LANGUAGE'])
+                        && !empty($vCardDeathdatePlaceProperty['LANGUAGE'])
+                    ) {
+                        $this->logger->error(
+                            "Currently unsupported vCard Parameter LANGUAGE encountered for vCard property DEATHPLACE"
+                        );
                     }
-
-                    $jsContactDeathdate = new Anniversary();
-                    $jsContactDeathdate->setAtType("Anniversary");
-                    $jsContactDeathdate->setType("death");
-                    $jsContactDeathdate->setDate($jsContactDeathdatePropertyValue);
-
-                    // In case DEATHPLACE is present in the vCard, set it as "place" within the JSContact
-                    // deathdate Anniversary object
-                    if (in_array("DEATHPLACE", $this->vCardChildren)) {
-                        $vCardDeathdatePlaceProperty = $this->vCard->DEATHPLACE;
-
-                        if (isset($vCardDeathdatePlaceProperty)) {
-                            $vCardDeathdatePlacePropertyValue = $vCardDeathdatePlaceProperty->getValue();
-
-                            if (isset($vCardDeathdatePlacePropertyValue) && !empty($vCardDeathdatePlacePropertyValue)) {
-                                $jsContactDeathdatePlace = new Address();
-                                $jsContactDeathdatePlace->setAtType("Address");
-
-                                // If place is geo URL, then add it to "coordinates" prop of address,
-                                // else add it to "fullAddress"
-                                if (str_starts_with($vCardDeathdatePlacePropertyValue, "geo:")) {
-                                    $jsContactDeathdatePlace->setCoordinates($vCardDeathdatePlacePropertyValue);
-                                } else {
-                                    $jsContactDeathdatePlace->setFullAddress($vCardDeathdatePlacePropertyValue);
-                                }
-
-                                $jsContactDeathdate->setPlace($jsContactDeathdatePlace);
-                            }
-
-                            // Check if the currently unsupported vCard parameters ALTID and LANGUAGE are present
-                            // If yes, then provide an error log with some information that they're not supported
-                            if (
-                                isset($vCardDeathdatePlaceProperty['ALTID'])
-                                && !empty($vCardDeathdatePlaceProperty['ALTID'])
-                            ) {
-                                $this->logger->error(
-                                    "Currently unsupported vCard Parameter ALTID encountered
-                                    for vCard property DEATHPLACE"
-                                );
-                            }
-
-                            if (
-                                isset($vCardDeathdatePlaceProperty['LANGUAGE'])
-                                && !empty($vCardDeathdatePlaceProperty['LANGUAGE'])
-                            ) {
-                                $this->logger->error(
-                                    "Currently unsupported vCard Parameter LANGUAGE encountered
-                                    for vCard property DEATHPLACE"
-                                );
-                            }
-                        }
-                    }
-
-                    // Since "anniversaries" is a map and key creation for the map keys is not specified, we use
-                    // the MD5 hash of the DEATHDATE property's value to create the key of the entry in "anniversaries"
-                    $jsContactAnniversariesProperty[md5($vCardDeathdatePropertyValue)] = $jsContactDeathdate;
                 }
+
+                // Since "anniversaries" is a map and key creation for the map keys is not specified, we use
+                // the MD5 hash of the DEATHDATE property's value to create the key of the entry in "anniversaries"
+                $jsContactAnniversariesProperty[md5($vCardDeathdatePropertyValue)] = $jsContactDeathdate;
             }
         }
 
         // ANNIVERSARY property mapping
-        if (in_array("ANNIVERSARY", $this->vCardChildren)) {
-            $vCardAnniversaryProperty = $this->vCard->ANNIVERSARY;
+        foreach ($this->collectVcardProps("ANNIVERSARY") as $vCardAnniversaryProperty) {
+            $vCardAnniversaryPropertyValue = $vCardAnniversaryProperty->getValue();
 
-            if (isset($vCardAnniversaryProperty)) {
-                $vCardAnniversaryPropertyValue = $vCardAnniversaryProperty->getValue();
+            // Only if the vCard ANNIVERSARY property indeed has a value, we transform it as a date string to
+            // follow JSContact's date format and set it as value for "date" in an Anniversary object
+            // which in turn is an element of "anniversaries" in JSContact
+            if (isset($vCardAnniversaryPropertyValue) && !empty($vCardAnniversaryPropertyValue)) {
+                // Restructure the date string value to follow JSContact's format
+                $jsContactAnniversaryPropertyValue = AdapterUtil::parseDateTime(
+                    $vCardAnniversaryPropertyValue,
+                    'Ymd\THis\Z',
+                    'Y-m-d'
+                );
 
-                // Only if the vCard ANNIVERSARY property indeed has a value, we transform it as a date string to
-                // follow JSContact's date format and set it as value for "date" in an Anniversary object
-                // which in turn is an element of "anniversaries" in JSContact
-                if (isset($vCardAnniversaryPropertyValue) && !empty($vCardAnniversaryPropertyValue)) {
-                    // Restructure the date string value to follow JSContact's format
-                    $jsContactAnniversaryPropertyValue = AdapterUtil::parseDateTime(
-                        $vCardAnniversaryPropertyValue,
-                        'Ymd\THis\Z',
-                        'Y-m-d'
-                    );
-
-                    // In case we couldn't parse the ANNIVERSARY value to JSContact's date format (i.e., it's null),
-                    // set the JSContact value to all zeros (default value)
-                    if (is_null($jsContactAnniversaryPropertyValue)) {
-                        $jsContactAnniversaryPropertyValue = "0000-00-00";
-                    }
-
-                    $jsContactAnniversary = new Anniversary();
-                    $jsContactAnniversary->setAtType("Anniversary");
-
-                    // For ANNIVERSARY, we're supposed to set the corresponding JSContact Anniversary object's "label"
-                    // to some meaningful value. In this case, we just use the value of "anniversary", since we don't
-                    // any further specifics about what to include in the value.
-                    // Note: "type" of the JSContact Anniversary object is not set here.
-                    $jsContactAnniversary->setLabel("anniversary");
-                    $jsContactAnniversary->setDate($jsContactAnniversaryPropertyValue);
-
-                    // Since "anniversaries" is a map and key creation for the map keys is not specified, we use
-                    // the MD5 hash of the ANNIVERSARY property value to create the key of the entry in "anniversaries"
-                    $jsContactAnniversariesProperty[md5($vCardAnniversaryPropertyValue)] = $jsContactAnniversary;
+                // In case we couldn't parse the ANNIVERSARY value to JSContact's date format (i.e., it's null),
+                // set the JSContact value to all zeros (default value)
+                if (is_null($jsContactAnniversaryPropertyValue)) {
+                    $jsContactAnniversaryPropertyValue = "0000-00-00";
                 }
+
+                $jsContactAnniversary = new Anniversary($jsContactAnniversaryPropertyValue);
+                $jsContactAnniversary->setType("wedding");
+
+                // Since "anniversaries" is a map and key creation for the map keys is not specified, we use
+                // the MD5 hash of the ANNIVERSARY property value to create the key of the entry in "anniversaries"
+                $jsContactAnniversariesProperty[md5($vCardAnniversaryPropertyValue)] = $jsContactAnniversary;
             }
         }
 
@@ -2468,27 +2648,15 @@ class JSContactVCardAdapter extends AbstractAdapter
                     $jsContactStreet = [];
 
                     if (isset($vCardPostOfficeBox) && !empty($vCardPostOfficeBox)) {
-                        $jsContactPostOfficeBoxComponent = new StreetComponent();
-                        $jsContactPostOfficeBoxComponent->setAtType("StreetComponent");
-                        $jsContactPostOfficeBoxComponent->setType("postOfficeBox");
-                        $jsContactPostOfficeBoxComponent->setValue($vCardPostOfficeBox);
-                        $jsContactStreet[] = $jsContactPostOfficeBoxComponent;
+                        $jsContactStreet[] = new StreetComponent("postOfficeBox", $vCardPostOfficeBox);
                     }
 
                     if (isset($vCardExtendedAddress) && !empty($vCardExtendedAddress)) {
-                        $jsContactExtendedAddressComponent = new StreetComponent();
-                        $jsContactExtendedAddressComponent->setAtType("StreetComponent");
-                        $jsContactExtendedAddressComponent->setType("extension");
-                        $jsContactExtendedAddressComponent->setValue($vCardExtendedAddress);
-                        $jsContactStreet[] = $jsContactExtendedAddressComponent;
+                        $jsContactStreet[] = new StreetComponent("extension", $vCardExtendedAddress);
                     }
 
                     if (isset($vCardStreetAddress) && !empty($vCardStreetAddress)) {
-                        $jsContactStreetAddressComponent = new StreetComponent();
-                        $jsContactStreetAddressComponent->setAtType("StreetComponent");
-                        $jsContactStreetAddressComponent->setType("name");
-                        $jsContactStreetAddressComponent->setValue($vCardStreetAddress);
-                        $jsContactStreet[] = $jsContactStreetAddressComponent;
+                        $jsContactStreet[] = new StreetComponent("name", $vCardStreetAddress);
                     }
 
                     $jsContactAddress->setStreet($jsContactStreet);
@@ -3395,50 +3563,41 @@ class JSContactVCardAdapter extends AbstractAdapter
         $jsContactOrganizationsProperty = null;
 
         // ORG property mapping
-        if (in_array("ORG", $this->vCardChildren)) {
-            $vCardOrgProperties = $this->vCard->ORG;
+        foreach ($this->collectVcardProps("ORG") as $vCardOrgProperty) {
+            $vCardOrgPropertyValue = $vCardOrgProperty->getValue();
 
-            foreach ($vCardOrgProperties as $vCardOrgProperty) {
-                if (isset($vCardOrgProperty)) {
-                    $vCardOrgPropertyValue = $vCardOrgProperty->getValue();
+            if (isset($vCardOrgPropertyValue) && !empty($vCardOrgPropertyValue)) {
+                $jsContactOrganization = new Organization();
 
-                    if (isset($vCardOrgPropertyValue) && !empty($vCardOrgPropertyValue)) {
-                        $jsContactOrganization = new Organization();
-                        $jsContactOrganization->setAtType("Organization");
+                if (strpos($vCardOrgPropertyValue, ';') !== false) {
+                    $orgValues = explode(';', $vCardOrgPropertyValue);
+                    $jsContactOrganization->setName(array_shift($orgValues));
 
-                        if (strpos($vCardOrgPropertyValue, ';') !== false) {
-                            $vCardOrgPropertyValue = explode(';', $vCardOrgPropertyValue);
-                            $jsContactOrganization->setName($vCardOrgPropertyValue[0]);
-                            $jsContactOrganization->setUnits(array_splice($vCardOrgPropertyValue, 0, 1));
-                        } else {
-                            $jsContactOrganization->setName($vCardOrgPropertyValue);
-                        }
-
-                        $jsContactOrganizationsProperty[md5($vCardOrgPropertyValue[0])] = $jsContactOrganization;
+                    $units = [];
+                    foreach ($orgValues as $unit) {
+                        // TODO Use OrgUnit here in a future version.
+                        //   WARNING: This will then break deserialization in jmap-java
+                        array_push($units, $unit);
                     }
-
-                    // Check if the currently unsupported vCard parameters ALTID and LANGUAGE are present
-                    // If yes, then provide an error log with some information that they're not supported
-                    if (
-                        isset($vCardOrgProperty['ALTID'])
-                        && !empty($vCardOrgProperty['ALTID'])
-                    ) {
-                        $this->logger->error(
-                            "Currently unsupported vCard Parameter ALTID encountered
-                            for vCard property ORG"
-                        );
-                    }
-
-                    if (
-                        isset($vCardOrgProperty['LANGUAGE'])
-                        && !empty($vCardOrgProperty['LANGUAGE'])
-                    ) {
-                        $this->logger->error(
-                            "Currently unsupported vCard Parameter LANGUAGE encountered
-                            for vCard property ORG"
-                        );
-                    }
+                    $jsContactOrganization->setUnits($units);
+                } else {
+                    $jsContactOrganization->setName($vCardOrgPropertyValue);
                 }
+
+                $jsContactOrganizationsProperty[md5($vCardOrgPropertyValue[0])] = $jsContactOrganization;
+            }
+
+            $this->convertAltId($vCardOrgProperty, ["organizations", md5($vCardOrgPropertyValue[0])]);
+
+            // Check if the currently unsupported vCard parameter LANGUAGE is present
+            // If yes, then provide an error log with some information that it is not supported
+            if (
+                isset($vCardOrgProperty['LANGUAGE'])
+                && !empty($vCardOrgProperty['LANGUAGE'])
+            ) {
+                $this->logger->error(
+                    "Currently unsupported vCard Parameter LANGUAGE encountered for vCard property ORG"
+                );
             }
         }
 
@@ -4137,5 +4296,33 @@ class JSContactVCardAdapter extends AbstractAdapter
         }
 
         $this->vCard->add("UID", $jsContactUid);
+    }
+
+    /**
+     * Basically does
+     * https://www.ietf.org/archive/id/draft-ietf-calext-jscontact-vcard-06.html#section-3.1-2.2
+     */
+    public function deriveFN($jsContactName)
+    {
+        if (
+            isset($this->vCard->FN) &&
+            null != $this->vCard->FN->getValue() &&
+            !empty($this->vCard->FN->getValue())
+        ) {
+            return;
+        }
+
+        $this->logger->info("FN was not set. Trying to derive FN from N.");
+
+        $nameStr = implode(" ", JSContactVCardAdapterUtil::convertFromNameToN($jsContactName));
+
+        if (!strlen($nameStr)) {
+            $this->logger->warning("N components were empty and no FN was set. This is weird, because contacts " .
+                "usually have some name. Falling back to empty string.");
+            $this->vCard->add("FN", "");
+        }
+
+        $this->vCard->add("FN", $nameStr);
+        $this->vCard->FN["DERIVED"] = true;
     }
 }

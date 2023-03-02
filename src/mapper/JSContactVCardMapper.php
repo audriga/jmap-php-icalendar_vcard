@@ -16,17 +16,31 @@ class JSContactVCardMapper extends AbstractMapper
 
         foreach ($jmapData as $creationId => $jsContactCard) {
             try {
-                $adapter->setSource($jsContactCard->online);
-                $adapter->setImpp($jsContactCard->online);
-                $adapter->setLogo($jsContactCard->online);
-                $adapter->setContactUri($jsContactCard->online);
-                $adapter->setOrgDirectory($jsContactCard->online);
-                $adapter->setSound($jsContactCard->online);
-                $adapter->setUrl($jsContactCard->online);
-                $adapter->setKey($jsContactCard->online);
-                $adapter->setFbUrl($jsContactCard->online);
-                $adapter->setCalAdrUri($jsContactCard->online);
-                $adapter->setCalUri($jsContactCard->online);
+                $adapter->reset();
+
+                $adapter->setAddressBookId($jsContactCard->addressBookId);
+
+                // online deprecated
+                // TODO only onlineServices conversion implemented for newest spec
+                if (!empty($jsContactCard->online)) {
+                    $adapter->setSource($jsContactCard->online);
+                    $adapter->setImpp($jsContactCard->online);
+                    $adapter->setLogo($jsContactCard->online);
+                    $adapter->setContactUri($jsContactCard->online);
+                    $adapter->setOrgDirectory($jsContactCard->online);
+                    $adapter->setSound($jsContactCard->online);
+                    $adapter->setUrl($jsContactCard->online);
+                    $adapter->setKey($jsContactCard->online);
+                    $adapter->setFbUrl($jsContactCard->online);
+                    $adapter->setCalAdrUri($jsContactCard->online);
+                    $adapter->setCalUri($jsContactCard->online);
+                }
+
+                // onlineServices
+                if (!empty($jsContactCard->onlineServices)) {
+                    $adapter->setImppFromServices($jsContactCard->onlineServices);
+                    $adapter->setSocialFromServices($jsContactCard->onlineServices);
+                }
 
                 $adapter->setKind($jsContactCard->kind);
 
@@ -71,7 +85,9 @@ class JSContactVCardMapper extends AbstractMapper
 
                 $adapter->setRev($jsContactCard->updated);
 
-                array_push($map, array($creationId => $adapter->getVCard()));
+                $adapter->deriveFN($jsContactCard->name);
+
+                array_push($map, array($creationId => $adapter->getAsHash()));
             } catch (InvalidArgumentException $e) {
                 $this->logger = Logger::getInstance();
                 $this->logger->error($e->getMessage());
@@ -89,13 +105,23 @@ class JSContactVCardMapper extends AbstractMapper
     {
         $list = [];
 
-        foreach ($data as $contactId => $vCard) {
-            $adapter->setVCard($vCard);
+        foreach ($data as $contactId => $cHash) {
+            $adapter->reset();
+            $adapter->setFromHash($cHash);
 
             $jsContactCard = new Card();
+
+            if (
+                array_key_exists("oxpProperties", $cHash) &&
+                array_key_exists("addressBookId", $cHash["oxpProperties"])
+            ) {
+                $jsContactCard->setAddressBookId($cHash["oxpProperties"]["addressBookId"]);
+            }
+
             $jsContactCard->setAtType("Card");
             $jsContactCard->setId($contactId);
             $jsContactCard->setOnline($adapter->getOnline());
+            $jsContactCard->setOnlineServices($adapter->getOnlineServices());
             $jsContactCard->setKind($adapter->getKind());
             $jsContactCard->setFullName($adapter->getFullName());
             $jsContactCard->setName($adapter->getName());

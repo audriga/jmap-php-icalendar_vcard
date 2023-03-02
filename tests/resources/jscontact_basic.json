@@ -119,10 +119,10 @@
       }
    },
    "organizations" : {
-      "9d5ed678fe57bcca610140957afab571" : {
-         "@type" : "Organization",
-         "name" : "Bubba Gump Shrimp Co."
-      }
+       "9d5ed678fe57bcca610140957afab571" : {
+           "@type" : "Organization",
+           "name" : "Bubba Gump Shrimp Co."
+       }
    },
    "phones" : {
       "551c1cab59b316ece08a6e32add88eb8" : {

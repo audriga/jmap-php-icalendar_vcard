@@ -1,0 +1,48 @@
+{
+    "@type" : "Card",
+    "name": {
+        "@type": "Name",
+        "components":[
+            { "@type": "NameComponent", "type": "prefix", "value": "Mr."  },
+            { "@type": "NameComponent", "type": "given", "value": "John" },
+            { "@type": "NameComponent", "type": "surname", "value": "Public" },
+            { "@type": "NameComponent", "type": "middle", "value": "Quinlan" },
+            { "@type": "NameComponent", "type": "suffix", "value": "Esq." }
+        ],
+        "sortAs": {
+            "surname": "Public",
+            "given": "John"
+        }
+    },
+    "onlineServices": {
+        "x1": {
+            "@type": "OnlineService",
+            "user": "xmpp:alice@example.com",
+            "type": "impp",
+            "pref": 1
+        },
+        "e875a66d43010b9703a7300cc577b941" : {
+            "@type" : "OnlineService",
+            "type" : "username",
+            "service": "Skype",
+            "user" : "PupkinV"
+        }
+    },
+   "organizations" : {
+       "9d5ed678fe57bcca610140957afab571" : {
+           "@type" : "Organization",
+           "name" : "Bubba Gump Shrimp Co.",
+           "units":[
+               "Cleaning department"
+           ]
+       }
+   },
+   "anniversaries":{
+       "4abcc62e-7e23-4e47-88e4-811f1dd65117":{
+           "@type":"Anniversary",
+           "date":"2023-02-28"
+       }
+   },
+    "uid" : 1,
+    "updated" : "2008-04-24T19:52:43Z"
+}
