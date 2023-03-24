@@ -181,19 +181,12 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return;
         }
 
+        
         // The following checks for the right DateTime Format and creates a new DateTime in the jmap format.
-        $jmapFormat = "Y-m-d\TH:i:s\Z";
-        $iCalFormat = "Ymd\THis\Z";
+        $jmapFormat = "Y-m-d\TH:i:s";
+        $iCalFormat = "Ymd\THis";
 
         $jmapStartDatetime = \DateTime::createFromFormat($jmapFormat, $start);
-
-        // Check what pattern was used in the jmap "start" parameter.
-        if ($jmapStartDatetime === false) {
-            $jmapFormat = "Y-m-d\TH:i:s";
-            $iCalFormat = "Ymd\THis";
-
-            $jmapStartDatetime = \DateTime::createFromFormat($jmapFormat, $start);
-        }
 
         if ($jmapStartDatetime === false) {
             $jmapFormat = "Y-m-d";
@@ -211,6 +204,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         $this->iCalEvent->VEVENT->add('DTSTART', $iCalStartDateTime);
+
+
     }
 
     public function setDTEnd($start, $duration, $timeZone)
@@ -925,6 +920,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                         break;
 
                     case 'UNTIL':
+                        //TODO: add the timezone of the current event as another property so that if it is something else than local (i.e. utc) the difference is added to the until value.
                         $jmapRecurrenceRule->setUntil(
                             JSCalendarICalendarAdapterUtil::convertFromICalUntilToJmapUntil($value)
                         );

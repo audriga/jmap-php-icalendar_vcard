@@ -354,4 +354,19 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         // Check that both of the events are saved with @type Event.
         $this->assertEquals($jsCalendarDataAfter[0]->getType(), $jsCalendarDataAfter[1]->getType());
     }
+
+    public function testTimeZoneParsing(): void
+    {
+        $this->iCalendar = Reader::read(
+            fopen(__DIR__ . '/../resources/icalendar_in_utc.ics', 'r')
+        );
+
+        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
+
+        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
+        
+        fwrite(STDERR, print_r(json_encode($this->jsCalendarEvent), TRUE));
+
+        $iCalendarAfter = $this->mapper->mapFromJmap(array("c1" => $this->jsCalendarEvent), $this->adapter)[0];
+    }
 }
