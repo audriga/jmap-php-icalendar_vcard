@@ -170,7 +170,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $dtStart = $start->getDateTime();
 
-        // Always uses local dateTime in jmap.
+        // Always uses local dateTime in jmap. UTC values are handled in getTimeZone().
         $jmapStart = $dtStart->format("Y-m-d\TH:i:s");
         return $jmapStart;
     }
@@ -181,10 +181,13 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return;
         }
 
-        
-        // The following checks for the right DateTime Format and creates a new DateTime in the jmap format.
+
+        // The following checks for the right DateTime Format and creates a new DateTime in the jmap format..
+        // JSCal start properties are should not be UTC Date Time values and instead have the timeZone property
+        // set to "Etc/UTC", in which case we can use this to set the iCal value to UTC.
         $jmapFormat = "Y-m-d\TH:i:s";
-        $iCalFormat = "Ymd\THis";
+        $iCalFormat = $timeZone == "Etc/UTC" ? "Ymd\THis\Z" : "Ymd\THis";
+
 
         $jmapStartDatetime = \DateTime::createFromFormat($jmapFormat, $start);
 
@@ -197,15 +200,13 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $iCalStart = AdapterUtil::parseDateTime($start, $jmapFormat, $iCalFormat);
 
         // Checks whether the event also has a timezone connected to it..
-        if (is_null($timeZone)) {
+        if (is_null($timeZone) || $timeZone == "Etc/UTC") {
             $iCalStartDateTime = \DateTime::createFromFormat($iCalFormat, $iCalStart);
         } else {
             $iCalStartDateTime = \DateTime::createFromFormat($iCalFormat, $iCalStart, new \DateTimeZone($timeZone));
         }
 
         $this->iCalEvent->VEVENT->add('DTSTART', $iCalStartDateTime);
-
-
     }
 
     public function setDTEnd($start, $duration, $timeZone)
@@ -296,7 +297,13 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        $timeZone = $dtStart->getDateTime()->getTimezone();
+        // JSCalendar start properties may not be UTC values ("Z" at the end of the Datetime). Instead, the timeZone
+        // property should be set to "Etc/UTC".
+        if (str_contains($dtStart->getValue(), "Z")) {
+            return "Etc/UTC";
+        } else {
+            $timeZone = $dtStart->getDateTime()->getTimezone();
+        }
 
         // Check if there is a time zone connected to the DTSTART property
         if (!AdapterUtil::isSetNotNullAndNotEmpty($timeZone)) {
@@ -920,7 +927,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                         break;
 
                     case 'UNTIL':
-                        //TODO: add the timezone of the current event as another property so that if it is something else than local (i.e. utc) the difference is added to the until value.
+                        //TODO: add the timezone of the current event as another property so that if it is something
+                        // else than local (i.e. utc) the difference is added to the until value.
                         $jmapRecurrenceRule->setUntil(
                             JSCalendarICalendarAdapterUtil::convertFromICalUntilToJmapUntil($value)
                         );
@@ -1074,8 +1082,9 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $jsCalValue = $rec->getUntil();
             if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+                $dtStart = $this->iCalEvent->VEVENT->DTSTART;
                 $iCalValue = JSCalendarICalendarAdapterUtil::
-                    convertFromJmapUntilToICalUntil($jsCalValue);
+                    convertFromJmapUntilToICalUntil($jsCalValue, $dtStart);
 
                 array_push($iCalRRule, "UNTIL=" . $iCalValue);
             }

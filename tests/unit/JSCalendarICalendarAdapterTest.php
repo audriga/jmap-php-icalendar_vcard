@@ -355,18 +355,31 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($jsCalendarDataAfter[0]->getType(), $jsCalendarDataAfter[1]->getType());
     }
 
+    /** 
+     * Test whether time zones are converted correctly.
+     */
     public function testTimeZoneParsing(): void
     {
-        $this->iCalendar = Reader::read(
+        $this->iCalendarData = Reader::read(
             fopen(__DIR__ . '/../resources/icalendar_in_utc.ics', 'r')
         );
 
-        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
+        $this->iCalendar = array("1" => $this->iCalendarData->serialize());
 
-        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
-        
-        fwrite(STDERR, print_r(json_encode($this->jsCalendarEvent), TRUE));
+        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendar, $this->adapter)[0];
 
         $iCalendarAfter = $this->mapper->mapFromJmap(array("c1" => $this->jsCalendarEvent), $this->adapter)[0];
+
+        $iCalendarDataAfter = Reader::read($iCalendarAfter["c1"]);
+
+        $this->assertEquals($this->iCalendarData->VEVENT->DTSTART->getValue(), $iCalendarDataAfter->VEVENT->DTSTART->getValue());
+        $this->assertEquals("2023-02-07T12:00:00", $this->jsCalendarEvent->getStart());
+        $this->assertEquals("Etc/UTC", $this->jsCalendarEvent->getTimeZone());
+
+        $this->assertEquals($this->iCalendarData->VEVENT->DTEND->getValue(), $iCalendarDataAfter->VEVENT->DTEND->getValue());
+        $this->assertEquals("PT1H", $this->jsCalendarEvent->getDuration());
+        
+        $this->assertEquals($this->iCalendarData->VEVENT->RRULE->getValue(), $iCalendarDataAfter->VEVENT->RRULE->getValue());
+        $this->assertEquals("2023-02-10T18:00:00", $this->jsCalendarEvent->getRecurrenceRules()[0]->getUntil());
     }
 }

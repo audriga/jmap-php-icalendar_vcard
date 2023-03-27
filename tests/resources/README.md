@@ -17,6 +17,7 @@ iCalendars:
 * `nextcloud_conversion_event_1.ics` - iCalendar created in Nextcloud
 * `recurring_event_with_changed_occurrence.ics` - iCal event with recurrence and a changed occurrence
 * `calendar_witch_two_events.ics` - iCal file with two separate events.
+* `icalendar_in_utc.ics` - iCal file containing multiple UTC Datetime values to check for mapping between local and UTC time.
 
 JSCalendars:
 

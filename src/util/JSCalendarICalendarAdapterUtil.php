@@ -421,11 +421,36 @@ class JSCalendarICalendarAdapterUtil
         return $jmapUntil;
     }
 
-    public static function convertFromJmapUntilToICalUntil($until)
+    public static function convertFromJmapUntilToICalUntil($until, $dtStart)
     {
+        //TODO: Figure out how to add the timezone difference to the value.
         if (!AdapterUtil::isSetNotNullAndNotEmpty($until)) {
             return null;
         }
+
+        /*
+        * From the iCal RFC:
+        *
+        * "The value of the UNTIL rule part MUST have the same
+        * value type as the "DTSTART" property.  Furthermore, if the
+        * "DTSTART" property is specified as a date with local time, then
+        * the UNTIL rule part MUST also be specified as a date with local
+        * time.  If the "DTSTART" property is specified as a date with UTC
+        * time or a date with local time and time zone reference, then the
+        * UNTIL rule part MUST be specified as a date with UTC time."
+        */
+        $iCalFormat = "Ymd\THis";
+
+        if (
+            AdapterUtil::isSetNotNullAndNotEmpty($dtStart)
+            && (
+                str_contains($dtStart->getValue(), "Z")
+                || AdapterUtil::isSetNotNullAndNotEmpty($dtStart->getDateTime()->getTimeZone())
+            )
+        ) {
+                $iCalFormat = "Ymd\THis\Z";
+        }
+
 
         $jmapUntilDate = \DateTime::createFromFormat("Y-m-d\TH:i:s", $until);
 
@@ -439,7 +464,7 @@ class JSCalendarICalendarAdapterUtil
             return null;
         }
 
-        $iCalUntil = date_format($jmapUntilDate, "Ymd\THis");
+        $iCalUntil = date_format($jmapUntilDate, $iCalFormat);
 
         return $iCalUntil;
     }
