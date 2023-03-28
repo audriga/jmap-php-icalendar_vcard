@@ -209,6 +209,21 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->add('DTSTART', $iCalStartDateTime);
     }
 
+    public function getShowWithoutTime()
+    {
+        $dtStart = $this->iCalEvent->VEVENT->DTSTART;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart)) {
+            return null;
+        }
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart["VALUE"])) {
+            return false;
+        }
+
+        return $dtStart["VALUE"] == "DATE" ? true : false;
+    }
+
     public function setDTEnd($start, $duration, $timeZone)
     {
         if (

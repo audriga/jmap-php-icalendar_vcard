@@ -193,6 +193,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $jmapEvent->setSequence($adapter->getSequence());
 
         $jmapEvent->setStart($adapter->getDTStart());
+        $jmapEvent->setShowWithoutTime($adapter->getShowWithoutTime());
         $jmapEvent->setDuration($adapter->getDuration());
         $jmapEvent->setTimezone($adapter->getTimezone());
 
