@@ -376,11 +376,15 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->iCalendarData->VEVENT->DTSTART->getValue(), $iCalendarDataAfter->VEVENT->DTSTART->getValue());
         $this->assertEquals("2023-02-07T12:00:00", $this->jsCalendarEvent->getStart());
         $this->assertEquals("Etc/UTC", $this->jsCalendarEvent->getTimeZone());
-
+        // Make sure the UTC time zone info is not lost.
+        $this->assertEquals("20230207T120000Z", $iCalendarDataAfter->VEVENT->DTSTART->getValue());
+        
         $this->assertEquals($this->iCalendarData->VEVENT->DTEND->getValue(), $iCalendarDataAfter->VEVENT->DTEND->getValue());
         $this->assertEquals("PT1H", $this->jsCalendarEvent->getDuration());
         
         $this->assertEquals($this->iCalendarData->VEVENT->RRULE->getValue(), $iCalendarDataAfter->VEVENT->RRULE->getValue());
         $this->assertEquals("2023-02-10T18:00:00", $this->jsCalendarEvent->getRecurrenceRules()[0]->getUntil());
+        //Make sure the UTC is also not lost here.
+        $this->assertEquals("FREQ=DAILY;UNTIL=20230210T180000Z", $iCalendarDataAfter->VEVENT->RRULE->getValue());
     }
 }

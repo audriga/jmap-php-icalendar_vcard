@@ -27,6 +27,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     protected $logger;
 
+    private $oxpProperties = [];
+
     public function __construct()
     {
         $this->iCalEvent = new VCalendar(['VEVENT' => []]);
@@ -83,6 +85,25 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         return $veventComponents;
+    }
+
+    public function getCalendarId()
+    {
+        if (!array_key_exists("calendarId", $this->oxpProperties)) {
+            $this->logger->warning("calendarId does not exist for event " . $this->getUid());
+            return;
+        }
+
+        return $this->oxpProperties["calendarId"];
+    }
+
+    public function setCalendarId($calendarId)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($calendarId)) {
+            return;
+        }
+
+        $this->oxpProperties["calendarId"] = $calendarId;
     }
 
     public function getSummary()
@@ -218,10 +239,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart["VALUE"])) {
-            return false;
+            return null;
         }
 
-        return $dtStart["VALUE"] == "DATE" ? true : false;
+        return $dtStart["VALUE"] == "DATE" ? true : null;
     }
 
     public function setDTEnd($start, $duration, $timeZone)
