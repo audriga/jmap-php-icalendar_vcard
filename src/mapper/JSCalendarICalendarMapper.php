@@ -20,22 +20,24 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // Map any properties of the event using the helper fucntion.
             $this->mapAllJmapPropertiesToICal($jsCalendarEvent, $adapter);
 
-            // Extracts the master event and makes sure it does not get overwritten.
-            $masterEvent = clone($adapter->getICalEvent());
-
-            // Reset the current iCalEvent to allow for multiple events in one calendar
-            $adapter->resetICalEvent();
-
             // If the event has no overrides, simply skip the next steps and just add the event
             // to the array that is returned.
             if (!AdapterUtil::isSetNotNullAndNotEmpty($jsCalendarEvent->getRecurrenceOverrides())) {
-                array_push($map, array($creationId => $masterEvent->serialize()));
+                array_push($map, array($creationId => $adapter->getAsHash()));
+
+                // Reset the current iCalEvent to allow for multiple events in one calendar
+                $adapter->resetICalEvent();
                 continue;
             }
+
+            // Extracts the master event and makes sure it does not get overwritten.
+            $masterEvent = clone($adapter->getICalEvent());
+            $oxpProperties = $adapter->getOXPProperties();
 
             // Use any recurrenceOverrides saved in the JSCal event to create new VEVENTs for each
             // one.
             foreach ($jsCalendarEvent->getRecurrenceOverrides() as $recurrenceId => $recurrenceOverride) {
+                $adapter->resetICalEvent();
                 $adapter->setRecurrenceId($recurrenceId);
 
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.
@@ -47,11 +49,13 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $modifiedExceptionEvent = $adapter->getVeventComponents();
 
                 $masterEvent->add("VEVENT", $modifiedExceptionEvent);
-
-                $adapter->resetICalEvent();
             }
 
-            array_push($map, array($creationId => $masterEvent->serialize()));
+            $adapter->setICalEvent($masterEvent->serialize());
+            $adapter->setOXPProperties($oxpProperties);
+            array_push($map, array($creationId => $adapter->getAsHash()));
+
+            $adapter->resetICalEvent();
         }
 
         return $map;
@@ -108,7 +112,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $modifiedExceptions = [];
 
         foreach ($data as $calendarFolderId => $iCalEvents) {
-            $iCalObject = VObject\Reader::read($iCalEvents);
+            $iCalObject = VObject\Reader::read($iCalEvents["iCalendar"]);
 
             foreach ($iCalObject->VEVENT as $vevent) {
                 // Save each vevent as its own iCal object with only it in the VEVENT property.

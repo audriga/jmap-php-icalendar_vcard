@@ -35,6 +35,27 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->logger = Logger::getInstance();
     }
 
+    public function getAsHash()
+    {
+        return array(
+            "iCalendar" => $this->iCalEvent->serialize(),
+            "oxpProperties" => $this->oxpProperties
+        );
+    }
+
+    public function setAsHash($hash)
+    {
+        $this->setICalEvent($hash["iCalendar"]);
+
+        if (!array_key_exists("oxpProperties", $hash)) {
+            return;
+        }
+
+        if (array_key_exists("calendarId", $hash["oxpProperties"])) {
+            $this->oxpProperties["calendarId"] = $hash["oxpProperties"]["calendarId"];
+        }
+    }
+
     public function getICalEvent()
     {
         return $this->iCalEvent;
@@ -43,6 +64,20 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     public function setICalEvent($iCalEvent)
     {
         $this->iCalEvent = VObject\Reader::read($iCalEvent);
+    }
+
+    public function getOXPProperties()
+    {
+        return $this->oxpProperties;
+    }
+
+    public function setOXPProperties(array $oxpProperties)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($oxpProperties)) {
+            return;
+        }
+
+        $this->oxpProperties = $oxpProperties;
     }
 
     /**
@@ -54,6 +89,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     public function resetICalEvent()
     {
         $this->iCalEvent = new VCalendar(['VEVENT' => []]);
+        $this->oxpProperties = [];
     }
 
     /**
