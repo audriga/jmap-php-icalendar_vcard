@@ -15,7 +15,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $adapter->resetICalEvent();
 
         foreach ($jmapData as $creationId => $jsCalendarEvent) {
-            $adapter->setCalendarId($jsCalendarEvent->getCalendarId);
+            $adapter->setCalendarId($jsCalendarEvent->getCalendarId());
 
             // Map any properties of the event using the helper fucntion.
             $this->mapAllJmapPropertiesToICal($jsCalendarEvent, $adapter);
