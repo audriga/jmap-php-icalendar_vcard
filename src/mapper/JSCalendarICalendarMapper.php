@@ -130,25 +130,31 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 } else {
                     array_push(
                         $masterEvents,
-                        array("folderId" => $calendarFolderId, "masterEvents" => $iCalEventObject)
+                        array("folderId" => $calendarFolderId, "masterEvents" => array(
+                            "iCalendar" => $iCalEventObject,
+                            "oxpProperties" => $iCalEvents["oxpProperties"]
+                            )
+                        )
                     );
                 }
             }
         }
 
         foreach ($masterEvents as $masterEvent) {
-            $adapter->setICalEvent($masterEvent["masterEvents"]->serialize());
+            $adapter->setICalEvent($masterEvent["masterEvents"]["iCalendar"]->serialize());
 
             $jsEvent = new CalendarEvent();
 
             // Set the @type property here in order for the event to be recognised as a master event.
             $jsEvent->setType("Event");
 
+            $jsEvent->setCalendarId($masterEvent["masterEvents"]["oxpProperties"]["calendarId"]);
+
             $this->mapAllICalPropertiesToJmap($jsEvent, $adapter);
 
             // Each modified VEVENT in a recurrence can be connected to its "master event" by
             // their UID as they are the same.
-            $masterEventUid = $masterEvent["masterEvents"]->VEVENT->UID->getValue();
+            $masterEventUid = $masterEvent["masterEvents"]["iCalendar"]->VEVENT->UID->getValue();
 
             $recurrenceOverrides = [];
 
