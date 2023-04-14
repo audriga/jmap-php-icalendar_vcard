@@ -43,17 +43,29 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->jsCalendarEvent = null;
     }
 
+    /**
+     * Map any iCalendar file to a JSCalendarEvent object by providing the relative path.
+     */
+    private function mapICalendar($path = null)
+    {
+        if (is_null($path)) {
+            $path = '/../resources/test_icalendar.ics';
+        }
+
+        $this->iCalendar = Reader::read(
+            fopen(__DIR__ . $path, 'r')
+        );
+
+        $this->iCalendarData = array("1" => array("iCalendar" => $this->iCalendar->serialize()));
+        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
+    }
+
     /* *
      * Map iCalendar -> JSCalendar
      */
     public function testMapICalendar()
     {
-        $this->iCalendar = Reader::read(
-            fopen(__DIR__ . '/../resources/test_icalendar.ics', 'r')
-        );
-
-        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
-        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
+        $this->mapICalendar();
 
         $this->assertEquals($this->jsCalendarEvent->getTitle(), "Just a Test");
         $this->assertEquals($this->jsCalendarEvent->getUid(), "20f78720-d755-4de7-92e5-e41af487e4db");
@@ -74,7 +86,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_basic.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
-
+        //fwrite(STDERR, print_r($iCalendarData, true));
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
 
@@ -92,13 +104,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
      */
     public function testMapICalendarExtended()
     {
-        $this->iCalendar = Reader::read(
-            fopen(__DIR__ . '/../resources/nextcloud_conversion_event_1.ics', 'r')
-        );
-
-        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
-        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
-
+        $this->mapICalendar('/../resources/nextcloud_conversion_event_1.ics');
         // Check for most basic properties.
         $this->assertEquals($this->jsCalendarEvent->getDescription(), "Event with a tag, a notification\nand a recurrence.");
         $this->assertEquals($this->jsCalendarEvent->getSequence(), "3");
@@ -108,6 +114,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals(array_values($this->jsCalendarEvent->getLocations())[0]->getName(), "Some Hotel, Some Country");
         $this->assertEquals($this->jsCalendarEvent->getProdId(), "-//IDN nextcloud.com//Calendar app 3.4.3//EN");
         $this->assertEquals($this->jsCalendarEvent->getPrivacy(), "private");
+        $this->assertTrue($this->jsCalendarEvent->getShowWithoutTime());
 
         // Check for reucrrenceRules.
         $this->assertEquals($this->jsCalendarEvent->getRecurrenceRules()[0]->getFrequency(), "yearly");
@@ -175,7 +182,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
-    
+        //fwrite(STDERR, print_r($iCalendarData, true));
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Makes sure that the objects are created correctly.
@@ -245,13 +252,8 @@ final class JSCalendarICalendarAdapterTest extends TestCase
      */
     public function testRecurringICalEvent()
     {
-        $this->iCalendar = Reader::read(
-            fopen(__DIR__ . '/../resources/recurring_event_with_changed_occurrence.ics', 'r')
-        );
-
-        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
-        $this->jsCalendarEvent = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter)[0];
-
+        $this->mapICalendar('/../resources/recurring_event_with_changed_occurrence.ics');
+        
         // Check whether the key has been set correctly and the overrides were mapped successfully.
         $this->assertTrue(in_array("2022-10-15T00:00:00", array_keys($this->jsCalendarEvent->getRecurrenceOverrides())));
         $this->assertEquals($this->jsCalendarEvent->getRecurrenceOverrides()["2022-10-15T00:00:00"]->getDescription(), "added description");
@@ -262,6 +264,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_with_recurrence_overrides.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+        //fwrite(STDERR, print_r($iCalendarData, true));
 
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
@@ -288,7 +291,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
             fopen(__DIR__ . '/../resources/calendar_with_two_events.ics', 'r')
         );
 
-        $this->iCalendarData = array("1" => $this->iCalendar->serialize());
+        $this->iCalendarData = array("1" => array("iCalendar" => $this->iCalendar->serialize()));
 
         $jsCalendarData = $this->mapper->mapToJmap($this->iCalendarData, $this->adapter);
 
@@ -312,10 +315,10 @@ final class JSCalendarICalendarAdapterTest extends TestCase
     public function testMultipleEventsRoundtrip()
     {
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_two_events.json'));
-
+        
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData[0], "c2" => $jsCalendarData[1]), $this->adapter);
 
-        $jsCalendarDataAfter = $this->mapper->mapToJmap(array("c1" => reset($iCalendarData[0]), "c2" => reset($iCalendarData[1])), $this->adapter);
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(array(reset($iCalendarData[0]), reset($iCalendarData[1])), $this->adapter);
 
         // Check that properties were mapped correctly to their counterpart.
         $this->assertEquals($jsCalendarData[0]->getTitle(), $jsCalendarDataAfter[0]->getTitle());
@@ -353,5 +356,30 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
         // Check that both of the events are saved with @type Event.
         $this->assertEquals($jsCalendarDataAfter[0]->getType(), $jsCalendarDataAfter[1]->getType());
+    }
+
+    /** 
+     * Test whether time zones are converted correctly.
+     */
+    public function testTimeZoneParsing(): void
+    {
+        $this->mapICalendar('/../resources/icalendar_in_utc.ics');
+        $iCalendarDataAfter = $this->mapper->mapFromJmap(array("c1" => $this->jsCalendarEvent), $this->adapter)[0];
+
+        $iCalendarAfter = Reader::read($iCalendarDataAfter["c1"]["iCalendar"]);
+
+        $this->assertEquals($this->iCalendar->VEVENT->DTSTART->getValue(), $iCalendarAfter->VEVENT->DTSTART->getValue());
+        $this->assertEquals("2023-02-07T12:00:00", $this->jsCalendarEvent->getStart());
+        $this->assertEquals("Etc/UTC", $this->jsCalendarEvent->getTimeZone());
+        // Make sure the UTC time zone info is not lost.
+        $this->assertEquals("20230207T120000Z", $iCalendarAfter->VEVENT->DTSTART->getValue());
+        
+        $this->assertEquals($this->iCalendar->VEVENT->DTEND->getValue(), $iCalendarAfter->VEVENT->DTEND->getValue());
+        $this->assertEquals("PT1H", $this->jsCalendarEvent->getDuration());
+        
+        $this->assertEquals($this->iCalendar->VEVENT->RRULE->getValue(), $iCalendarAfter->VEVENT->RRULE->getValue());
+        $this->assertEquals("2023-02-10T18:00:00", $this->jsCalendarEvent->getRecurrenceRules()[0]->getUntil());
+        //Make sure the UTC is also not lost here.
+        $this->assertEquals("FREQ=DAILY;UNTIL=20230210T180000Z", $iCalendarAfter->VEVENT->RRULE->getValue());
     }
 }

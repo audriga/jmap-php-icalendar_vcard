@@ -389,14 +389,29 @@ class JSCalendarICalendarAdapterUtil
             return null;
         }
 
+        // The iCal until DateTime format is linked to the "DTSTART" property of the
+        // event it is a part of.
+        //
+        // In JSCalendar however, the until DateTime is always an object of type
+        // LocalDateTime in the "Y-m-d/TH:i:s" format.
         $iCalUntilDate = \DateTime::createFromFormat("Ymd\THis\Z", $until);
 
         if ($iCalUntilDate === false) {
+            $iCalUntilDate = \DateTime::createFromFormat("Ymd\THis", $until);
+        }
+
+        if ($iCalUntilDate === false) {
+            $iCalUntilDate = \DateTime::createFromFormat("Ymd", $until);
+
+            $iCalUntilDate = date_time_set($iCalUntilDate, 0, 0);
+        }
+
+        if ($iCalUntilDate === false) {
             if (self::$logger == null) {
-                self::$logger == Logger::getInstance();
+                self::$logger = Logger::getInstance();
             }
 
-            self::$logger->error("Unable to create date from iCal until: ", $until);
+            self::$logger->error("Unable to create date from iCal until: $until");
 
             return null;
         }
@@ -406,25 +421,50 @@ class JSCalendarICalendarAdapterUtil
         return $jmapUntil;
     }
 
-    public static function convertFromJmapUntilToICalUntil($until)
+    public static function convertFromJmapUntilToICalUntil($until, $dtStart)
     {
+        //TODO: Figure out how to add the timezone difference to the value.
         if (!AdapterUtil::isSetNotNullAndNotEmpty($until)) {
             return null;
         }
+
+        /*
+        * From the iCal RFC:
+        *
+        * "The value of the UNTIL rule part MUST have the same
+        * value type as the "DTSTART" property.  Furthermore, if the
+        * "DTSTART" property is specified as a date with local time, then
+        * the UNTIL rule part MUST also be specified as a date with local
+        * time.  If the "DTSTART" property is specified as a date with UTC
+        * time or a date with local time and time zone reference, then the
+        * UNTIL rule part MUST be specified as a date with UTC time."
+        */
+        $iCalFormat = "Ymd\THis";
+
+        if (
+            AdapterUtil::isSetNotNullAndNotEmpty($dtStart)
+            && (
+                str_contains($dtStart->getValue(), "Z")
+                || AdapterUtil::isSetNotNullAndNotEmpty($dtStart->getDateTime()->getTimeZone())
+            )
+        ) {
+                $iCalFormat = "Ymd\THis\Z";
+        }
+
 
         $jmapUntilDate = \DateTime::createFromFormat("Y-m-d\TH:i:s", $until);
 
         if ($jmapUntilDate === false) {
             if (self::$logger == null) {
-                self::$logger == Logger::getInstance();
+                self::$logger = Logger::getInstance();
             }
 
-            self::$logger->error("Unable to create date from JMAP until: ", $until);
+            self::$logger->error("Unable to create date from JMAP until: $until");
 
             return null;
         }
 
-        $iCalUntil = date_format($jmapUntilDate, "Ymd\THis\Z");
+        $iCalUntil = date_format($jmapUntilDate, $iCalFormat);
 
         return $iCalUntil;
     }
