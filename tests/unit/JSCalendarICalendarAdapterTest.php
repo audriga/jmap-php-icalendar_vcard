@@ -382,4 +382,19 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         //Make sure the UTC is also not lost here.
         $this->assertEquals("FREQ=DAILY;UNTIL=20230210T180000Z", $iCalendarAfter->VEVENT->RRULE->getValue());
     }
+
+    /**
+     * Test protocol-specific code
+     */
+    public function testProtocolProperties(): void
+    {
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+        //fwrite(STDERR, print_r($iCalendarData, true));
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
+
+        // Makes sure that the objects are created correctly.
+        $this->assertEquals("c1", $jsCalendarDataAfter->getId());
+    }
 }

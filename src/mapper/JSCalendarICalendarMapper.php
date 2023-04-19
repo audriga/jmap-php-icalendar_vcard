@@ -61,7 +61,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         return $map;
     }
 
-    private function mapAllJmapPropertiesToICal($jsEvent, $adapter, $masterEvent = null)
+    protected function mapAllJmapPropertiesToICal($jsEvent, $adapter, $masterEvent = null)
     {
         if (is_null($jsEvent) || is_null($adapter)) {
             // TODO: consider logging an error.
@@ -111,7 +111,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $masterEvents = [];
         $modifiedExceptions = [];
 
-        foreach ($data as $calendarFolderId => $iCalEvents) {
+        foreach ($data as $eventId => $iCalEvents) {
             $iCalObject = VObject\Reader::read($iCalEvents["iCalendar"]);
 
             foreach ($iCalObject->VEVENT as $vevent) {
@@ -125,12 +125,12 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 if (AdapterUtil::isSetNotNullAndNotEmpty($vevent->{'RECURRENCE-ID'})) {
                     array_push(
                         $modifiedExceptions,
-                        array("folderId" => $calendarFolderId, "modifiedExceptions" => $iCalEventObject)
+                        array("eventId" => $eventId, "modifiedExceptions" => $iCalEventObject)
                     );
                 } else {
                     array_push(
                         $masterEvents,
-                        array("folderId" => $calendarFolderId, "masterEvents" => array(
+                        array("eventId" => $eventId, "masterEvents" => array(
                             "iCalendar" => $iCalEventObject,
                             "oxpProperties" => $iCalEvents["oxpProperties"]
                             )
@@ -148,9 +148,10 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // Set the @type property here in order for the event to be recognised as a master event.
             $jsEvent->setType("Event");
 
-            $jsEvent->setCalendarId($masterEvent["masterEvents"]["oxpProperties"]["calendarId"]);
-
             $this->mapAllICalPropertiesToJmap($jsEvent, $adapter);
+
+            $jsEvent->setCalendarId($masterEvent["masterEvents"]["oxpProperties"]["calendarId"]);
+            $jsEvent->setId($masterEvent["eventId"]);
 
             // Each modified VEVENT in a recurrence can be connected to its "master event" by
             // their UID as they are the same.
