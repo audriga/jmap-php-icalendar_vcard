@@ -651,8 +651,14 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return;
         }
 
+        if (sizeof($locations) > 1) {
+            throw new \Exception(
+                "Event contains more than one location. This is not supported and the mapping will be aborted."
+            );
+        }
+
         // Only use the first location and add iCal escaping to it.
-        $locationICalEscaped = addcslashes(stripslashes($locations[1]->getName()), "[,;]");
+        $locationICalEscaped = addcslashes(stripslashes(reset($locations)->getName()), "[,;]");
 
         $this->iCalEvent->VEVENT->add("LOCATION", $locationICalEscaped);
     }
