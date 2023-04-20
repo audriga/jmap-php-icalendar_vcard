@@ -4,6 +4,7 @@
     "uid": "c9876d46-b3e1-4536-9b6b-1fe1001e4b01",
     "updated": "2022-09-16T14:46:46Z",
     "title": "Some more complex event",
+    "priority": 1,
     "keywords": {
         "Holiday": true,
         "Vacation": true

@@ -188,11 +188,11 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         // Makes sure that the objects are created correctly.
         $this->assertEquals($jsCalendarData->getTitle(), $jsCalendarDataAfter->getTitle());
 
-
         $this->assertEquals($jsCalendarData->getDescription(), $jsCalendarDataAfter->getDescription());
         $this->assertEquals($jsCalendarData->getSequence(), $jsCalendarDataAfter->getSequence());
         $this->assertEquals($jsCalendarData->getStatus(), $jsCalendarDataAfter->getStatus());
         $this->assertEquals($jsCalendarData->getFreeBusyStatus(), $jsCalendarDataAfter->getFreeBusyStatus());
+        $this->assertEquals($jsCalendarData->getPriority(), $jsCalendarDataAfter->getPriority());
         $this->assertEquals($jsCalendarData->getPrivacy(), $jsCalendarDataAfter->getPrivacy());
         $this->assertEquals(json_encode($jsCalendarData->getKeywords()), json_encode($jsCalendarDataAfter->getKeywords()));
         $this->assertEquals($jsCalendarData->getLocations()["1"]->getName(),

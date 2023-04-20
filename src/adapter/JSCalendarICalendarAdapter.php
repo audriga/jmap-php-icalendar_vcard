@@ -240,7 +240,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
 
         // The following checks for the right DateTime Format and creates a new DateTime in the jmap format..
-        // JSCal start properties are should not be UTC Date Time values and instead have the timeZone property
+        // JSCal start properties should not be UTC Date Time values and instead have the timeZone property
         // set to "Etc/UTC", in which case we can use this to set the iCal value to UTC.
         $jmapFormat = "Y-m-d\TH:i:s";
         $iCalFormat = $timeZone == "Etc/UTC" ? "Ymd\THis\Z" : "Ymd\THis";
@@ -1519,5 +1519,25 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         //TODO: implement "memberOf" and "links".
 
         return $parameters;
+    }
+
+    public function getPriority()
+    {
+        $priority = $this->iCalEvent->VEVENT->PRIORITY;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($priority)) {
+            return null;
+        }
+
+        return $priority->getValue();
+    }
+
+    public function setPriority($priority)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($priority)) {
+            return;
+        }
+
+        $this->iCalEvent->VEVENT->add("PRIORITY", $priority);
     }
 }
