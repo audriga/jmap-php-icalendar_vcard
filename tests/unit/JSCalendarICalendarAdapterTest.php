@@ -264,8 +264,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_with_recurrence_overrides.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
-        //fwrite(STDERR, print_r($iCalendarData, true));
-
+        
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Check that the recurrence ids were mapped correctly.
@@ -283,6 +282,9 @@ final class JSCalendarICalendarAdapterTest extends TestCase
             $jsCalendarDataAfter->getRecurrenceOverrides()["2020-06-26T09:00:00"]->getTitle()
         );
 
+        // Check if the overrides have the same UID as the master event even though it is not set in the json file.
+        $iCalendar = Reader::read($iCalendarData[0]["c1"]["iCalendar"]);
+        $this->assertEquals($iCalendar->VEVENT[0]->UID->getValue(), $iCalendar->VEVENT[1]->UID->getValue());
     }
 
     public function testMultipleICalEvents()
