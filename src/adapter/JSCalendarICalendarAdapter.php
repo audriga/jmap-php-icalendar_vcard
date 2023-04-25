@@ -1460,7 +1460,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $jsCalValue = $participant->getKind();
         if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
-            $parameters["CN"] = JSCalendarICalendarAdapterUtil
+            $parameters["CUTYPE"] = JSCalendarICalendarAdapterUtil
                 ::convertFromJmapKindToICalCUType($jsCalValue);
         }
 
