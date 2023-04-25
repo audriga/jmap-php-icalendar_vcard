@@ -34,6 +34,12 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $masterEvent = clone($adapter->getICalEvent());
             $oxpProperties = $adapter->getOXPProperties();
 
+            // If the master event does not contain a uid, we need to make sure that the recurrence overrides we
+            // generate get the same UID as the corresponding master event.
+            if (is_null($jsCalendarEvent->getUid())) {
+                $jsCalendarEvent->setUid($masterEvent->VEVENT->UID->getValue());
+            }
+
             // Use any recurrenceOverrides saved in the JSCal event to create new VEVENTs for each
             // one.
             foreach ($jsCalendarEvent->getRecurrenceOverrides() as $recurrenceId => $recurrenceOverride) {
@@ -42,6 +48,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.
                 $this->mapAllJmapPropertiesToICal($recurrenceOverride, $adapter, $jsCalendarEvent);
+
 
                 // The following will extract the VEVENT components of the modified exception currently
                 // set in the adapter as an associative array (property => value). The array will then
@@ -82,6 +89,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $adapter->setFreeBusy($jsEvent->getFreeBusyStatus());
         $adapter->setStatus($jsEvent->getStatus());
         $adapter->setColor($jsEvent->getColor());
+        $adapter->setPriority($jsEvent->getPriority());
 
         $adapter->setAlerts($jsEvent->getAlerts());
 
@@ -216,6 +224,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $jmapEvent->setFreeBusyStatus($adapter->getFreeBusy());
         $jmapEvent->setStatus($adapter->getStatus());
         $jmapEvent->setColor($adapter->getColor());
+        $jmapEvent->setPriority($adapter->getPriority());
 
         $jmapEvent->setAlerts($adapter->getAlerts());
         $jmapEvent->setParticipants($adapter->getParticipants());
