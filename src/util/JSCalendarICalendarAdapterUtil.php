@@ -128,6 +128,7 @@ class JSCalendarICalendarAdapterUtil
             }
 
             $jmapNDay = new NDay();
+            $jmapNDay->setType("NDay");
             $jmapNDay->setDay($byDayWeekDayString);
             if (!!AdapterUtil::isSetNotNullAndNotEmpty($byDayWeekNumberString) && isset($byDayWeekNumberString)) {
                 $jmapNDay->setNthOfPeriod((int)$byDayWeekNumberString);
@@ -136,7 +137,7 @@ class JSCalendarICalendarAdapterUtil
             array_push($jmapByDay, $jmapNDay);
         }
 
-        return $jmapNDay;
+        return $jmapByDay;
     }
 
     public static function convertFromJmapByDayToICalByDay($byDay)
