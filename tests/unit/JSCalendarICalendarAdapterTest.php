@@ -201,9 +201,9 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($jsCalendarData->getRecurrenceRules()[0]->getFrequency(), $jsCalendarDataAfter->getRecurrenceRules()[0]->getFrequency());
         $this->assertEquals($jsCalendarData->getRecurrenceRules()[0]->getByMonth(), $jsCalendarDataAfter->getRecurrenceRules()[0]->getByMonth());
         $this->assertEquals($jsCalendarData->getRecurrenceRules()[0]->getByDay()[0]->getDay(),
-            $jsCalendarDataAfter->getRecurrenceRules()[0]->getByDay()->getDay());
+            $jsCalendarDataAfter->getRecurrenceRules()[0]->getByDay()[0]->getDay());
         $this->assertEquals($jsCalendarData->getRecurrenceRules()[0]->getByDay()[0]->getNthOfPeriod(),
-            $jsCalendarDataAfter->getRecurrenceRules()[0]->getByDay()->getNthOfPeriod());
+            $jsCalendarDataAfter->getRecurrenceRules()[0]->getByDay()[0]->getNthOfPeriod());
 
         // Check for correct mapping of alerts.
         $this->assertEquals(sizeof($jsCalendarDataAfter->getAlerts()), 2);
@@ -285,6 +285,18 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         // Check if the overrides have the same UID as the master event even though it is not set in the json file.
         $iCalendar = Reader::read($iCalendarData[0]["c1"]["iCalendar"]);
         $this->assertEquals($iCalendar->VEVENT[0]->UID->getValue(), $iCalendar->VEVENT[1]->UID->getValue());
+    }
+
+    public function testRecurrenceRuleRoundtrip()
+    {
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_with_recurrence_rule.json'));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
+
+        $this->assertIsArray($jsCalendarData->getRecurrenceRules()[1]->getByDay());
+        $this->assertIsArray($jsCalendarDataAfter->getRecurrenceRules()[1]->getByDay());
     }
 
     public function testMultipleICalEvents()

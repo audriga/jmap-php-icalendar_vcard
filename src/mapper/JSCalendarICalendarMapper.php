@@ -2,6 +2,7 @@
 
 namespace OpenXPort\Mapper;
 
+use Exception;
 use Sabre\VObject;
 use OpenXPort\Jmap\Calendar\CalendarEvent;
 use OpenXPort\Util\AdapterUtil;
@@ -97,6 +98,16 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
+            // This mapper uses the updated recurrenceRules property, see:
+            // https://www.rfc-editor.org/rfc/rfc8984.html#name-recurrencerules
+            // If the given JSCalendar event only contains the recurrenceRule property,
+            // it will not be mapped.
+            if (!is_null($jsEvent->getRecurrenceRule()) && is_null($jsEvent->getRecurrenceRules())) {
+                throw new Exception(
+                    "JSCalendar contains outdated 'RecurrenceRule' property which is not supported in this mapper."
+                );
+            }
+
             $adapter->setUid($jsEvent->getUid());
             $adapter->setProdId($jsEvent->getProdId());
 
