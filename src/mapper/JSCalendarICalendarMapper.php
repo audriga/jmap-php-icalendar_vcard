@@ -199,6 +199,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // their UID as they are the same.
             $masterEventUid = $masterEvent["masterEvents"]["iCalendar"]->VEVENT->UID->getValue();
 
+            // Set to empty array if no EXDATE property exists in mapAllICalPropertiesToJmap
             $recurrenceOverrides = $jsEvent->getRecurrenceOverrides();
 
             foreach ($modifiedExceptions as $modEx) {
