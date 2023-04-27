@@ -670,15 +670,4 @@ class JSCalendarICalendarAdapterUtil
 
         return implode(",", $scheduleStatus);
     }
-
-    public static function convertFromJmapRecurrenceIdToICalExDate($recurrenceId)
-    {
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId)) {
-            return null;
-        }
-
-        $iCalDateTime =  AdapterUtil::parseDateTime($recurrenceId, "Y-m-d\TH:i:s", "Ymd\THis");
-
-        return $iCalDateTime;
-    }
 }
