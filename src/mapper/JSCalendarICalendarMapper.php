@@ -6,6 +6,7 @@ use Exception;
 use Sabre\VObject;
 use OpenXPort\Jmap\Calendar\CalendarEvent;
 use OpenXPort\Util\AdapterUtil;
+use OpenXPort\Util\JSCalendarICalendarAdapterUtil;
 
 class JSCalendarICalendarMapper extends AbstractMapper
 {
@@ -44,12 +45,17 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // Use any recurrenceOverrides saved in the JSCal event to create new VEVENTs for each
             // one.
             foreach ($jsCalendarEvent->getRecurrenceOverrides() as $recurrenceId => $recurrenceOverride) {
+                if ($recurrenceOverride->getExcluded()) {
+                    $masterEvent = $this->mapExcludedToExDate($adapter, $masterEvent, $recurrenceId);
+                    continue;
+                }
+
                 $adapter->resetICalEvent();
                 $adapter->setRecurrenceId($recurrenceId);
 
+
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.
                 $this->mapAllJmapPropertiesToICal($recurrenceOverride, $adapter, $jsCalendarEvent);
-
 
                 // The following will extract the VEVENT components of the modified exception currently
                 // set in the adapter as an associative array (property => value). The array will then
@@ -101,6 +107,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $adapter->setParticipants($jsEvent->getParticipants());
 
+
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
             // This mapper uses the updated recurrenceRules property, see:
@@ -126,6 +133,17 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $adapter->setSequence($masterEvent->getSequence());
             $adapter->setClass($masterEvent->getPrivacy());
         }
+    }
+
+    protected function mapExcludedToExDate($adapter, $masterEvent, $recurrenceId)
+    {
+        $adapter->setICalEvent($masterEvent->serialize());
+
+        $adapter->setExDate($recurrenceId);
+
+        $masterEvent = clone($adapter->getICalEvent());
+
+        return $masterEvent;
     }
 
     public function mapToJmap($data, $adapter)
@@ -181,7 +199,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // their UID as they are the same.
             $masterEventUid = $masterEvent["masterEvents"]["iCalendar"]->VEVENT->UID->getValue();
 
-            $recurrenceOverrides = [];
+            $recurrenceOverrides = $jsEvent->getRecurrenceOverrides();
 
             foreach ($modifiedExceptions as $modEx) {
                 $modifiedExceptionUid = $modEx["modifiedExceptions"]->VEVENT->UID->getValue();
@@ -253,6 +271,17 @@ class JSCalendarICalendarMapper extends AbstractMapper
             $jmapEvent->setPrivacy($adapter->getClass());
 
             $jmapEvent->setRecurrenceRules($adapter->getRRule());
+
+            $excludedOverrides = [];
+
+            foreach ($adapter->getExDates() as $exDate) {
+                $excludedOverride = new CalendarEvent();
+                $excludedOverride->setExcluded(true);
+
+                $excludedOverrides[$exDate] = $excludedOverride;
+            }
+
+            $jmapEvent->setRecurrenceOverrides($excludedOverrides);
         }
     }
 }
