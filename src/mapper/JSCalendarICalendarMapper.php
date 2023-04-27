@@ -81,8 +81,13 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $adapter->setCreated($jsEvent->getCreated());
         $adapter->setUpdated($jsEvent->getUpdated());
 
-        $adapter->setDTStart($jsEvent->getStart(), $jsEvent->getTimeZone());
-        $adapter->setDTEnd($jsEvent->getStart(), $jsEvent->getDuration(), $jsEvent->getTimeZone());
+        $adapter->setDTStart($jsEvent->getStart(), $jsEvent->getTimeZone(), $jsEvent->getShowWithoutTime());
+        $adapter->setDTEnd(
+            $jsEvent->getStart(),
+            $jsEvent->getDuration(),
+            $jsEvent->getTimeZone(),
+            $jsEvent->getShowWithoutTime()
+        );
 
         $adapter->setCategories($jsEvent->getKeywords());
         $adapter->setLocation($jsEvent->getLocations());

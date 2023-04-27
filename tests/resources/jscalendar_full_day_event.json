@@ -1,0 +1,14 @@
+{
+    "@type": "Event",
+    "uid": "123-456-789-full-day",
+    "updated": "2023-04-27T10:00:00Z",
+    "title": "April Fool's Day",
+    "timeZone": "Europe/Berlin",
+    "showWithoutTime": true,
+    "start": "1900-04-01T00:00:00",
+    "duration": "P1D",
+    "recurrenceRules": [{
+      "@type": "RecurrenceRule",
+      "frequency": "yearly"
+    }]
+  }

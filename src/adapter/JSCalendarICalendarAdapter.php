@@ -232,7 +232,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         return $jmapStart;
     }
 
-    public function setDTStart($start, $timeZone)
+    public function setDTStart($start, $timeZone, $showWithoutTime = null)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($start)) {
             return;
@@ -264,6 +264,23 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         $this->iCalEvent->VEVENT->add('DTSTART', $iCalStartDateTime);
+
+        // If the underlying JSCalendar event is a full day event, it contains the "showWithoutTime" property,
+        // which can either be null, false, or true. The iCalendar counterpart for this is an event for which the
+        // DTSTART and DTEND properties are DATE values instead of DATETIME values. An example of this would be
+        //
+        // [...]
+        // DTSTART;VALUE=DATE:20211202
+        // DTEND;VALUE=DATE:20211203
+        // [...]
+        //
+        // References:
+        // https://www.rfc-editor.org/rfc/rfc5545.html#section-3.8.2.4
+        // https://www.rfc-editor.org/rfc/rfc8984.html#name-showwithouttime
+        // https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html
+        if ($showWithoutTime) {
+            $this->iCalEvent->VEVENT->DTSTART["VALUE"] = "DATE";
+        }
     }
 
     public function getShowWithoutTime()
@@ -278,10 +295,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        return $dtStart["VALUE"] == "DATE" ? true : null;
+        return $dtStart["VALUE"]->getValue() == "DATE" ? true : null;
     }
 
-    public function setDTEnd($start, $duration, $timeZone)
+    public function setDTEnd($start, $duration, $timeZone, $showWithoutTime = null)
     {
         if (
             !AdapterUtil::isSetNotNullAndNotEmpty($start)
@@ -307,6 +324,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         $this->iCalEvent->VEVENT->add('DTEND', $iCalDateTimeEnd);
+
+        // See setDTStart for an explanation.
+        if ($showWithoutTime) {
+            $this->iCalEvent->VEVENT->DTEND["VALUE"] = "DATE";
+        }
     }
 
 
@@ -1460,7 +1482,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $jsCalValue = $participant->getKind();
         if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
-            $parameters["CN"] = JSCalendarICalendarAdapterUtil
+            $parameters["CUTYPE"] = JSCalendarICalendarAdapterUtil
                 ::convertFromJmapKindToICalCUType($jsCalValue);
         }
 
