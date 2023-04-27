@@ -397,6 +397,21 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals("FREQ=DAILY;UNTIL=20230210T180000Z", $iCalendarAfter->VEVENT->RRULE->getValue());
     }
 
+    public function testFullDayRoundtrip(): void
+    {
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_full_day_event.json'));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
+
+        // Make sure that the full day event information is carried all the way through.
+        $this->assertTrue($jsCalendarData->getShowWithoutTime());
+        $this->assertEquals($jsCalendarData->getShowWithoutTime(), $jsCalendarDataAfter->getShowWithoutTime());
+        $this->assertStringContainsString("DTSTART;VALUE=DATE:19000401", $iCalendarData[0]["c1"]["iCalendar"]);
+        $this->assertStringContainsString("DTEND;VALUE=DATE:19000402", $iCalendarData[0]["c1"]["iCalendar"]);
+    }
+
     /**
      * Test protocol-specific code
      */
