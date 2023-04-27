@@ -16,8 +16,6 @@ use OpenXPort\Mapper\JSCalendarICalendarMapper;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\JSCalendarICalendarAdapterUtil;
 
-use function PHPUnit\Framework\stringContains;
-
 /**
  * Generic adapter to convert between ICalendar <-> JSCalendar.
  */
