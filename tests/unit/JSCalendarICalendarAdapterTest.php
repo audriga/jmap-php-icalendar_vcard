@@ -86,7 +86,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_basic.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
-        //fwrite(STDERR, print_r($iCalendarData, true));
+
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
 
@@ -182,7 +182,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
-        //fwrite(STDERR, print_r($iCalendarData, true));
+
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Makes sure that the objects are created correctly.
@@ -268,18 +268,24 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Check that the recurrence ids were mapped correctly.
-        $this->assertEquals(array_keys($jsCalendarData->getRecurrenceOverrides()),
+        $this->assertSameSize(array_keys($jsCalendarData->getRecurrenceOverrides()),
             array_keys($jsCalendarDataAfter->getRecurrenceOverrides())
         );
 
+        // Check that the excluded ocurrences are still contained.
+        $this->assertTrue($jsCalendarDataAfter->getRecurrenceOverrides()["2020-04-02T13:00:00"]->getExcluded());
+        $this->assertStringContainsString(
+            "EXDATE;TZID=America/New_York:20200402T130000,20200209T130000",
+            $iCalendarData[0]["c1"]["iCalendar"]
+        );
         // Check that the title was changed and does not equal the one set for the master event.
         $this->assertNotEquals($jsCalendarData->getTitle(),
-            $jsCalendarDataAfter->getRecurrenceOverrides()["2020-01-08T14:00:00"]->getTitle()
+            $jsCalendarDataAfter->getRecurrenceOverrides()["2020-01-08T13:00:00"]->getTitle()
         );
 
         // Check that the title of a single override matches
-        $this->assertEquals($jsCalendarData->getRecurrenceOverrides()["2020-06-26T09:00:00"]->getTitle(),
-            $jsCalendarDataAfter->getRecurrenceOverrides()["2020-06-26T09:00:00"]->getTitle()
+        $this->assertEquals($jsCalendarData->getRecurrenceOverrides()["2020-06-26T13:00:00"]->getTitle(),
+            $jsCalendarDataAfter->getRecurrenceOverrides()["2020-06-26T13:00:00"]->getTitle()
         );
 
         // Check if the overrides have the same UID as the master event even though it is not set in the json file.

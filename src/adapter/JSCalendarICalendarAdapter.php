@@ -1207,6 +1207,80 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->add("RECURRENCE-ID", $recurrenceIdDateTime);
     }
 
+    public function getExDates()
+    {
+        $exDates = $this->iCalEvent->VEVENT->EXDATE;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($exDates)) {
+            return null;
+        }
+
+        $excludedRecurrenceIds = [];
+
+        $exDateValues = explode(",", $exDates->getValue());
+
+        foreach ($exDateValues as $exDate) {
+            if (!AdapterUtil::isSetNotNullAndNotEmpty($exDate)) {
+                continue;
+            }
+
+            $recurrenceOverrideDateTime = new \DateTime($exDate);
+            $excludedRecurrenceIds[] = date_format($recurrenceOverrideDateTime, "Y-m-d\TH:i:s");
+        }
+
+        return $excludedRecurrenceIds;
+    }
+    public function setExDate($recurrenceId)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId)) {
+            return;
+        }
+
+        $dtStart = $this->iCalEvent->VEVENT->DTSTART;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart)) {
+            return;
+        }
+
+        $exDateFormat = null;
+        $timeZone = null;
+
+        $dtStartString = $dtStart->getValue();
+
+        if (strpos($dtStartString, "VALUE=DATE") !== false) {
+            $exDateFormat = "Ymd";
+        } elseif (strpos($dtStartString, "Z") !== false) {
+            $exDateFormat = "Ymd\THis\Z";
+        } else {
+            $exDateFormat = "Ymd\THis";
+            $timeZone = new \DateTimeZone($this->getTimeZone());
+        }
+
+        $exDateString = AdapterUtil::parseDateTime($recurrenceId, "Y-m-d\TH:i:s", $exDateFormat);
+
+        $exDate = new \DateTimeImmutable($exDateString, $timeZone);
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($this->iCalEvent->VEVENT->EXDATE)) {
+            $this->iCalEvent->VEVENT->add("EXDATE", $exDate);
+
+            if ($exDateFormat === "Ymd") {
+                $this->iCalEvent->VEVENT->EXDATE["VALUE"] = "DATE";
+            }
+
+            return;
+        }
+
+        $setExDates = [];
+
+        foreach ($this->iCalEvent->VEVENT->EXDATE as $setExDate) {
+            $setExDates[] = $setExDate->getDateTime();
+        }
+
+        array_push($setExDates, $exDate);
+
+        $this->iCalEvent->VEVENT->EXDATE = $setExDates;
+    }
+
     public function getParticipants()
     {
         $organizer = $this->iCalEvent->VEVENT->ORGANIZER;

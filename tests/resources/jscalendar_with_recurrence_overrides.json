@@ -11,13 +11,16 @@
         "until": "2020-06-24T09:00:00"
     }],
     "recurrenceOverrides": {
-        "2020-01-08T14:00:00": {
+        "2020-01-08T13:00:00": {
           "title": "Introduction to Calculus I (optional)"
         },
-        "2020-04-02T09:00:00": {
+        "2020-04-02T13:00:00": {
           "excluded": true
         },
-        "2020-06-26T09:00:00": {
+        "2020-02-09T13:00:00": {
+          "excluded": true
+        },
+        "2020-06-26T13:00:00": {
           "title": "Calculus I Exam",
           "start": "2020-06-25T10:00:00",
           "duration": "PT2H"
