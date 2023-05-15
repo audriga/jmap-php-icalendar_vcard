@@ -35,6 +35,7 @@ JSCalendars:
 * `jscalendar_with_relations.json` - JSCalendar with two related events.
 * `jscalendar_with_custom_properties.json` - JSCalendar containing custom properties for every OXP core object.
 * `jscalendar_full_day_event.json` - JSCalendar with a full day event (`"showWithoutTime": true`)
+* `jscalendar_google_modex.json` - JSCalendar converted from a Google event with a modified exception
 * `jscalendar_with_localdt_recurrenceid.json` - JSCalendar with recurrenceoverride and local date time.
 
 JSContacts:

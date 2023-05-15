@@ -1,0 +1,61 @@
+{
+   "@type" : "jsevent",
+   "alerts" : {
+      "251031177" : {
+         "@type" : "Alert",
+         "action" : "display",
+         "trigger" : {
+            "@type" : "OffsetTrigger",
+            "offset" : "PT15M",
+            "relativeTo" : "start"
+         }
+      }
+   },
+   "duration" : "PT30M",
+   "recurrenceOverrides" : {
+      "2022-02-10T11:00:00" : {
+         "excluded" : true,
+         "vendorSpecificProperties" : {}
+      },
+      "2022-02-11T11:00:00" : {
+         "alerts" : {
+            "1473348383" : {
+               "action" : "DISPLAY",
+               "trigger" : {
+                  "@type": "OffsetTrigger",
+                  "offset" : "PT15M",
+                  "relativeTo" : "START"
+               }
+            }
+         },
+         "duration" : "PT30M",
+         "replyTo" : {
+            "IMIP" : "mailto:admin@exchange-vergleich.de"
+         },
+         "showWithoutTime" : false,
+         "start" : "2022-02-11T16:00:00",
+         "status" : "CONFIRMED",
+         "timeZone" : "Europe/Paris",
+         "title" : "testJ-mod1",
+         "uid" : "040000008200E00074C5B7101A82E00800000000DB92AC421C24D8010000000000000000100000006546B40D2E067B45A74296E5A4227FB7",
+         "vendorSpecificProperties" : {}
+      }
+   },
+   "recurrenceRules" : [
+      {
+         "@type" : "RecurrenceRule",
+         "frequency" : "daily",
+         "interval" : 1,
+         "until" : "2022-05-09T02:00:00"
+      }
+   ],
+   "replyTo" : {
+      "IMIP" : "mailto:admin@exchange-vergleich.de"
+   },
+   "showWithoutTime" : false,
+   "start" : "2022-02-09T11:00:00",
+   "status" : "confirmed",
+   "timeZone" : "Europe/Paris",
+   "title" : "testJ",
+   "uid" : "040000008200E00074C5B7101A82E00800000000DB92AC421C24D8010000000000000000100000006546B40D2E067B45A74296E5A4227FB7"
+}

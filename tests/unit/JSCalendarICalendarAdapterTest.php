@@ -454,4 +454,38 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         );
     }
 
+    /**
+     * An event coming from Google Calendar that caused trouble
+     */
+    public function testGoogleEventRoundtrip(): void
+    {
+
+        $FILE_PATH = __DIR__ . '/../resources/jscalendar_google_modex.json';
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents($FILE_PATH));
+
+        $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter);
+
+        // Check that properties were mapped correctly to their counterpart.
+        $this->assertEquals($jsCalendarData->getTitle(), $jsCalendarDataAfter[0]->getTitle());
+
+        $this->assertEquals($jsCalendarData->getStart(), $jsCalendarDataAfter[0]->getStart());
+
+        $this->assertEquals($jsCalendarData->getTimeZone(), $jsCalendarDataAfter[0]->getTimezone());
+
+        $this->assertEquals($jsCalendarData->getUid(), $jsCalendarDataAfter[0]->getUid());
+
+        $this->assertEquals($jsCalendarData->getDuration(), $jsCalendarDataAfter[0]->getDuration());
+
+        // Test whether properties are overwirtten by previous events.
+        $this->assertEquals($jsCalendarData->getDescription(), $jsCalendarDataAfter[0]->getDescription());
+        $this->assertEquals(
+            array_values($jsCalendarData->getRecurrenceOverrides()["2022-02-11T11:00:00"]->getAlerts())[0]->getType(),
+            array_values($jsCalendarDataAfter[0]->getRecurrenceOverrides()["2022-02-11T11:00:00"]->getAlerts())[0]->getType()
+        );
+        $this->assertNotEmpty($jsCalendarDataAfter[0]->getRecurrenceRules());
+
+        $this->assertNotEmpty($jsCalendarDataAfter[0]->getRecurrenceOverrides());
+    }
 }
