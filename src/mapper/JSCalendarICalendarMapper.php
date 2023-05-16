@@ -51,7 +51,12 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 }
 
                 $adapter->resetICalEvent();
-                $adapter->setRecurrenceId($recurrenceId);
+                $adapter->setRecurrenceId(
+                    $recurrenceId,
+                    $jsCalendarEvent->getStart(),
+                    $jsCalendarEvent->getTimeZone(),
+                    $jsCalendarEvent->getShowWithoutTime()
+                );
 
 
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.

@@ -1196,15 +1196,31 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
     }
 
-    public function setRecurrenceId($recurrenceId)
+    public function setRecurrenceId($recurrenceId, $start, $timeZone, $showWithoutTime)
     {
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId)) {
+        if (
+            !AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId) ||
+            !AdapterUtil::isSetNotNullAndNotEmpty($start)
+        ) {
             return;
         }
 
-        $recurrenceIdDateTime = DateTime::createFromFormat("Y-m-d\TH:i:s", $recurrenceId);
+        $jmapFormat = "Y-m-d\TH:i:s";
+        $iCalFormat = $timeZone == "Etc/UTC" ? "Ymd\THis\Z" : "Ymd\THis";
+
+        // Checks whether the event also has a timezone connected to it.
+        if (is_null($timeZone) || $timeZone == "Etc/UTC") {
+            $recurrenceIdDateTime = new \DateTime($recurrenceId);
+        } else {
+            $recurrenceIdDateTime = new \DateTime($recurrenceId, new \DateTimeZone($timeZone));
+        }
+
 
         $this->iCalEvent->VEVENT->add("RECURRENCE-ID", $recurrenceIdDateTime);
+
+        if ($showWithoutTime) {
+            $this->iCalEvent->VEVENT->{"RECURRENCE-ID"}["VALUE"] = "DATE";
+        }
     }
 
     public function getExDates()

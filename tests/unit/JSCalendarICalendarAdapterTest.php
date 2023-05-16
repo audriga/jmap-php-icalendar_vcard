@@ -432,4 +432,17 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         // Makes sure that the objects are created correctly.
         $this->assertEquals("c1", $jsCalendarDataAfter->getId());
     }
+
+    public function testRecurrenceIdTimeZone(): void
+    {
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_with_localdt_recurrenceid.json'));
+
+        $iCalendar = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+
+        $iCalendarData = Reader::read($iCalendar[0]["c1"]["iCalendar"]);
+
+        $this->assertEquals(
+            "RECURRENCE-ID;TZID=America/Los_Angeles:20230503T050000",
+            str_replace("\r\n", "", $iCalendarData->VEVENT[1]->{"RECURRENCE-ID"}->serialize()));
+    }
 }
