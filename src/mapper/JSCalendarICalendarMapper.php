@@ -51,16 +51,16 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 }
 
                 $adapter->resetICalEvent();
-                $adapter->setRecurrenceId(
-                    $recurrenceId,
-                    $jsCalendarEvent->getStart(),
-                    $jsCalendarEvent->getTimeZone(),
-                    $jsCalendarEvent->getShowWithoutTime()
-                );
-
 
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.
                 $this->mapAllJmapPropertiesToICal($recurrenceOverride, $adapter, $jsCalendarEvent);
+
+
+                $adapter->setRecurrenceId(
+                    $recurrenceId,
+                    $jsCalendarEvent->getTimeZone(),
+                    $jsCalendarEvent->getShowWithoutTime()
+                );
 
                 // The following will extract the VEVENT components of the modified exception currently
                 // set in the adapter as an associative array (property => value). The array will then

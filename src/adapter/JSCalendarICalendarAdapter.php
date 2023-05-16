@@ -1196,12 +1196,9 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
     }
 
-    public function setRecurrenceId($recurrenceId, $start, $timeZone, $showWithoutTime)
+    public function setRecurrenceId($recurrenceId, $timeZone, $showWithoutTime)
     {
-        if (
-            !AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId) ||
-            !AdapterUtil::isSetNotNullAndNotEmpty($start)
-        ) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId)) {
             return;
         }
 
