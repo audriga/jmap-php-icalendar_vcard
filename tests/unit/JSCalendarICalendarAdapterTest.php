@@ -426,7 +426,6 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
-        //fwrite(STDERR, print_r($iCalendarData, true));
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Makes sure that the objects are created correctly.
@@ -443,6 +442,16 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
         $this->assertEquals(
             "RECURRENCE-ID;TZID=America/Los_Angeles:20230503T050000",
-            str_replace("\r\n", "", $iCalendarData->VEVENT[1]->{"RECURRENCE-ID"}->serialize()));
+            str_replace("\r\n", "", $iCalendarData->VEVENT[1]->{"RECURRENCE-ID"}->serialize())
+        );
+        
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendar), $this->adapter)[0];
+
+        $this->assertNull($jsCalendarDataAfter->getRecurrenceOverrides()["2023-05-03T05:00:00"]->getTimeZone());
+        $this->assertEquals(
+            $jsCalendarData->getRecurrenceOverrides()["2023-05-03T05:00:00"]->getStart(),
+            $jsCalendarDataAfter->getRecurrenceOverrides()["2023-05-03T05:00:00"]->getStart()
+        );
     }
+
 }
