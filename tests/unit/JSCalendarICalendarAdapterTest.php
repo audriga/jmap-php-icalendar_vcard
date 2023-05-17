@@ -426,10 +426,32 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_extended.json'));
 
         $iCalendarData = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
-        //fwrite(STDERR, print_r($iCalendarData, true));
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Makes sure that the objects are created correctly.
         $this->assertEquals("c1", $jsCalendarDataAfter->getId());
     }
+
+    public function testRecurrenceIdTimeZone(): void
+    {
+        $jsCalendarData = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_with_localdt_recurrenceid.json'));
+
+        $iCalendar = $this->mapper->mapFromJmap(array("c1" => $jsCalendarData), $this->adapter);
+
+        $iCalendarData = Reader::read($iCalendar[0]["c1"]["iCalendar"]);
+
+        $this->assertEquals(
+            "RECURRENCE-ID;TZID=America/Los_Angeles:20230503T050000",
+            str_replace("\r\n", "", $iCalendarData->VEVENT[1]->{"RECURRENCE-ID"}->serialize())
+        );
+        
+        $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendar), $this->adapter)[0];
+
+        $this->assertNull($jsCalendarDataAfter->getRecurrenceOverrides()["2023-05-03T05:00:00"]->getTimeZone());
+        $this->assertEquals(
+            $jsCalendarData->getRecurrenceOverrides()["2023-05-03T05:00:00"]->getStart(),
+            $jsCalendarDataAfter->getRecurrenceOverrides()["2023-05-03T05:00:00"]->getStart()
+        );
+    }
+
 }

@@ -1,0 +1,28 @@
+{
+    "@type":"jsevent",
+    "calendarId":"180",
+    "start":"2023-05-01T05:00:00",
+    "duration":"PT30M",
+    "title":"Title (TAO02_WeeklyRecurringAppointmentWithModifiedOccurenceTz (2))",
+    "recurrenceRules":[{
+        "@type":"RecurrenceRule",
+        "frequency":"weekly",
+        "interval":1,
+        "byDay":[{
+            "day":"mo"
+            },{
+            "day":"we"
+            },{
+            "day":"fr"
+            }]
+        }]
+    ,"recurrenceOverrides":{
+        "2023-05-03T05:00:00":{
+            "duration":"PT30M",
+            "@type":"jsevent",
+            "start":"2023-05-03T14:00:00",
+            "title":"Title (TAO02_WeeklyRecurringAppointmentWithModifiedOccurenceTz (2))(Mod)"
+            }
+        },
+    "timeZone":"America/Los_Angeles"
+}

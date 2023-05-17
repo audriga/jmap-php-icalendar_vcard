@@ -51,11 +51,16 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 }
 
                 $adapter->resetICalEvent();
-                $adapter->setRecurrenceId($recurrenceId);
-
 
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.
                 $this->mapAllJmapPropertiesToICal($recurrenceOverride, $adapter, $jsCalendarEvent);
+
+
+                $adapter->setRecurrenceId(
+                    $recurrenceId,
+                    $jsCalendarEvent->getTimeZone(),
+                    $jsCalendarEvent->getShowWithoutTime()
+                );
 
                 // The following will extract the VEVENT components of the modified exception currently
                 // set in the adapter as an associative array (property => value). The array will then
@@ -81,6 +86,19 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // TODO: consider logging an error.
             return;
         }
+
+        // To make sure, the recurrence override's DateTime values that can be in any timezone
+        // don't get overriden to UTC, since the timeZone value of the override is null, replace
+        // it with the master event's time zone.
+        if (
+            is_null($jsEvent->getTimeZone()) &&
+            !is_null($masterEvent) &&
+            !is_null($masterEvent->getTimeZone())
+        ) {
+                $jsEvent->setTimeZone($masterEvent->getTimeZone());
+        }
+
+
         // Map any properites that can be set in events and their recurrence overrides.
         $adapter->setSummary($jsEvent->getTitle());
         $adapter->setDescription($jsEvent->getDescription());
@@ -215,6 +233,15 @@ class JSCalendarICalendarMapper extends AbstractMapper
                     // 'recurrenceOverrides', 'recurrenceRules', 'relatedTo', 'replyTo' and 'uid'
                     // JMAP properties. They are than added into the recurrenceOverride property.
                     $this->mapAllICalPropertiesToJmap($jmapModifiedException, $adapter);
+
+                    // If the iCal values for DTSTART in both the master event and the modified
+                    // exception are in a specific time zone (e.g. "DTSTART;TZID=Europe/Berlin"),
+                    // the time zone for both the event and the override are set in JSCalendar.
+                    // Since the override having the same time zone as the master event is not
+                    // a change for that occurence, we remove the information here.
+                    if ($jsEvent->getTimeZone() === $jmapModifiedException->getTimeZone()) {
+                        $jmapModifiedException->setTimeZone(null);
+                    }
 
                     //Add the new modified occurrence to the ones already set in the JSCal event.
                     $recurrenceIdValueDate = $modEx["modifiedExceptions"]->VEVENT->{'RECURRENCE-ID'}->getDateTime();
