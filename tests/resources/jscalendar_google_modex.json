@@ -22,9 +22,8 @@
             "1473348383" : {
                "action" : "DISPLAY",
                "trigger" : {
-                  "@type": "OffsetTrigger",
-                  "offset" : "PT15M",
-                  "relativeTo" : "START"
+                   "@type": "AbsoluteTrigger",
+                   "when": "2022-12-05T18:00:00Z"
                }
             }
          },

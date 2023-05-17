@@ -126,7 +126,7 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("Alert", $currentAlert->getType());
         $this->assertEquals("display", $currentAlert->getAction());
         $this->assertEquals("AbsoluteTrigger", $currentAlert->getTrigger()->getType());
-        $this->assertEquals("2022-12-05T18:00:00", $currentAlert->getTrigger()->getWhen());
+        $this->assertEquals("2022-12-05T18:00:00Z", $currentAlert->getTrigger()->getWhen());
 
         $currentAlert = $this->jsCalendar->getAlerts()["2"];
         $this->assertEquals("Alert", $currentAlert->getType());
