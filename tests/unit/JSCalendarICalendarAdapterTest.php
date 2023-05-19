@@ -268,7 +268,8 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $jsCalendarDataAfter = $this->mapper->mapToJmap(reset($iCalendarData), $this->adapter)[0];
 
         // Check that the recurrence ids were mapped correctly.
-        $this->assertSameSize(array_keys($jsCalendarData->getRecurrenceOverrides()),
+        $this->assertSameSize(
+            array_keys($jsCalendarData->getRecurrenceOverrides()),
             array_keys($jsCalendarDataAfter->getRecurrenceOverrides())
         );
 
