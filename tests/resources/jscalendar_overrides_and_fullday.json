@@ -1,0 +1,21 @@
+{
+    "@type":"Event",
+    "calendarId":"1",
+    "start":"2023-05-01T05:00:00",
+    "showWithoutTime": true,
+    "duration":"P1D",
+    "title":"Full day event with recurrence",
+    "recurrenceRules":[{
+        "@type":"RecurrenceRule",
+        "frequencey":"daily",
+        "count":5
+    }],
+    "recurrenceOverrides":{
+        "2023-05-03T05:00:00":{
+            "@type":"Event",
+            "start": "2023-05-22T05:00:00",
+            "duration": "P1D",
+            "title":"Override on different day, still full day"
+        }
+    }
+}
