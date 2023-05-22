@@ -312,16 +312,18 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $jmapEvent->setRecurrenceRules($adapter->getRRule());
 
-            $excludedOverrides = [];
+            if (!is_null($adapter->getExDates())) {
+                $excludedOverrides = [];
 
-            foreach ($adapter->getExDates() as $exDate) {
-                $excludedOverride = new CalendarEvent();
-                $excludedOverride->setExcluded(true);
+                foreach ($adapter->getExDates() as $exDate) {
+                    $excludedOverride = new CalendarEvent();
+                    $excludedOverride->setExcluded(true);
 
-                $excludedOverrides[$exDate] = $excludedOverride;
+                    $excludedOverrides[$exDate] = $excludedOverride;
+                }
+
+                $jmapEvent->setRecurrenceOverrides($excludedOverrides);
             }
-
-            $jmapEvent->setRecurrenceOverrides($excludedOverrides);
         }
     }
 }
