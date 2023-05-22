@@ -19,10 +19,10 @@
         }],
     "recurrenceOverrides":{
         "2023-05-03T05:00:00":{
-            "duration":"P1D",
             "@type":"Event",
-            "start":"2023-05-03T14:00:00",
-            "title":"Override not as full day event",
+            "start": "2023-05-04T05:00:00",
+            "duration": "P1D",
+            "title":"Override on different day, still full day",
             "timeZone": "Europe/Amsterdam"
         }
     }

@@ -93,6 +93,9 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $jsEvent->setTimeZone($masterEvent->getTimeZone());
         }
 
+        // Similarly, to make sure that the override's DateTime values have the same format as
+        // the master events DateTime values, set the showWithoutTime property of the override
+        // to the one of the master event.
         if (
             is_null($jsEvent->getShowWithoutTime()) &&
             !is_null($masterEvent) &&
