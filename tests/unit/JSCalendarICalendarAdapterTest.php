@@ -581,12 +581,12 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
         // Should also be a data value. If not, the showWithoutTime property from the master event was not added to the override.
         $this->assertEquals(
-            "DTSTART;VALUE=DATE:20230504",
+            "DTSTART;VALUE=DATE:20230522",
             str_replace("\r\n", "", $this->iCalendar->VEVENT[1]->DTSTART->serialize())
         );
 
         $this->assertEquals(
-            "DTEND;VALUE=DATE:20230505",
+            "DTEND;VALUE=DATE:20230523",
             str_replace("\r\n", "", $this->iCalendar->VEVENT[1]->DTEND->serialize())
         );
 

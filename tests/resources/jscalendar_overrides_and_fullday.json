@@ -7,23 +7,15 @@
     "title":"Full day event with recurrence",
     "recurrenceRules":[{
         "@type":"RecurrenceRule",
-        "frequency":"weekly",
-        "interval":1,
-        "byDay":[{
-            "day":"mo"
-            },{
-            "day":"we"
-            },{
-            "day":"fr"
-            }]
-        }],
+        "frequencey":"daily",
+        "count":5
+    }],
     "recurrenceOverrides":{
         "2023-05-03T05:00:00":{
             "@type":"Event",
-            "start": "2023-05-04T05:00:00",
+            "start": "2023-05-22T05:00:00",
             "duration": "P1D",
-            "title":"Override on different day, still full day",
-            "timeZone": "Europe/Amsterdam"
+            "title":"Override on different day, still full day"
         }
     }
 }
