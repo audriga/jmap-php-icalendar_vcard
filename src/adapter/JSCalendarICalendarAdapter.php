@@ -1274,8 +1274,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $setExDates = [];
 
-        foreach ($this->iCalEvent->VEVENT->EXDATE as $setExDate) {
-            $setExDates[] = $setExDate->getDateTime();
+        foreach ($this->iCalEvent->VEVENT->EXDATE->getDateTimes() as $setExDate) {
+            $setExDates[] = $setExDate;
         }
 
         array_push($setExDates, $exDate);

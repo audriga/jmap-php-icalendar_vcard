@@ -205,7 +205,13 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
             $this->mapAllICalPropertiesToJmap($jsEvent, $adapter);
 
-            $jsEvent->setCalendarId($masterEvent["masterEvents"]["oxpProperties"]["calendarId"]);
+            if (
+                array_key_exists("oxpProperties", $masterEvent["masterEvents"]) &&
+                is_array($masterEvent["masterEvents"]["oxpProperties"]) &&
+                array_key_exists("calendarId", $masterEvent["masterEvents"]["oxpProperties"])
+            ) {
+                $jsEvent->setCalendarId($masterEvent["masterEvents"]["oxpProperties"]["calendarId"]);
+            }
             $jsEvent->setId($masterEvent["eventId"]);
 
             // Each modified VEVENT in a recurrence can be connected to its "master event" by
