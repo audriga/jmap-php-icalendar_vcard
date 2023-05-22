@@ -62,12 +62,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
                     $jsCalendarEvent->getShowWithoutTime()
                 );
 
-                // The following will extract the VEVENT components of the modified exception currently
-                // set in the adapter as an associative array (property => value). The array will then
-                // be added to the master event as a new VEVENT component using the VObject libary
-                $modifiedExceptionEvent = $adapter->getVeventComponents();
-
-                $masterEvent->add("VEVENT", $modifiedExceptionEvent);
+                $masterEvent->add($adapter->getEventComponent());
             }
 
             $adapter->setICalEvent($masterEvent->serialize());

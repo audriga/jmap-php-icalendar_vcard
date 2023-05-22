@@ -6,6 +6,7 @@ use DateTime;
 use Sabre\VObject\Component\VCalendar;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
+use Sabre\VObject\Component\VAlarm;
 use OpenXPort\Jmap\Calendar\Location;
 use OpenXPort\Jmap\Calendar\OffsetTrigger;
 use OpenXPort\Jmap\Calendar\AbsoluteTrigger;
@@ -56,9 +57,28 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
     }
 
+    /*
+     * @return VCalendar The adapter's calendar
+     */
     public function getICalEvent()
     {
         return $this->iCalEvent;
+    }
+
+    /*
+     * Extract the VEVENT component of the adapter's calendar.
+     * The VCalendar object contains multiple components, VEVENT is one of them.
+     * @return Component The event component of the of the adapter's calendar
+     */
+    public function getEventComponent()
+    {
+        $components = $this->iCalEvent->getComponents();
+
+        foreach ($components as $component) {
+            if ($component->name == "VEVENT") {
+                return $component;
+            }
+        }
     }
 
     public function setICalEvent($iCalEvent)
@@ -90,37 +110,6 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $this->iCalEvent = new VCalendar(['VEVENT' => []]);
         $this->oxpProperties = [];
-    }
-
-    /**
-     * This will return every component set in the VEVENT property of the iCal event set
-     * in this adapter as an associative array to be fed into a different iCalendar component.
-     */
-    public function getVeventComponents()
-    {
-        $vevent = $this->iCalEvent->VEVENT;
-
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($vevent)) {
-            return null;
-        }
-
-        $dateTimeProperties = array("RECURRENCE-ID", "DTSTART", "DTEND", "LAST-MODIFIED", "DTSTAMP", "CREATED");
-
-        $veventComponents = [];
-
-        foreach ($vevent->children() as $veventProperty) {
-            $propertyName = $veventProperty->name;
-
-            if (in_array($propertyName, $dateTimeProperties)) {
-                $propertyValue = $veventProperty->getDateTime();
-            } else {
-                $propertyValue = $veventProperty->getValue();
-            }
-
-            $veventComponents[$propertyName] = $propertyValue;
-        }
-
-        return $veventComponents;
     }
 
     public function getCalendarId()
