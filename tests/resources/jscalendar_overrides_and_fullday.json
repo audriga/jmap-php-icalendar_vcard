@@ -1,0 +1,29 @@
+{
+    "@type":"Event",
+    "calendarId":"1",
+    "start":"2023-05-01T05:00:00",
+    "showWithoutTime": true,
+    "duration":"P1D",
+    "title":"Full day event with recurrence",
+    "recurrenceRules":[{
+        "@type":"RecurrenceRule",
+        "frequency":"weekly",
+        "interval":1,
+        "byDay":[{
+            "day":"mo"
+            },{
+            "day":"we"
+            },{
+            "day":"fr"
+            }]
+        }],
+    "recurrenceOverrides":{
+        "2023-05-03T05:00:00":{
+            "duration":"P1D",
+            "@type":"Event",
+            "start":"2023-05-03T14:00:00",
+            "title":"Override not as full day event",
+            "timeZone": "Europe/Amsterdam"
+        }
+    }
+}

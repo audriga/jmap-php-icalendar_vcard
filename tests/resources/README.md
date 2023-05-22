@@ -37,6 +37,7 @@ JSCalendars:
 * `jscalendar_full_day_event.json` - JSCalendar with a full day event (`"showWithoutTime": true`)
 * `jscalendar_google_modex.json` - JSCalendar converted from a Google event with a modified exception
 * `jscalendar_with_localdt_recurrenceid.json` - JSCalendar with recurrenceoverride and local date time.
+* `jscalendar_overrides_and_fullday.json` - JSCalendar event with all-day recurrence and and override.
 
 JSContacts:
 

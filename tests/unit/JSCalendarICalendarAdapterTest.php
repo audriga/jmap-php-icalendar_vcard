@@ -565,4 +565,41 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
         $this->assertNotEmpty($this->jsCalendarAfter[0]->getRecurrenceOverrides());
     }
+
+    /**
+     * An event with showWithoutTime set tot true in master and false in override
+     */
+    public function testShowWithoutTimeOverride(): void
+    {
+        $this->jsCalendarBefore = CalendarEvent::fromJson(file_get_contents(__DIR__ . '/../resources/jscalendar_overrides_and_fullday.json'));
+
+        $iCalendar = $this->mapper->mapFromJmap(array("c1" => $this->jsCalendarBefore), $this->adapter);
+
+        $iCalendarData = Reader::read($iCalendar[0]["c1"]["iCalendar"]);
+
+        $this->assertEquals(
+            "DTSTART;VALUE=DATE:20230501",
+            str_replace("\r\n", "", $iCalendarData->VEVENT[0]->DTSTART->serialize())
+        );
+
+        $this->assertEquals(
+            "RECURRENCE-ID;VALUE=DATE:20230503",
+            str_replace("\r\n", "", $iCalendarData->VEVENT[1]->{"RECURRENCE-ID"}->serialize())
+        );
+
+        $this->assertEquals(
+            "DTSTART;VALUE=DATE:20230503",
+            str_replace("\r\n", "", $iCalendarData->VEVENT[1]->DTSTART->serialize())
+        );
+
+        $this->assertEquals(
+            "DTEND;VALUE=DATE:20230504",
+            str_replace("\r\n", "", $iCalendarData->VEVENT[1]->DTEND->serialize())
+        );
+
+        $this->jsCalendarAfter = $this->mapper->mapToJmap(reset($iCalendar), $this->adapter)[0];
+
+        $this->assertTrue($this->jsCalendarAfter->getShowWithoutTime());
+        $this->assertNull($this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-03T00:00:00"]->getShowWithoutTime());
+    }
 }

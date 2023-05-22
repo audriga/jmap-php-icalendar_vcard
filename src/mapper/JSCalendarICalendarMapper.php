@@ -93,6 +93,14 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 $jsEvent->setTimeZone($masterEvent->getTimeZone());
         }
 
+        if (
+            is_null($jsEvent->getShowWithoutTime()) &&
+            !is_null($masterEvent) &&
+            !is_null($masterEvent->getShowWithoutTime())
+        ) {
+                $jsEvent->setShowWithoutTime($masterEvent->getShowWithoutTime());
+        }
+
 
         // Map any properites that can be set in events and their recurrence overrides.
         $adapter->setSummary($jsEvent->getTitle());
@@ -277,7 +285,6 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $jmapEvent->setSequence($adapter->getSequence());
 
         $jmapEvent->setStart($adapter->getDTStart());
-        $jmapEvent->setShowWithoutTime($adapter->getShowWithoutTime());
         $jmapEvent->setDuration($adapter->getDuration());
         $jmapEvent->setTimezone($adapter->getTimezone());
 
@@ -294,6 +301,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         // Map the properties that are strictly set in master event.
         if (strcmp($jmapEvent->getType(), "Event") === 0) {
+            $jmapEvent->setShowWithoutTime($adapter->getShowWithoutTime());
             $jmapEvent->setUid($adapter->getUid());
             $jmapEvent->setProdId($adapter->getProdId());
 
