@@ -4,6 +4,18 @@ JMAP iCalendar/vCard Release Notes
 
 .. contents:: Topics
 
+v0.3.0
+=======
+
+Release summary
+---------------
+Brings various enhancements to make the library work with Nextcloud files
+
+Details
+-------
+* Contacts: Enhance code for and test against nextcloud contacts #6120
+* Calendars: Enhance code for and test against nextcloud calendar #6088, #6221, #6222, #6292
+
 v0.2.0
 =======
 
