@@ -1,0 +1,35 @@
+---
+name: Test
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+
+jobs:
+    unit-tests:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                php-versions: [7.0, 8.2]
+        name: Nextcloud ${{ matrix.nextcloud-versions }} php
+          ${{ matrix.php-versions }} unit tests
+        steps:
+            - name: Set up php${{ matrix.php-versions }}
+              uses: shivammathur/setup-php@master
+              with:
+                  php-version: ${{ matrix.php-versions }}
+                  extensions: ctype,curl,dom,gd,iconv,intl,json,mbstring,
+                    openssl,posix,sqlite,xml,zip,gmp
+                  coverage: xdebug
+            - name: Checkout OXP iCalendar_vCard
+              uses: actions/checkout@v3
+            - name: Install dependencies
+              if: ${{ always() && matrix.php-versions == 8.2 }}
+              run: make
+            - name: Install dependencies
+              if: ${{ always() && matrix.php-versions == 7.0 }}
+              run: make php70_mode
+            - name: Run tests
+              if: ${{ always() && matrix.php-versions == 8.2 }}
+              run: make fulltest
