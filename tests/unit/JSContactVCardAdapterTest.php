@@ -291,6 +291,16 @@ final class JSContactVCardAdapterTest extends TestCase
     }
 
     /* *
+     * Mapping MS-Exchange-specific vCards
+     */
+    public function testCorrectMsExchangeMapping()
+    {
+        $this->mapVCard('/../resources/ms_exchange.vcf');
+
+        $this->assertEquals("SomeFullName", $this->jsContactCard->getFullName());
+    }
+
+    /* *
      * Mapping of two cards JSContact -> vCard -> JSContact
      * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
      */
