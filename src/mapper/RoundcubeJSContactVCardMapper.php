@@ -5,6 +5,7 @@ namespace OpenXPort\Mapper;
 use InvalidArgumentException;
 use OpenXPort\Jmap\JSContact\Audriga\Card;
 use OpenXPort\Util\Logger;
+use Sabre\VObject\ParseException;
 
 class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
 {
@@ -100,7 +101,23 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
         $list = [];
 
         foreach ($data as $contactId => $vCard) {
-            $adapter->setVCard($vCard);
+            // Try setting the vCard from the received String. If it cannot be parsed, add
+            // more info to the thrown ParseException.
+            try {
+                $adapter->setVCard($vCard);
+            } catch (ParseException $e) {
+                throw new ParseException(
+                    $e->getMessage() . "\nNon-parseable vCard: $contactId",
+                    $e->getCode(),
+                    $e
+                );
+            }
+
+            // If the vCard Object is set to null, skip the vCard in question. This should only
+            // happen if the 'vCardParsing' config option is set to 'ignoreInvalidVCards'.
+            if (is_null($adapter->getVCard())) {
+                continue;
+            }
 
             $jsContactCard = new Card();
             $jsContactCard->setAtType("Card");

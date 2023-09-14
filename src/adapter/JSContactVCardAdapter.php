@@ -23,6 +23,7 @@ use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\JSContactVCardAdapterUtil;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
+use Sabre\VObject\ParseException;
 
 /**
  * Generic adapter to convert between vCard <-> JSContact.
@@ -47,16 +48,53 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected $oxpProperties = [];
 
+    /**
+     * @var string|null Config option that determines the behavior of the adapter when encountering 'broken'
+     * vCards. Possible values are:
+     * * 'strict' - Any vCard that cannot be parsed will be logged -,
+     * * 'ignoreInvalidLines' - Invalid lines in a vCard will be skipped - or
+     * * 'ignoreInvalidCards'. - Invalid vCards, which cannot be read after skipping invalid lines are skipped -
+     *
+     * Default behavior is 'strict'.
+     */
+    protected $parsingConfig;
+
+    /**
+     * @var bool|null Config option that determines if 'broken' vCards are dumped into the log or not.
+     * Default behavior is 'false'
+     */
+    protected $dumpInvalidVCards;
+
 
     /**
      * Constructor of this class
      *
      * Initializes the $vCard property of this class to a new VCard() object
+     *
+     * @param null|string $parsingConfig Determines which behavior is expected when
+     * encountering ParseExceptions while reading vCards. 'strict' will not change
+     * anything about the parsing method. 'ignoreInvalidLines' will read the card
+     * again after it has failed for the first time, ignoring any lines that the reader
+     * does not recognise. 'IgnoreInvalidCards' will retry as well, but simply not map
+     * the card if the exception persists after re-trying.
+     *
+     * @param null|bool $dumpInvalidVCards Determines whether a vCard that causes a
+     * ParsException to be thrown gets dumped into the logs.
      */
-    public function __construct()
+    public function __construct($parsingConfig = 'strict', $dumpInvalidVCards = false)
     {
         $this->vCard = new VObject\Component\VCard();
         $this->logger = Logger::getInstance();
+        $this->parsingConfig = $parsingConfig;
+        $this->dumpInvalidVCards = $dumpInvalidVCards;
+
+        $this->logger->info(
+            "Using adapter config options: 'vCardParsing' => '"
+            . $this->parsingConfig
+            . "', 'dumpInvalidVCards' => "
+            . ($this->dumpInvalidVCards ? "true" : "false")
+            . "."
+        );
     }
 
     /**
@@ -163,6 +201,10 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getVCard()
     {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($this->vCard)) {
+            return null;
+        }
+
         return $this->vCard->serialize();
     }
 
@@ -175,11 +217,91 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function setVCard($vCardString)
     {
-        $this->vCard = VObject\Reader::read($vCardString);
+        try {
+            $this->vCard = VObject\Reader::read($vCardString);
+        } catch (ParseException $e) {
+            $this->setBrokenVCard($vCardString, $e);
+        }
+
+        if (is_null($this->vCard)) {
+            return;
+        }
 
         foreach ($this->vCard->children() as $vCardChild) {
             $this->vCardChildren[] = $vCardChild->name;
         }
+    }
+
+    /**
+     * Enter this method when reading a vCard string throws a ParseException.
+     * In here, the exception is handled depending on what $parsingConfig is
+     * set to.
+     * If it is:
+     *
+     * * 'strict', it is re-thrown
+     * * 'ignoreInvalidLines', it is retried with 'OPTION_IGNORE_INVALID_LINES'.
+     * * 'ignoreInvalidVCards', it is retried and skipped if an error still persists.
+     *
+     * @param string $vCardString A broken vCard represented as a string.
+     *
+     * @param ParseException $e The exception thrown from the first try of running
+     * VObject\Reader::read() without 'OPTION_IGNORE_INVALID_LINES'.
+     */
+    protected function setBrokenVCard($vCardString, $e): void
+    {
+        switch ($this->parsingConfig) {
+            case 'strict':
+                $this->handleVCardDump($vCardString);
+                throw $e;
+                break;
+
+            case 'ignoreInvalidLines':
+                try {
+                    $this->vCard = VObject\Reader::read(
+                        $vCardString,
+                        VObject\Reader::OPTION_IGNORE_INVALID_LINES
+                    );
+                } catch (ParseException $p) {
+                    $this->handleVCardDump($vCardString);
+                    throw $p;
+                }
+
+                break;
+
+            case 'ignoreInvalidVCards':
+                try {
+                    $this->vCard = VObject\Reader::read(
+                        $vCardString,
+                        VObject\Reader::OPTION_IGNORE_INVALID_LINES
+                    );
+                } catch (VObject\ParseException $e) {
+                    $this->handleVCardDump($vCardString);
+                    // TODO: Setting the vCard to null maybe a bit of a dirty workaround.
+                    // Returning true/false depending on the result might be a bit better.
+                    $this->vCard = null;
+                }
+
+                break;
+
+            default:
+                $this->handleVCardDump($vCardString);
+                throw $e;
+                break;
+        }
+    }
+
+    /**
+     * If $dumpInvalidVCards is set to true, the vCard string is dumped using the logger.
+     *
+     * @param string $vCardString vCard to be dumped.
+     */
+    protected function handleVCardDump($vCardString)
+    {
+        if (!$this->dumpInvalidVCards) {
+            return;
+        }
+
+        $this->logger->warning("Dumping vCard:\n$vCardString");
     }
 
     public function getAddressBookId()
