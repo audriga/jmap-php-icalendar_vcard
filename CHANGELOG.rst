@@ -4,6 +4,17 @@ JMAP iCalendar/vCard Release Notes
 
 .. contents:: Topics
 
+v0.4.0
+=======
+
+Release summary
+---------------
+Adds two new config options for handling ParseExceptions
+
+Details
+-------
+* Contacts: Add handling for ParseExceptions via config
+
 v0.3.0
 =======
 
