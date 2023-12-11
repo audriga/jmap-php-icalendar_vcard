@@ -1651,7 +1651,6 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $links = [];
 
         foreach ($attachments as $attach) {
-
             $link = new Link();
 
             $link->setRel("enclosure");
