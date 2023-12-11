@@ -595,4 +595,28 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertTrue($this->jsCalendarAfter->getShowWithoutTime());
         $this->assertNull($this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-03T00:00:00"]->getShowWithoutTime());
     }
+
+    public function testMapICalendarAttach() {
+        $this->mapICalendar(__DIR__ . '/../resources/icalendar_with_attach.ics');
+
+        $this->assertCount(1, $this->jsCalendarAfter[0]->getLinks());
+        $this->assertEquals("enclosure", $this->jsCalendarAfter[0]->getLinks()[0]->getRel());
+        $this->assertEquals("U0ZMb2dObwlTRkxvYWR
+        lZERhdGUNCjkxNzY3NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjIwNS8xCTI3LzExLzIwMTIgM
+        Tg6MzANCjkxMjI0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjI1Mi8xCTI3LzExLzIwMTIgMTg
+        6MzANCjkxMjQyMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjQyMi8xCTI3LzExLzIwMTIgMTg6M
+        zANCjkxNTMyMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTQzNS8xCTI3LzExLzIwMTIgMTg6MzA
+        NCjkxNTU5OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNjc3NC8xCTI3LzExLzIwMTIgMTg6MzANC
+        jkxNjk1OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNjk2MC8xCTI3LzExLzIwMTIgMTg6MzANCjk
+        xNzM2Ny8xCTI3LzExLzIwMTIgMTg6MzANCjkxNzQzNC8xCTI3LzExLzIwMTIgMTg6MzANCjkxN
+        DczMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDczMi8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc
+        0My8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0N
+        S8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2MS8
+        xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2Mi8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2My8xC
+        TI3LzExLzIwMTIgMTg6MzANCjkxNTYzNS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTYzOC8xCTI
+        3LzExLzIwMTIgMTg6MzANCjkxNTY0MC8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTY0MS8xCTI3L
+        zExLzIwMTIgMTg6MzANCjkxNTY1OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTc3Ni8xCTI3LzE
+        xLzIwMTIgMTg6MzANCjkxNTc3Ny8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTc3OC8xCTI3LzExL
+        zIwMTIgMTg6MzANCg==", $this->jsCalendarAfter->getLinks()[0]->getHref());
+    }
 }
