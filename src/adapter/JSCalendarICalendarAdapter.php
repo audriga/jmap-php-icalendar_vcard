@@ -11,6 +11,7 @@ use OpenXPort\Jmap\Calendar\Location;
 use OpenXPort\Jmap\Calendar\OffsetTrigger;
 use OpenXPort\Jmap\Calendar\AbsoluteTrigger;
 use OpenXPort\Jmap\Calendar\Alert;
+use OpenXPort\Jmap\Calendar\Link;
 use OpenXPort\Jmap\Calendar\RecurrenceRule;
 use OpenXPort\Jmap\Calendar\Participant;
 use OpenXPort\Mapper\JSCalendarICalendarMapper;
@@ -1637,5 +1638,68 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         $this->iCalEvent->VEVENT->add("PRIORITY", $priority);
+    }
+
+    public function getAttachements()
+    {
+        $attachments = $this->iCalEvent->VEVENT->ATTACH;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($attachments)) {
+            return null;
+        }
+
+        $links = [];
+
+        foreach ($attachments as $attach) {
+
+            $link = new Link();
+
+            $link->setRel("enclosure");
+
+            // Check if the ATTACH property has a binary or uri (= non-binary) value.
+            // Currently done by checking the "VALUE" parameter.
+            if ($attach->parameters["VALUE"] == "BINARY") {
+                $this->fillLinkWithBinaryValue($link, $attach);
+            } else {
+                $this->fillLinkWithUriValue($link, $attach);
+            }
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])) {
+                $link->setContentType($attach->parameters["FMTTYPE"]->getValue());
+            }
+
+            array_push($links, $link);
+        }
+
+        return $links;
+    }
+
+    private function fillLinkWithBinaryValue($link, $attach)
+    {
+        // Check, which encoding is used and reapply it, since the value seems to be
+        // decoded when parsing it with the VObject library.
+        // TODO: Check if any other encoding can be used.
+        if (
+            AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["ENCODING"]) &&
+            $attach->parameters["ENCODING"]->getValue() === "BASE64"
+        ) {
+            $link->setHref(base64_encode($attach->getValue()));
+        } else {
+            $link->setHref($attach->getValue());
+        }
+    }
+
+    private function fillLinkWithUriValue($link, $attach)
+    {
+        $link->setHref($attach->getValue());
+    }
+
+    public function setAttachements($links)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($links)) {
+            return;
+        }
+
+        // TODO: implement me! Filter out ATTACH links using the rel property (?)
     }
 }

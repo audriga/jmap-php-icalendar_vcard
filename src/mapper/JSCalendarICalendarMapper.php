@@ -302,6 +302,11 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $jmapEvent->setAlerts($adapter->getAlerts());
         $jmapEvent->setParticipants($adapter->getParticipants());
 
+        // Overwriting this property might lead to problems when we have multiple
+        // iCal properties that are mapped to the jsCal link property
+        // (i.e. images: https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#section-4.11).
+        $jmapEvent->setLinks($adapter->getAttachements());
+
         // Map the properties that are strictly set in master event.
         if (strcmp($jmapEvent->getType(), "Event") === 0) {
             $jmapEvent->setShowWithoutTime($adapter->getShowWithoutTime());
