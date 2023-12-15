@@ -670,4 +670,37 @@ class JSCalendarICalendarAdapterUtil
 
         return implode(",", $scheduleStatus);
     }
+
+    public static function splitJmapLinkMapIntoICalProperties($linkMap) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($linkMap)) {
+            return null;
+        }
+
+        $attachments = [];
+
+        $splitLinkMap = [];
+
+        foreach ($linkMap as $link) {
+            if(is_null($link->getRel())) {
+                continue;
+            }
+
+            switch ($link->getRel()) {
+                case "enclosure":
+                    array_push($attachments, $link);
+                    break;
+                
+                // For future reference: Add any new properties a
+                // Link object can represent here.
+
+                default:
+                    array_push($attachments, $link);
+                    break;
+            }
+        }
+
+        $splitLinkMap["attachments"] = $attachments;
+
+        return $splitLinkMap;
+    }
 }
