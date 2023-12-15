@@ -1675,17 +1675,32 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     private function fillLinkWithBinaryValue($link, $attach)
     {
-        // Check, which encoding is used and reapply it, since the value seems to be
-        // decoded when parsing it with the VObject library.
-        // TODO: Check if any other encoding can be used.
+        // Currently expect all binary attachments to be encoded in base64.
         if (
-            AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["ENCODING"]) &&
-            $attach->parameters["ENCODING"]->getValue() === "BASE64"
+            !AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["ENCODING"]) ||
+            $attach->parameters["ENCODING"]->getValue() != "BASE64"
         ) {
-            $link->setHref(base64_encode($attach->getValue()));
-        } else {
-            $link->setHref($attach->getValue());
+            throw new \Exception("ATTACH encoding is not recognized as base64. Mapping will be aborted.");
         }
+        // Use getRawMimeDirValue() instead of getValue()
+        // in order to not get the decoded value for binary
+        // attachments.
+        $binaryValue = $attach->getRawMimeDirValue();
+
+        $mediaType = "";
+
+        // The mediatype for Data URLs is supposed to default to
+        // "text/plain;charset=US-ASCII" if not set.
+        // https://www.rfc-editor.org/rfc/inline-errata/rfc2397.html
+        if (AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])) {
+            $mediaType = $attach->parameters["FMTTYPE"]->getValue();
+        } else {
+            $mediaType = "text/plain;charset=US-ASCII";
+        }
+
+        $dataUrl = "data:$mediaType;base64,$binaryValue";
+
+        $link->setHref($dataUrl);
     }
 
     private function fillLinkWithUriValue($link, $attach)

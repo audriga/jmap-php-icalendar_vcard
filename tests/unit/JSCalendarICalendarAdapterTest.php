@@ -602,7 +602,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertCount(1, $this->jsCalendarAfter->getLinks());
         $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()[0]->getRel());
         $this->assertEquals("text/plain", $this->jsCalendarAfter->getLinks()[0]->getContentType());
-        $this->assertEquals("U0ZMb2dObwlTRkxvYWR" . 
+        $this->assertEquals("data:text/plain;base64,U0ZMb2dObwlTRkxvYWR" . 
         "lZERhdGUNCjkxNzY3NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjIwNS8xCTI3LzExLzIwMTIgM" .
         "Tg6MzANCjkxMjI0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjI1Mi8xCTI3LzExLzIwMTIgMTg" .
         "6MzANCjkxMjQyMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjQyMi8xCTI3LzExLzIwMTIgMTg6M" .
