@@ -19,6 +19,8 @@ iCalendars:
 * `recurring_event_with_changed_occurrence.ics` - iCal event with recurrence and a changed occurrence
 * `calendar_witch_two_events.ics` - iCal file with two separate events.
 * `icalendar_in_utc.ics` - iCal file containing multiple UTC Datetime values to check for mapping between local and UTC time.
+* `icalendar_with_attach_binary.ics` - iCal file containing an attachment stored as a binary value.
+* `icalendar_with_attach_uri.ics` - iCal file containing an attachment stored as a uri value.
 
 JSCalendars:
 
