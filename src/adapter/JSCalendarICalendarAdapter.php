@@ -1640,7 +1640,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->add("PRIORITY", $priority);
     }
 
-    public function getAttachements()
+    public function getAttachments()
     {
         $attachments = $this->iCalEvent->VEVENT->ATTACH;
 
@@ -1693,7 +1693,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $link->setHref($attach->getValue());
     }
 
-    public function setAttachements($links)
+    public function setAttachments($links)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($links)) {
             return;
