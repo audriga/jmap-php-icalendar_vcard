@@ -1717,6 +1717,59 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return;
         }
 
-        // TODO: implement me! Filter out ATTACH links using the rel property (?)
+        // Loop through each Link, decide whether it's binary or a uri
+        // and add it to the VEVENT accordingly.
+        foreach ($links as $link) {
+            $value = $link->getHref();
+            
+            if ($value == "") {
+                continue;
+            }
+
+            $data = [];
+
+            if (substr($value, 0, 5) == "data:") {
+                // "," is not a part of the base64 charset and not for
+                // the meta-data part ahead of the binary part  either.
+                // So this should not cause any issues with the string
+                // being split into more than two parts.
+                $data["value"] = explode(",", $value)[1];
+                
+                $data["parameters"] = [
+                    "ENCODING" => "BASE64",
+                    "VALUE" => "BINARY"
+                ];
+            } else {
+                $data["value"] = $value;
+
+                $data["parameters"] = [];
+            }
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($link->getContentType())) {
+                $data["parameters"]["FMTTYPE"] = $link->getContentType();
+            }
+
+            $this->iCalEvent->VEVENT->add(
+                "ATTACH",
+                $data["value"],
+                $data["parameters"]
+            );
+
+            /* TODO: check if necessary v v v
+            if (empty($data["parameters"])) {                    
+                $this->iCalEvent->VEVENT->add(
+                    "ATTACH",
+                    $data["value"]
+                );
+
+            } else {
+                $this->iCalEvent->VEVENT->add(
+                    "ATTACH",
+                    $data["value"],
+                    $data["parameters"]
+                );
+            }
+            */
+        }  
     }
 }

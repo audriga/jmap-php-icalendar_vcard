@@ -131,6 +131,13 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $adapter->setParticipants($jsEvent->getParticipants());
 
+        // Map any property which is stored as a link object in jsCal. Currently only attachment is supported.
+        $splitLinkMap = JSCalendarICalendarAdapterUtil::splitJmapLinkMapIntoICalProperties(
+            $jsEvent->getLinks()
+        );
+
+        $adapter->setAttachments($splitLinkMap["attachments"]);
+
 
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
