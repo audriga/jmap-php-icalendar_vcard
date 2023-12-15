@@ -1680,7 +1680,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             !AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["ENCODING"]) ||
             $attach->parameters["ENCODING"]->getValue() != "BASE64"
         ) {
-            throw new \Exception("ATTACH encoding is not recognized as base64. Mapping will be aborted.");
+            throw new \Exception(sprintf(
+                "ATTACH encoding is not recognized as base64 for event: %s. Mapping will be aborted.",
+                $this->iCalEvent->VEVENT->UID->getValue()
+            ));
         }
         // Use getRawMimeDirValue() instead of getValue()
         // in order to not get the decoded value for binary
