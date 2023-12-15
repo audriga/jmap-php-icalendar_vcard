@@ -1721,7 +1721,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         // and add it to the VEVENT accordingly.
         foreach ($links as $link) {
             $value = $link->getHref();
-            
+
             if ($value == "") {
                 continue;
             }
@@ -1734,7 +1734,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 // So this should not cause any issues with the string
                 // being split into more than two parts.
                 $data["value"] = explode(",", $value)[1];
-                
+
                 $data["parameters"] = [
                     "ENCODING" => "BASE64",
                     "VALUE" => "BINARY"
@@ -1756,7 +1756,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             );
 
             /* TODO: check if necessary v v v
-            if (empty($data["parameters"])) {                    
+            if (empty($data["parameters"])) {
                 $this->iCalEvent->VEVENT->add(
                     "ATTACH",
                     $data["value"]
@@ -1770,6 +1770,6 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 );
             }
             */
-        }  
+        }
     }
 }
