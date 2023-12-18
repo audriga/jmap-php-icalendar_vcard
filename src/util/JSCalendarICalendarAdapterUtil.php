@@ -678,6 +678,7 @@ class JSCalendarICalendarAdapterUtil
         }
 
         $attachments = [];
+        $urls = [];
 
         $splitLinkMap = [];
 
@@ -695,13 +696,35 @@ class JSCalendarICalendarAdapterUtil
                 // Link object can represent here.
 
                 default:
-                    array_push($attachments, $link);
+                    array_push($urls, $link);
                     break;
             }
         }
 
         $splitLinkMap["attachments"] = $attachments;
+        $splitLinkMap["urls"] = $urls;
 
         return $splitLinkMap;
+    }
+
+    public static function extractMediaTypeFromDataUrlMetaDataString($metaData)
+    {
+        // Data URLs use a "/" to show the [type]/[subtype] of their data.
+        // According to the Data URL RFC, this should be the only occurence
+        // of a "/" in the meta data part of the value.
+        // https://datatracker.ietf.org/doc/html/rfc2397#section-3
+        if ($metaData == "") {
+            return false;
+        }
+
+        $splitMetaData = explode(";", $metaData);
+
+        foreach ($splitMetaData as $part) {
+            if (str_contains($part, "/")) {
+                return $part;
+            }
+        }
+
+        return false;
     }
 }
