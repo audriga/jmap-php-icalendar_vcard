@@ -41,6 +41,7 @@ JSCalendars:
 * `jscalendar_google_modex.json` - JSCalendar converted from a Google event with a modified exception
 * `jscalendar_with_localdt_recurrenceid.json` - JSCalendar with recurrenceoverride and local date time.
 * `jscalendar_overrides_and_fullday.json` - JSCalendar event with all-day recurrence and and override.
+* `jscalendar_with_attachment_binary.json` - JSCalendar event containing a binary attachment.
 
 JSContacts:
 
