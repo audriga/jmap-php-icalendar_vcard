@@ -633,8 +633,6 @@ final class JSCalendarICalendarAdapterTest extends TestCase
     public function testAttachmentsBinaryRoundtrip() {
         $this->mapJSCalendar(__DIR__ . '/../resources/jscalendar_with_attachment_binary.json');
 
-        fwrite(STDERR, print_r(json_encode($this->jsCalendarAfter), true));
-
         $this->assertInstanceOf(CalendarEvent::class, $this->jsCalendarAfter);
 
         $this->assertCount(1, $this->jsCalendarAfter->getLinks());
