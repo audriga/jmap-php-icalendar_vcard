@@ -1653,6 +1653,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         foreach ($attachments as $attach) {
             $link = new Link();
 
+            $link->setType("Link");
             $link->setRel("enclosure");
 
             // Check if the ATTACH property has a binary or uri (= non-binary) value.
@@ -1728,12 +1729,24 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $data = [];
 
+            // If the value for this prop starts with "data", it should be a data URL,
+            // which we can translate to a binary ATTACH value. Otherwise assume that
+            // it is a regular URI.
             if (substr($value, 0, 5) == "data:") {
                 // "," is not a part of the base64 charset and not for
                 // the meta-data part ahead of the binary part  either.
                 // So this should not cause any issues with the string
                 // being split into more than two parts.
-                $data["value"] = explode(",", $value)[1];
+                $splitValue = explode(",", $value);
+
+                // Value needs to be decoded first, since it will be encoded when adding
+                // it to the event and there is no way of changing this in behavior in
+                // sabre/vobject.
+                $data["value"] = base64_decode($splitValue[1]);
+
+                // Any info like mediatype or other parameters which we might need to
+                // create the iCal attachment.
+                $data["metaData"] = substr($splitValue[0], 5);
 
                 $data["parameters"] = [
                     "ENCODING" => "BASE64",
@@ -1747,6 +1760,15 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             if (AdapterUtil::isSetNotNullAndNotEmpty($link->getContentType())) {
                 $data["parameters"]["FMTTYPE"] = $link->getContentType();
+            } elseif (isset($data["metaData"])) {
+                // Try to manually extract the mediatype from the href string.
+                $mediaType = JSCalendarICalendarAdapterUtil::extractMediaTypeFromDataUrlMetaDataString(
+                    $data["metaData"]
+                );
+
+                if ($mediaType) {
+                    $data["parameters"]["FMTTYPE"] = $mediaType;
+                }
             }
 
             $this->iCalEvent->VEVENT->add(

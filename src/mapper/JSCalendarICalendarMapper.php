@@ -320,6 +320,18 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $attachments = $adapter->getAttachments();
         $jmapLinks = array_merge($jmapLinks, $attachments ? $attachments : []);
 
+        // Create indices for the JMAP link map. Otherwise, the objects would be
+        // stored in an array.
+        $jmapLinkIndices = array_map(
+            function ($i) {
+                return strval($i + 1);
+            },
+            array_keys($jmapLinks)
+        );
+
+        $jmapLinks = array_combine($jmapLinkIndices, $jmapLinks);
+
+
         $jmapEvent->setLinks($jmapLinks);
 
         // Map the properties that are strictly set in master event.
