@@ -600,8 +600,8 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->mapICalendar('/../resources/icalendar_with_attach_binary.ics');
 
         $this->assertCount(1, $this->jsCalendarAfter->getLinks());
-        $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()[0]->getRel());
-        $this->assertEquals("text/plain", $this->jsCalendarAfter->getLinks()[0]->getContentType());
+        $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()["1"]->getRel());
+        $this->assertEquals("text/plain", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
         $this->assertEquals("data:text/plain;base64,U0ZMb2dObwlTRkxvYWR" . 
         "lZERhdGUNCjkxNzY3NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjIwNS8xCTI3LzExLzIwMTIgM" .
         "Tg6MzANCjkxMjI0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjI1Mi8xCTI3LzExLzIwMTIgMTg" .
@@ -618,15 +618,30 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         "3LzExLzIwMTIgMTg6MzANCjkxNTY0MC8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTY0MS8xCTI3L" .
         "zExLzIwMTIgMTg6MzANCjkxNTY1OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTc3Ni8xCTI3LzE" .
         "xLzIwMTIgMTg6MzANCjkxNTc3Ny8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTc3OC8xCTI3LzExL" .
-        "zIwMTIgMTg6MzANCg==", $this->jsCalendarAfter->getLinks()[0]->getHref());
+        "zIwMTIgMTg6MzANCg==", $this->jsCalendarAfter->getLinks()["1"]->getHref());
     }
 
     public function testMapICalendarAttachUri() {
         $this->mapICalendar('/../resources/icalendar_with_attach_uri.ics');
 
         $this->assertCount(1, $this->jsCalendarAfter->getLinks());
-        $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()[0]->getRel());
-        $this->assertEquals("image/png", $this->jsCalendarAfter->getLinks()[0]->getContentType());
-        $this->assertEquals("/test/nextcloud26/index.php/f/1116", $this->jsCalendarAfter->getLinks()[0]->getHref());
+        $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()["1"]->getRel());
+        $this->assertEquals("image/png", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
+        $this->assertEquals("/test/nextcloud26/index.php/f/1116", $this->jsCalendarAfter->getLinks()["1"]->getHref());
+    }
+
+    public function testAttachmentsBinaryRoundtrip() {
+        $this->mapJSCalendar(__DIR__ . '/../resources/jscalendar_with_attachment_binary.json');
+
+        fwrite(STDERR, print_r(json_encode($this->jsCalendarAfter), true));
+
+        $this->assertInstanceOf(CalendarEvent::class, $this->jsCalendarAfter);
+
+        $this->assertCount(1, $this->jsCalendarAfter->getLinks());
+        $this->assertArrayHasKey("1", $this->jsCalendarAfter->getLinks());
+
+        $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getType(), $this->jsCalendarAfter->getLinks()["1"]->getType());
+        $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getHref(), $this->jsCalendarAfter->getLinks()["1"]->getHref());
+        $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getRel(), $this->jsCalendarAfter->getLinks()["1"]->getRel());
     }
 }
