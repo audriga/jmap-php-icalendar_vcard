@@ -1644,6 +1644,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $attachments = $this->iCalEvent->VEVENT->ATTACH;
 
+
         if (!AdapterUtil::isSetNotNullAndNotEmpty($attachments)) {
             return null;
         }
@@ -1666,6 +1667,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             if (AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])) {
                 $link->setContentType($attach->parameters["FMTTYPE"]->getValue());
+            }
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FILENAME"])) {
+                $link->setTitle($attach->parameters["FILENAME"]->getValue());
             }
 
             array_push($links, $link);
@@ -1724,6 +1729,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             $value = $link->getHref();
 
             if ($value == "") {
+                $this->logger->notice(sprintf(
+                    "Link contains no HREF value and cannot be mapped to an attachment: %s",
+                    json_encode($link)
+                ));
+
                 continue;
             }
 
@@ -1762,13 +1772,27 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $data["parameters"]["FMTTYPE"] = $link->getContentType();
             } elseif (isset($data["metaData"])) {
                 // Try to manually extract the mediatype from the href string.
+                $this->logger->notice(sprintf(
+                    "Link object does not contain content-type. Extracting media-type from data URL. Link %s:",
+                    json_encode($link)
+                ));
+
                 $mediaType = JSCalendarICalendarAdapterUtil::extractMediaTypeFromDataUrlMetaDataString(
                     $data["metaData"]
                 );
 
                 if ($mediaType) {
                     $data["parameters"]["FMTTYPE"] = $mediaType;
+
+                    $this->logger->notice(sprintf(
+                        "Succesfully extracted the mediatype %s from data URL.",
+                        $mediaType
+                    ));
                 }
+            }
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($link->getTitle())) {
+                $data["parameters"]["FILENAME"] = $link->getTitle();
             }
 
             $this->iCalEvent->VEVENT->add(
