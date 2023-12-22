@@ -644,4 +644,6 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getRel(), $this->jsCalendarAfter->getLinks()["1"]->getRel());
         $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getTitle(), $this->jsCalendarAfter->getLinks()["1"]->getTitle());
     }
+
+    // TODO: Add roundtrip testing for Attachments in recurrence overrides.
 }

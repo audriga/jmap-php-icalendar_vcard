@@ -332,6 +332,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $jmapLinks = array_combine($jmapLinkIndices, $jmapLinks);
 
 
+        // TODO: Add handling of attachments in recurrence overrides.
+        // See: https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-recurring-event-with-attach
         $jmapEvent->setLinks($jmapLinks);
 
         // Map the properties that are strictly set in master event.
