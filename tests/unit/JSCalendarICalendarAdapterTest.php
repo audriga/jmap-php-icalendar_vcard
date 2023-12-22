@@ -602,6 +602,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertCount(1, $this->jsCalendarAfter->getLinks());
         $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()["1"]->getRel());
         $this->assertEquals("text/plain", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
+        $this->assertEquals("test.txt", $this->jsCalendarAfter->getLinks()["1"]->getTitle());
         $this->assertEquals("data:text/plain;base64,U0ZMb2dObwlTRkxvYWR" . 
         "lZERhdGUNCjkxNzY3NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjIwNS8xCTI3LzExLzIwMTIgM" .
         "Tg6MzANCjkxMjI0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjI1Mi8xCTI3LzExLzIwMTIgMTg" .
@@ -641,5 +642,6 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getType(), $this->jsCalendarAfter->getLinks()["1"]->getType());
         $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getHref(), $this->jsCalendarAfter->getLinks()["1"]->getHref());
         $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getRel(), $this->jsCalendarAfter->getLinks()["1"]->getRel());
+        $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getTitle(), $this->jsCalendarAfter->getLinks()["1"]->getTitle());
     }
 }
