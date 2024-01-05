@@ -673,7 +673,10 @@ class JSCalendarICalendarAdapterUtil
 
     public static function splitJmapLinkMapIntoICalProperties($linkMap)
     {
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($linkMap)) {
+        if (
+            !AdapterUtil::isSetNotNullAndNotEmpty($linkMap) ||
+            !is_array($linkMap)
+        ) {
             return null;
         }
 
@@ -713,7 +716,7 @@ class JSCalendarICalendarAdapterUtil
         // According to the Data URL RFC, this should be the only occurence
         // of a "/" in the meta data part of the value.
         // https://datatracker.ietf.org/doc/html/rfc2397#section-3
-        if ($metaData == "") {
+        if ($metaData == "" || !str_contains($metaData, ";")) {
             return false;
         }
 

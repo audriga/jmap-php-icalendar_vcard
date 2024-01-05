@@ -1659,17 +1659,26 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             // Check if the ATTACH property has a binary or uri (= non-binary) value.
             // Currently done by checking the "VALUE" parameter.
-            if ($attach->parameters["VALUE"] == "BINARY") {
+            if (
+                array_key_exists("VALUE", $attach->parameters) &&
+                $attach->parameters["VALUE"] == "BINARY"
+            ) {
                 $this->fillLinkWithBinaryValue($link, $attach);
             } else {
                 $this->fillLinkWithUriValue($link, $attach);
             }
 
-            if (AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])) {
+            if (
+                array_key_exists("FMTTYPE", $attach->parameters) &&
+                AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])
+            ) {
                 $link->setContentType($attach->parameters["FMTTYPE"]->getValue());
             }
 
-            if (AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FILENAME"])) {
+            if (
+                array_key_exists("FILENAME", $attach->parameters) &&
+                AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FILENAME"])
+            ) {
                 $link->setTitle($attach->parameters["FILENAME"]->getValue());
             }
 
@@ -1701,7 +1710,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         // The mediatype for Data URLs is supposed to default to
         // "text/plain;charset=US-ASCII" if not set.
         // https://www.rfc-editor.org/rfc/inline-errata/rfc2397.html
-        if (AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])) {
+        if (
+            array_key_exists("FMTTYPE", $attach->parameters) &&
+            AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])
+        ) {
             $mediaType = $attach->parameters["FMTTYPE"]->getValue();
         } else {
             $mediaType = "text/plain;charset=US-ASCII";
@@ -1753,6 +1765,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 // it to the event and there is no way of changing this in behavior in
                 // sabre/vobject.
                 $data["value"] = base64_decode($splitValue[1]);
+                #fwrite(STDERR, print_r($splitValue[1], true));
+                #fwrite(STDERR, print_r($data["value"], true));
+                #fwrite(STDERR, print_r("\n", true));
+
 
                 // Any info like mediatype or other parameters which we might need to
                 // create the iCal attachment.
