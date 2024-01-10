@@ -131,6 +131,13 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $adapter->setParticipants($jsEvent->getParticipants());
 
+        // Map any property which is stored as a link object in jsCal. Currently only attachment is supported.
+        $splitLinkMap = JSCalendarICalendarAdapterUtil::splitJmapLinkMapIntoICalProperties(
+            $jsEvent->getLinks()
+        );
+
+        $adapter->setAttachments($splitLinkMap["attachments"]);
+
 
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
@@ -301,6 +308,33 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $jmapEvent->setAlerts($adapter->getAlerts());
         $jmapEvent->setParticipants($adapter->getParticipants());
+
+        // There are multiple iCal properties which are mapped to
+        // jsCalendar link properties. Any new properties for which
+        // this is the case should be stored in the $jmapLinks array
+        // before it is then stored in the jsCal CalendarEvent object.
+        $jmapLinks = array();
+
+        // Set attachments. Set it as a variable to make null-handling easier
+        // since the null coalescing operator (??) was only added in PHP 7.
+        $attachments = $adapter->getAttachments();
+        $jmapLinks = array_merge($jmapLinks, $attachments ? $attachments : []);
+
+        // Create indices for the JMAP link map. Otherwise, the objects would be
+        // stored in an array.
+        $jmapLinkIndices = array_map(
+            function ($i) {
+                return strval($i + 1);
+            },
+            array_keys($jmapLinks)
+        );
+
+        $jmapLinks = array_combine($jmapLinkIndices, $jmapLinks);
+
+
+        // TODO: Add handling of attachments in recurrence overrides.
+        // See: https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-recurring-event-with-attach
+        $jmapEvent->setLinks($jmapLinks);
 
         // Map the properties that are strictly set in master event.
         if (strcmp($jmapEvent->getType(), "Event") === 0) {

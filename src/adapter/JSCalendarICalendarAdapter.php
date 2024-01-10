@@ -11,6 +11,7 @@ use OpenXPort\Jmap\Calendar\Location;
 use OpenXPort\Jmap\Calendar\OffsetTrigger;
 use OpenXPort\Jmap\Calendar\AbsoluteTrigger;
 use OpenXPort\Jmap\Calendar\Alert;
+use OpenXPort\Jmap\Calendar\Link;
 use OpenXPort\Jmap\Calendar\RecurrenceRule;
 use OpenXPort\Jmap\Calendar\Participant;
 use OpenXPort\Mapper\JSCalendarICalendarMapper;
@@ -1637,5 +1638,200 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         $this->iCalEvent->VEVENT->add("PRIORITY", $priority);
+    }
+
+    public function getAttachments()
+    {
+        $attachments = $this->iCalEvent->VEVENT->ATTACH;
+
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($attachments)) {
+            return null;
+        }
+
+        $links = [];
+
+        foreach ($attachments as $attach) {
+            $link = new Link();
+
+            $link->setType("Link");
+            $link->setRel("enclosure");
+
+            // Check if the ATTACH property has a binary or uri (= non-binary) value.
+            // Currently done by checking the "VALUE" parameter.
+            if (
+                array_key_exists("VALUE", $attach->parameters) &&
+                $attach->parameters["VALUE"] == "BINARY"
+            ) {
+                $this->fillLinkWithBinaryValue($link, $attach);
+            } else {
+                $this->fillLinkWithUriValue($link, $attach);
+            }
+
+            if (
+                array_key_exists("FMTTYPE", $attach->parameters) &&
+                AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])
+            ) {
+                $link->setContentType($attach->parameters["FMTTYPE"]->getValue());
+            }
+
+            if (
+                array_key_exists("FILENAME", $attach->parameters) &&
+                AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FILENAME"])
+            ) {
+                $link->setTitle($attach->parameters["FILENAME"]->getValue());
+            }
+
+            array_push($links, $link);
+        }
+
+        return $links;
+    }
+
+    private function fillLinkWithBinaryValue($link, $attach)
+    {
+        // Currently expect all binary attachments to be encoded in base64.
+        if (
+            !AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["ENCODING"]) ||
+            $attach->parameters["ENCODING"]->getValue() != "BASE64"
+        ) {
+            throw new \Exception(sprintf(
+                "ATTACH encoding is not recognized as base64 for event: %s. Mapping will be aborted.",
+                $this->iCalEvent->VEVENT->UID->getValue()
+            ));
+        }
+        // Use getRawMimeDirValue() instead of getValue()
+        // in order to not get the decoded value for binary
+        // attachments.
+        $binaryValue = $attach->getRawMimeDirValue();
+
+        $mediaType = "";
+
+        // The mediatype for Data URLs is supposed to default to
+        // "text/plain;charset=US-ASCII" if not set.
+        // https://www.rfc-editor.org/rfc/inline-errata/rfc2397.html
+        if (
+            array_key_exists("FMTTYPE", $attach->parameters) &&
+            AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FMTTYPE"])
+        ) {
+            $mediaType = $attach->parameters["FMTTYPE"]->getValue();
+        } else {
+            $mediaType = "text/plain;charset=US-ASCII";
+        }
+
+        $dataUrl = "data:$mediaType;base64,$binaryValue";
+
+        $link->setHref($dataUrl);
+    }
+
+    private function fillLinkWithUriValue($link, $attach)
+    {
+        $link->setHref($attach->getValue());
+    }
+
+    public function setAttachments($links)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($links)) {
+            return;
+        }
+
+        // Loop through each Link, decide whether it's binary or a uri
+        // and add it to the VEVENT accordingly.
+        foreach ($links as $link) {
+            $value = $link->getHref();
+
+            if ($value == "") {
+                $this->logger->notice(sprintf(
+                    "Link contains no HREF value and cannot be mapped to an attachment: %s",
+                    json_encode($link)
+                ));
+
+                continue;
+            }
+
+            $data = [];
+
+            // If the value for this prop starts with "data", it should be a data URL,
+            // which we can translate to a binary ATTACH value. Otherwise assume that
+            // it is a regular URI.
+            if (substr($value, 0, 5) == "data:") {
+                // "," is not a part of the base64 charset and not for
+                // the meta-data part ahead of the binary part  either.
+                // So this should not cause any issues with the string
+                // being split into more than two parts.
+                $splitValue = explode(",", $value);
+
+                // Value needs to be decoded first, since it will be encoded when adding
+                // it to the event and there is no way of changing this in behavior in
+                // sabre/vobject.
+                $data["value"] = base64_decode($splitValue[1]);
+                #fwrite(STDERR, print_r($splitValue[1], true));
+                #fwrite(STDERR, print_r($data["value"], true));
+                #fwrite(STDERR, print_r("\n", true));
+
+
+                // Any info like mediatype or other parameters which we might need to
+                // create the iCal attachment.
+                $data["metaData"] = substr($splitValue[0], 5);
+
+                $data["parameters"] = [
+                    "ENCODING" => "BASE64",
+                    "VALUE" => "BINARY"
+                ];
+            } else {
+                $data["value"] = $value;
+
+                $data["parameters"] = [];
+            }
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($link->getContentType())) {
+                $data["parameters"]["FMTTYPE"] = $link->getContentType();
+            } elseif (isset($data["metaData"])) {
+                // Try to manually extract the mediatype from the href string.
+                $this->logger->notice(sprintf(
+                    "Link object does not contain content-type. Extracting media-type from data URL. Link %s:",
+                    json_encode($link)
+                ));
+
+                $mediaType = JSCalendarICalendarAdapterUtil::extractMediaTypeFromDataUrlMetaDataString(
+                    $data["metaData"]
+                );
+
+                if ($mediaType) {
+                    $data["parameters"]["FMTTYPE"] = $mediaType;
+
+                    $this->logger->notice(sprintf(
+                        "Succesfully extracted the mediatype %s from data URL.",
+                        $mediaType
+                    ));
+                }
+            }
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($link->getTitle())) {
+                $data["parameters"]["FILENAME"] = $link->getTitle();
+            }
+
+            $this->iCalEvent->VEVENT->add(
+                "ATTACH",
+                $data["value"],
+                $data["parameters"]
+            );
+
+            /* TODO: check if necessary v v v
+            if (empty($data["parameters"])) {
+                $this->iCalEvent->VEVENT->add(
+                    "ATTACH",
+                    $data["value"]
+                );
+
+            } else {
+                $this->iCalEvent->VEVENT->add(
+                    "ATTACH",
+                    $data["value"],
+                    $data["parameters"]
+                );
+            }
+            */
+        }
     }
 }

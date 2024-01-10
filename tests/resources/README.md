@@ -19,6 +19,8 @@ iCalendars:
 * `recurring_event_with_changed_occurrence.ics` - iCal event with recurrence and a changed occurrence
 * `calendar_witch_two_events.ics` - iCal file with two separate events.
 * `icalendar_in_utc.ics` - iCal file containing multiple UTC Datetime values to check for mapping between local and UTC time.
+* `icalendar_with_attach_binary.ics` - iCal file containing an attachment stored as a binary value.
+* `icalendar_with_attach_uri.ics` - iCal file containing an attachment stored as a uri value.
 
 JSCalendars:
 
@@ -39,6 +41,7 @@ JSCalendars:
 * `jscalendar_google_modex.json` - JSCalendar converted from a Google event with a modified exception
 * `jscalendar_with_localdt_recurrenceid.json` - JSCalendar with recurrenceoverride and local date time.
 * `jscalendar_overrides_and_fullday.json` - JSCalendar event with all-day recurrence and and override.
+* `jscalendar_with_attachment_binary.json` - JSCalendar event containing a binary attachment.
 
 JSContacts:
 

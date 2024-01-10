@@ -670,4 +670,64 @@ class JSCalendarICalendarAdapterUtil
 
         return implode(",", $scheduleStatus);
     }
+
+    public static function splitJmapLinkMapIntoICalProperties($linkMap)
+    {
+        if (
+            !AdapterUtil::isSetNotNullAndNotEmpty($linkMap) ||
+            !is_array($linkMap)
+        ) {
+            return null;
+        }
+
+        $attachments = [];
+        $urls = [];
+
+        $splitLinkMap = [];
+
+        foreach ($linkMap as $link) {
+            if (is_null($link->getRel())) {
+                continue;
+            }
+
+            switch ($link->getRel()) {
+                case "enclosure":
+                    array_push($attachments, $link);
+                    break;
+
+                // For future reference: Add any new properties a
+                // Link object can represent here.
+
+                default:
+                    array_push($urls, $link);
+                    break;
+            }
+        }
+
+        $splitLinkMap["attachments"] = $attachments;
+        $splitLinkMap["urls"] = $urls;
+
+        return $splitLinkMap;
+    }
+
+    public static function extractMediaTypeFromDataUrlMetaDataString($metaData)
+    {
+        // Data URLs use a "/" to show the [type]/[subtype] of their data.
+        // According to the Data URL RFC, this should be the only occurence
+        // of a "/" in the meta data part of the value.
+        // https://datatracker.ietf.org/doc/html/rfc2397#section-3
+        if ($metaData == "" || !str_contains($metaData, ";")) {
+            return false;
+        }
+
+        $splitMetaData = explode(";", $metaData);
+
+        foreach ($splitMetaData as $part) {
+            if (str_contains($part, "/")) {
+                return $part;
+            }
+        }
+
+        return false;
+    }
 }
