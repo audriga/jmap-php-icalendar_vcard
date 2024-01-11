@@ -4,6 +4,18 @@ JMAP iCalendar/vCard Release Notes
 
 .. contents:: Topics
 
+v0.5.0
+=======
+
+Release summary
+---------------
+Support Calendar Event Attachments
+
+Details
+-------
+* Calendars: Convert between ATTACH and links
+* Update JMAP OpenXPort to 1.7.2
+
 v0.4.0
 =======
 
