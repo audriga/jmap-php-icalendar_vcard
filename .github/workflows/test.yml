@@ -12,8 +12,7 @@ jobs:
         strategy:
             matrix:
                 php-versions: [7.0, 8.2]
-        name: Nextcloud ${{ matrix.nextcloud-versions }} php
-          ${{ matrix.php-versions }} unit tests
+        name: icalendar_vcard php ${{ matrix.php-versions }} unit tests
         steps:
             - name: Set up php${{ matrix.php-versions }}
               uses: shivammathur/setup-php@master
