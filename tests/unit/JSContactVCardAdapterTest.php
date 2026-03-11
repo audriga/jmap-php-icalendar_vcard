@@ -33,7 +33,7 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->mapper = new JSContactVCardMapper();
     }
 
-    public function tearDown(): void
+    public function tearDown()
     {
         $this->vCard = null;
         $this->adapter = null;
