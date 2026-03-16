@@ -78,7 +78,7 @@ class JSContactVCardMapper extends AbstractMapper
      * Map from vCard data to JMAP ContactCard objects (RFC 9553).
      *
      * @param array<string,mixed>       $data      contactId => vcardString
-     * @param VCardJsContactAdapter     $adapter
+     * @param JSContactVCardAdapter     $adapter
      *
      * @return ContactCard[]
      */

@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/puja/DEV/openxport-jmap",
-                "reference": "9544c07dbdc4feafab877903a1bfee3246d17d65"
+                "reference": "ae8cf63ed2bfe340e50993990bc0eb4572c7b12e"
             },
             "require": {
                 "php": ">=5.6",
