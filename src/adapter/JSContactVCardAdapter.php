@@ -1109,7 +1109,6 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getGramGenderToJmap(ContactCard $card)
     {
-        // Prefer RFC 9554 GRAMGENDER when present.
         $gramGender = $this->vcard->__get('GRAMGENDER');
         if (AdapterUtil::isSetAndNotNull($gramGender)) {
             $value = strtolower(trim((string) $gramGender));
@@ -1119,15 +1118,11 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
         }
 
-        // Fall back to the legacy GENDER property so v3/v4 cards aren't silently
-        // stripped of their gender information.
         $gender = $this->vcard->__get('GENDER');
         if (!AdapterUtil::isSetAndNotNull($gender)) {
             return;
         }
 
-        // GENDER is semicolon-delimited: the first component is the sex code,
-        // the second (optional) is a free-text identity string.
         $raw   = trim((string) $gender);
         $parts = explode(';', $raw, 2);
         $sex   = strtolower(trim($parts[0]));
@@ -1141,7 +1136,6 @@ class JSContactVCardAdapter extends AbstractAdapter
             'neuter' => 'neuter',
             'o'      => 'animate',   // "other" - closest JSContact value
             'other'  => 'animate',
-            // 'u' (unknown) and '' are intentionally omitted: no useful mapping.
         );
 
         if (isset($mapping[$sex])) {
@@ -1770,11 +1764,10 @@ class JSContactVCardAdapter extends AbstractAdapter
                 continue;
             }
 
-            $uri     = $os->getUri();
-            $user    = $os->getUser();
             $service = $os->getService();
+            $user    = $os->getUser();
 
-            $value = $uri !== null && $uri !== '' ? $uri : $user;
+            $value = $this->determineOnlineExportValue($os);
             if ($value === null || $value === '') {
                 continue;
             }
@@ -1799,7 +1792,10 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $params['PREF'] = $pref;
             }
 
-            $propName = $this->determineOnlinePropertyType($uri, $service);
+            $propName = $this->determineOnlinePropertyType(
+                $os->getUri(),
+                $os->getService()
+            );
 
             $this->vcard->add($propName, $value, $params);
         }
@@ -1816,11 +1812,11 @@ class JSContactVCardAdapter extends AbstractAdapter
     private function determineOnlinePropertyType($uri, $service)
     {
         if ($uri !== null && $uri !== '') {
-            $scheme = strtolower(parse_url($uri, PHP_URL_SCHEME));
+            $scheme = strtolower((string) parse_url($uri, PHP_URL_SCHEME));
             $imppSchemes = array(
                 'xmpp', 'sip', 'sips', 'tel', 'aim', 'msnim', 'ymsgr', 'skype', 'irc'
             );
-            if (in_array($scheme, $imppSchemes)) {
+            if (in_array($scheme, $imppSchemes, true)) {
                 return 'IMPP';
             }
         }
@@ -1832,12 +1828,47 @@ class JSContactVCardAdapter extends AbstractAdapter
                 'pinterest', 'flickr', 'vimeo', 'twitch', 'discord', 'telegram',
                 'whatsapp', 'signal', 'matrix', 'bluesky', 'threads'
             );
-            if (in_array(strtolower($service), $socialServices)) {
+            if (in_array(strtolower((string) $service), $socialServices, true)) {
                 return 'SOCIALPROFILE';
             }
         }
 
         return 'URL';
+    }
+
+    protected function determineOnlineExportValue(OnlineService $os)
+    {
+        $uri = $os->getUri();
+        $user = $os->getUser();
+        $service = strtolower(trim((string) $os->getService()));
+
+        if (in_array($service, ['aim', 'jabber', 'xmpp', 'sip'], true)) {
+            if (is_string($uri) && $uri !== '') {
+                return $uri;
+            }
+            if (is_string($user) && $user !== '') {
+                return $user;
+            }
+        }
+
+        if (in_array($service, ['skype', 'icq', 'msn', 'yahoo'], true)) {
+            if (is_string($user) && $user !== '') {
+                return $user;
+            }
+            if (is_string($uri) && $uri !== '') {
+                return $uri;
+            }
+        }
+
+        if (is_string($uri) && $uri !== '') {
+            return $uri;
+        }
+
+        if (is_string($user) && $user !== '') {
+            return $user;
+        }
+
+        return null;
     }
 
     /**
@@ -1862,18 +1893,12 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             foreach ($items as $prop) {
-                $uri = trim((string) $prop);
-                if ($uri === '') {
+                $value = trim((string) $prop);
+                if ($value === '') {
                     continue;
                 }
 
                 $os = new OnlineService();
-
-                if (filter_var($uri, FILTER_VALIDATE_URL)) {
-                    $os->setUri($uri);
-                } else {
-                    $os->setUser($uri);
-                }
 
                 if (isset($prop['SERVICE-TYPE'])) {
                     $os->setService((string) $prop['SERVICE-TYPE']);
@@ -1881,6 +1906,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
                 if (isset($prop['USERNAME'])) {
                     $os->setUser((string) $prop['USERNAME']);
+                } else {
+                    $this->assignOnlineValueToObject($os, $propName, $value, $prop);
                 }
 
                 $this->applyCommonContextAndPref($os, $prop);
@@ -2481,8 +2508,6 @@ class JSContactVCardAdapter extends AbstractAdapter
     /**
      * Writes ContactCard scheduling addresses as vCard properties.
      *
-     * kind = 'freeBusy' → FBURL, kind = 'calendar' → CALURI, anything else → CALADRURI.
-     *
      * @param ContactCard $card
      */
     public function setSchedulingAddressesFromJmap(ContactCard $card)
@@ -2549,11 +2574,6 @@ class JSContactVCardAdapter extends AbstractAdapter
                 continue;
             }
 
-            // A timezone-only address (produced from a bare TZ property) round-trips
-            // back to a standalone TZ property, not an ADR line.
-            // Detection: timeZone is set, but no components, no full address,
-            // no coordinates, and no country code - i.e. nothing that would
-            // justify an ADR line.
             $timeZone      = $address->getTimeZone();
             $components    = $address->getComponents();
             $fullAddr      = $address->getFullAddress();
@@ -2586,8 +2606,13 @@ class JSContactVCardAdapter extends AbstractAdapter
                         continue;
                     }
 
-                    $kind  = $comp->getKind();
-                    $value = $comp->getValue();
+                    $kind  = $comp->getValue();
+                    $value = $comp->getKind();
+
+                    if (!is_string($kind) || $kind === '') {
+                        continue;
+                    }
+
                     if (!is_string($value) || $value === '') {
                         continue;
                     }
@@ -2688,7 +2713,6 @@ class JSContactVCardAdapter extends AbstractAdapter
 
     /**
      * Reads vCard ADR properties and stores them as addresses on the ContactCard.
-     * Handles both the standard 7-component and RFC 9554 extended 16-component formats.
      *
      * @param ContactCard $card
      */
@@ -2787,11 +2811,19 @@ class JSContactVCardAdapter extends AbstractAdapter
             if ($a->getFullAddress() === null) {
                 $fullParts = array();
                 foreach ($components as $comp) {
-                    $val = $comp->getValue();
+                    if (!is_object($comp) || !method_exists($comp, 'getKind')) {
+                        continue;
+                    }
+
+                    // In this AddressComponent model:
+                    // - getValue() is the component type (e.g. "locality")
+                    // - getKind() is the actual text (e.g. "Berlin")
+                    $val = $comp->getKind();
                     if ($val !== null && $val !== '') {
                         $fullParts[] = $val;
                     }
                 }
+
                 if (!empty($fullParts)) {
                     $a->setFullAddress(implode(', ', $fullParts));
                 }
@@ -2820,8 +2852,6 @@ class JSContactVCardAdapter extends AbstractAdapter
             $map['a' . $i++] = $a;
         }
 
-        // A bare top-level TZ property (with no accompanying ADR) is stored as
-        // a timezone-only Address - only timeZone is set, everything else is empty.
         $standaloneTz = $this->vcard->__get('TZ');
         if (AdapterUtil::isSetAndNotNull($standaloneTz)) {
             $tzValue = trim((string) $standaloneTz);
@@ -3062,7 +3092,7 @@ class JSContactVCardAdapter extends AbstractAdapter
 
     /**
      * Writes ContactCard anniversaries to the vCard as BDAY, BIRTHPLACE, DEATHDATE, DEATHPLACE, and ANNIVERSARY.
-     * If an anniversary has no kind set, it defaults to "wedding" so it doesn't get silently dropped.
+     * Only explicitly recognized anniversary kinds are exported.
      *
      * @param ContactCard $card
      */
@@ -3082,10 +3112,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                 continue;
             }
 
-            $kind = $ann->getKind();
-            if ($kind === null || $kind === '') {
-                $kind = 'wedding';
-            }
+            $kind  = strtolower(trim((string) $ann->getKind()));
             $label = strtolower(trim((string) $ann->getLabel()));
 
             if ($kind === 'birth' && $birth === null) {
@@ -3093,11 +3120,11 @@ class JSContactVCardAdapter extends AbstractAdapter
             } elseif ($kind === 'death' && $death === null) {
                 $death = $ann;
             } elseif (
-                (
+                $wedding === null
+                && (
                     $kind === 'wedding'
                     || ($kind === 'other' && in_array($label, array('wedding', 'marriage', 'marriage date', 'anniversary'), true))
                 )
-                && $wedding === null
             ) {
                 $wedding = $ann;
             }
@@ -3296,7 +3323,6 @@ class JSContactVCardAdapter extends AbstractAdapter
 
     /**
      * Reads vCard MEMBER properties and stores them on the ContactCard.
-     * Parses the raw vCard string directly because Sabre VObject doesn't expose MEMBER natively.
      *
      * @param ContactCard $card
      */
@@ -3387,7 +3413,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     // Personal info
     /**
      * Reads vCard EXPERTISE, HOBBY, and INTEREST properties and stores them on the ContactCard.
-     * LEVEL values are mapped: beginner → low, average/medium → medium, expert → high.
+     * LEVEL values are mapped: beginner -> low, average/medium -> medium, expert -> high.
      *
      * @param ContactCard $card
      */
@@ -3447,7 +3473,7 @@ class JSContactVCardAdapter extends AbstractAdapter
 
     /**
      * Writes ContactCard personal info entries as vCard EXPERTISE, HOBBY, or INTEREST properties.
-     * LEVEL values are mapped back: low → beginner, medium → average, high → expert.
+     * LEVEL values are mapped back: low -> beginner, medium -> average, high -> expert.
      *
      * @param ContactCard $card
      */
@@ -3498,6 +3524,77 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             $this->vcard->add($propName, $value, $params);
+        }
+    }
+    /**
+     * Returns true if the value looks like a URI or scheme-based identifier.
+     *
+     * @param mixed $value
+     * @return bool
+     */
+    protected function looksLikeUri($value)
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return false;
+        }
+
+        $value = trim($value);
+
+        return (bool) preg_match('/^[a-z][a-z0-9+.\-]*:/i', $value)
+            || (bool) preg_match('/^https?:\/\//i', $value);
+    }
+
+    /**
+     * Assigns an online service value to uri or user based on property type and service type.
+     *
+     * @param OnlineService $os
+     * @param string        $propName
+     * @param string        $value
+     * @param mixed|null    $prop
+     */
+    protected function assignOnlineValueToObject(OnlineService $os, $propName, $value, $prop = null)
+    {
+        $serviceType = isset($prop['SERVICE-TYPE'])
+            ? strtolower(trim((string) $prop['SERVICE-TYPE']))
+            : null;
+
+        // IMPP is always URI-like.
+        if ($propName === 'IMPP') {
+            $os->setUri($value);
+            return;
+        }
+
+        // Known URI-style services.
+        if (in_array($serviceType, ['aim', 'jabber', 'xmpp', 'sip', 'sips'], true)) {
+            $os->setUri($value);
+            return;
+        }
+
+        // Known username-style services in this adapter.
+        if (in_array($serviceType, ['skype', 'icq', 'msn', 'yahoo'], true)) {
+            if ($this->looksLikeUri($value)) {
+                $os->setUri($value);
+            } else {
+                $os->setUser($value);
+            }
+            return;
+        }
+
+        // Social profiles and generic URLs are usually URI-like.
+        if ($propName === 'SOCIALPROFILE' || $propName === 'URL') {
+            if ($this->looksLikeUri($value)) {
+                $os->setUri($value);
+            } else {
+                $os->setUser($value);
+            }
+            return;
+        }
+
+        // Fallback.
+        if ($this->looksLikeUri($value)) {
+            $os->setUri($value);
+        } else {
+            $os->setUser($value);
         }
     }
 }

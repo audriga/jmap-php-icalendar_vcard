@@ -21,7 +21,7 @@ use OpenXPort\Util\AdapterUtil;
  */
 class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 {
-    // Forward direction: vCard -> JSContact
+    // vCard -> JSContact
     /**
      * Runs the full vCard -> JSContact conversion, then handles maiden name
      * separately since it has no standard property match in the parent class.
@@ -205,7 +205,11 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 
             $service = new OnlineService();
             $service->setService($serviceName);
-            $service->setUri($value);
+            if (in_array($serviceName, ['skype', 'icq', 'msn', 'yahoo'], true)) {
+                $service->setUser($value);
+            } else {
+                $service->setUri($value);
+            }
             $service->setLabel($propertyName);
 
             $contexts = $this->vcardTypeParamToContexts($property);
@@ -281,29 +285,54 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             return;
         }
 
-        $value = trim((string)$xAnniversary);
-        if ($value === "") {
-            return;
-        }
-
-        $date = AdapterUtil::parseDateTime($value, 'Y-m-d', 'Y-m-d', 'Ymd');
-        if ($date === null) {
-            $date = '0000-00-00';
-        }
-
-        $anniversary = new Anniversary();
-        $anniversary->setKind("other");
-        $anniversary->setLabel("x-anniversary");
-        $anniversary->setDate($date);
-
         $anniversaries = $card->getAnniversaries() ?: [];
-        $anniversaries[] = $anniversary;
-        $card->setAnniversaries($anniversaries);
+
+        foreach ($xAnniversary as $prop) {
+            $value = trim((string) $prop);
+            if ($value === "") {
+                continue;
+            }
+
+            $date = AdapterUtil::parseDateTime($value, 'Y-m-d', 'Y-m-d', 'Ymd');
+            if ($date === null) {
+                continue;
+            }
+
+            $alreadyExists = false;
+            foreach ($anniversaries as $existing) {
+                if (!($existing instanceof Anniversary)) {
+                    continue;
+                }
+
+                if (
+                    strtolower((string) $existing->getLabel()) === 'x-anniversary'
+                    && $existing->getDate() === $date
+                ) {
+                    $alreadyExists = true;
+                    break;
+                }
+            }
+
+            if ($alreadyExists) {
+                continue;
+            }
+
+            $anniversary = new Anniversary();
+            $anniversary->setKind('other');
+            $anniversary->setLabel('x-anniversary');
+            $anniversary->setDate($date);
+
+            $anniversaries[] = $anniversary;
+        }
+
+        if (!empty($anniversaries)) {
+            $card->setAnniversaries($anniversaries);
+        }
     }
 
+
     /**
-     * Reads the standard ORG property, then appends any X-DEPARTMENT values as
-     * additional units on the first organization.
+     * Reads standard ORG properties, then merges in any X-DEPARTMENT values
      */
     public function getOrganizationToJmap($card)
     {
@@ -316,24 +345,38 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 
         $organizations = $card->getOrganizations() ?: [];
 
-        if (!empty($organizations)) {
-            $firstOrg = reset($organizations);
-            $units = $firstOrg->getUnits() ?: [];
+        // If there is no ORG yet, create one so X-DEPARTMENT still has somewhere to go.
+        if (empty($organizations)) {
+            $org = new Organization();
+            $organizations['o1'] = $org;
+        }
 
-            foreach ($departments as $dept) {
-                $value = trim((string)$dept);
-                if ($value !== "") {
-                    $units[] = $value;
-                }
-            }
+        $firstKey = array_key_first($organizations);
+        $firstOrg = $organizations[$firstKey];
 
-            if (!empty($units)) {
-                $firstOrg->setUnits($units);
-                $card->setOrganizations($organizations);
+        if (!($firstOrg instanceof Organization)) {
+            return;
+        }
+
+        $units = $firstOrg->getUnits() ?: [];
+
+        foreach ($departments as $dept) {
+            $value = trim((string)$dept);
+            if ($value !== "") {
+                $units[] = $value;
             }
         }
+
+        if (!empty($units)) {
+            $units = array_values(array_unique($units, SORT_STRING));
+            $firstOrg->setUnits($units);
+        }
+
+        $organizations[$firstKey] = $firstOrg;
+        $card->setOrganizations($organizations);
     }
-    // Backward direction: JSContact -> vCard
+
+    //JSContact -> vCard
     /**
      * Writes name components to the vCard, then also writes maiden name since
      * both belong to the contact's name identity.
@@ -484,35 +527,48 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
         parent::setAnniversariesFromJmap($card);
 
         $anniversaries = $card->getAnniversaries();
-        if (!is_array($anniversaries)) {
+        if (!is_array($anniversaries) || empty($anniversaries)) {
             return;
         }
+
+        $writtenDates = [];
 
         foreach ($anniversaries as $anniversary) {
             if (!($anniversary instanceof Anniversary)) {
                 continue;
             }
 
-            $label = strtolower((string)$anniversary->getLabel());
-            if ($label === "x-anniversary") {
-                $date = $anniversary->getDate();
-                if ($date) {
-                    $this->vcard->add("X-ANNIVERSARY", $date);
-                }
+            $label = strtolower(trim((string) $anniversary->getLabel()));
+            $date  = trim((string) $anniversary->getDate());
+
+            if ($label !== 'x-anniversary' || $date === '') {
+                continue;
             }
+
+            $normalizedDate = AdapterUtil::parseDateTime($date, 'Y-m-d', 'Y-m-d', 'Ymd');
+            if ($normalizedDate === null) {
+                continue;
+            }
+
+            if (isset($writtenDates[$normalizedDate])) {
+                continue;
+            }
+
+            $writtenDates[$normalizedDate] = true;
+            $this->vcard->add('X-ANNIVERSARY', $normalizedDate);
         }
     }
 
     /**
-     * Writes standard ORG properties, then also writes each org unit as a separate
-     * X-DEPARTMENT property for Roundcube compatibility.
-     */
+      * Writes Roundcube organizations as:
+    *   ORG:<organization name only>
+    *   X-DEPARTMENT:<unit>
+    *   X-DEPARTMENT:<unit>
+    */
     public function setOrganizationFromJmap($card)
     {
-        parent::setOrganizationFromJmap($card);
-
         $organizations = $card->getOrganizations();
-        if (!is_array($organizations)) {
+        if (!is_array($organizations) || empty($organizations)) {
             return;
         }
 
@@ -521,20 +577,42 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
                 continue;
             }
 
-            $units = $org->getUnits();
-            if (!is_array($units)) {
+            $name = trim((string)$org->getName());
+            if ($name === '') {
                 continue;
             }
 
+            $params = [];
+            $types = $this->contextsToVcardTypeParam($org);
+            if (!empty($types)) {
+                $params['TYPE'] = $types;
+            }
+
+            //ORG contains only the organization name.
+            $this->vcard->add("ORG", [$name], $params);
+
+            //departments/units go only into X-DEPARTMENT.
+            $units = $org->getUnits();
+            if (!is_array($units) || empty($units)) {
+                continue;
+            }
+
+            $seen = [];
             foreach ($units as $unit) {
                 if ($unit instanceof OrgUnit) {
-                    $name = $unit->getName();
-                    if ($name && $name !== "") {
-                        $this->vcard->add("X-DEPARTMENT", $name);
-                    }
-                } elseif (is_string($unit) && $unit !== "") {
-                    $this->vcard->add("X-DEPARTMENT", $unit);
+                    $unitName = trim((string)$unit->getName());
+                } elseif (is_string($unit)) {
+                    $unitName = trim($unit);
+                } else {
+                    $unitName = '';
                 }
+
+                if ($unitName === '' || isset($seen[$unitName])) {
+                    continue;
+                }
+
+                $seen[$unitName] = true;
+                $this->vcard->add("X-DEPARTMENT", $unitName);
             }
         }
     }

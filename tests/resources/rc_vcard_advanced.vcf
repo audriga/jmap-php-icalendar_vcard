@@ -1,0 +1,29 @@
+BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Roundcube Webmail//NONSGML Roundcube Contact//EN
+UID:rc-complex-001
+REV:20260316T120000Z
+FN:Dr. Jörg Åström
+N:Åström;Jörg;;Dr.;
+NICKNAME:Jörgi
+EMAIL;TYPE=INTERNET,HOME:joerg.aestroem@example.com
+EMAIL;TYPE=INTERNET,WORK:joerg.astrom@work.example
+TEL;TYPE=CELL,VOICE:+49-170-555-0101
+TEL;TYPE=HOME,VOICE:+49-30-555-0102
+TEL;TYPE=PAGER:123-pager
+ADR;TYPE=HOME:;;Münzstraße 12;Berlin;;10178;Germany
+ORG:Äcme GmbH;Forschung und Entwicklung
+TITLE:Leitender Entwickler
+NOTE:Roundcube test contact with UTF-8 characters: ä ö ü ß é Å.
+URL:https://example.com/~joerg
+BDAY:1988-04-12
+X-MAIDENNAME:Öster
+X-GENDER:male
+X-DEPARTMENT:Forschung
+X-AIM:joergaim
+X-JABBER:joerg@jabber.example
+X-SKYPE-USERNAME:joerg.astrom.skype
+X-MANAGER:Renée Manager
+X-ASSISTANT:Björk Assistant
+X-SPOUSE:Zoë Åström
+END:VCARD
