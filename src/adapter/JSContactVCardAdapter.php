@@ -1650,7 +1650,10 @@ class JSContactVCardAdapter extends AbstractAdapter
                             continue;
                         }
                         $name = strtolower((string)$name);
-                        if (in_array($name, ['voice', 'fax', 'pager', 'text', 'textphone', 'video', 'main-number'], true)) {
+                        if (
+                            in_array($name, ['voice', 'fax',
+                            'pager', 'text', 'textphone', 'video', 'main-number'], true)
+                        ) {
                             $types[] = $name;
                         } elseif ($name === 'mobile') {
                             $types[] = 'cell';
@@ -1717,7 +1720,10 @@ class JSContactVCardAdapter extends AbstractAdapter
 
                         if ($t === 'cell') {
                             $features['mobile'] = true;
-                        } elseif (in_array($t, array('voice', 'fax', 'pager', 'text', 'textphone', 'video', 'main-number'), true)) {
+                        } elseif (
+                            in_array($t, array('voice', 'fax',
+                            'pager', 'text', 'textphone', 'video', 'main-number'), true)
+                        ) {
                             $features[$t] = true;
                         } else {
                             $labels[] = $t;
@@ -1748,7 +1754,8 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard online services to the vCard as IMPP, SOCIALPROFILE, or URL depending on the URI scheme and service name.
+     * Writes ContactCard online services to the vCard as IMPP, SOCIALPROFILE, or URL
+     * depending on the URI scheme and service name.
      *
      * @param ContactCard $card
      */
@@ -3123,7 +3130,8 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $wedding === null
                 && (
                     $kind === 'wedding'
-                    || ($kind === 'other' && in_array($label, array('wedding', 'marriage', 'marriage date', 'anniversary'), true))
+                    || ($kind === 'other' && in_array($label, array('wedding',
+                    'marriage', 'marriage date', 'anniversary'), true))
                 )
             ) {
                 $wedding = $ann;

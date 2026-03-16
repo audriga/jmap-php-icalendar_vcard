@@ -136,7 +136,10 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 
                 if ($type === 'cell') {
                     $features['mobile'] = true;
-                } elseif (in_array($type, ['mobile', 'voice', 'text', 'video', 'main-number', 'textphone', 'fax', 'pager'], true)) {
+                } elseif (
+                    in_array($type, ['mobile', 'voice', 'text', 'video',
+                    'main-number', 'textphone', 'fax', 'pager'], true)
+                ) {
                     $features[$type] = true;
                 } else {
                     $unknownTypes[] = $type;

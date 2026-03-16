@@ -18,6 +18,7 @@ ifeq (, $(composer))
 	./get_composer.sh
 	mv composer.phar $(build_tools_directory)/composer_fresh.phar
 endif
+	@test -e $(build_tools_directory)/composer.phar || ln -s composer_fresh.phar $(build_tools_directory)/composer.phar
 
 # Installs composer LTS version from web if not already installed.
 # TODO Switch from pinning specific version to LTS pinning see
@@ -69,16 +70,12 @@ php81_mode: composer
 
 # Linting with PHP-CS
 .PHONY: lint
-lint:
-	# Make sure devtools are available
+lint: composer
 	php $(build_tools_directory)/composer.phar install --prefer-dist
-
-	# Lint with CodeSniffer
 	vendor/bin/phpcs src/
 
-# Run Unit tests
 .PHONY: unit_test
-unit_test:
+unit_test: composer
 	php $(build_tools_directory)/composer.phar install --prefer-dist
 	vendor/bin/phpunit -c tests/phpunit.xml --testdox
 
