@@ -5,29 +5,30 @@ namespace OpenXPort\Adapter;
 use OpenXPort\Jmap\JSContact\ContactCard;
 use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Util\AdapterUtil;
+use OpenXPort\Util\JSContactVCardAdapterUtil as Util;
 
 /**
- * Nextcloud-specific adapter to convert between vCard and JSContact.
- *
- * Nextcloud may use X-SOCIALPROFILE instead of SOCIALPROFILE.
- * This adapter extends the generic online-service handling to support that
- * proprietary property on import and export.
+ * Nextcloud-specific adapter to convert between vCard <-> JSContact.
+ * Overrides methods of the generic adapter if Nextcloud deviates.
  */
 class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
 {
     /**
-     * Reads standard online services first, then also reads Nextcloud's X-SOCIALPROFILE.
+     * This function maps the vCard "IMPP", "SOCIALPROFILE", "URL" and Nextcloud-specific
+     * "X-SOCIALPROFILE" property to the JSContact "onlineServices" property
      *
-     * @param ContactCard $card
+     * Note: Nextcloud uses X-SOCIALPROFILE with TYPE parameter to specify the service
+     *
+     * @param ContactCard $card The ContactCard to populate
      */
-    public function getOnlineToJmap(ContactCard $card)
+    public function getOnlineServicesToJmap($card)
     {
-        parent::getOnlineToJmap($card);
+        parent::getOnlineServicesToJmap($card);
 
-        $services = $card->getOnlineServices() ?: [];
+        $services = $card->getOnlineServices() ?: array();
         $index = count($services) + 1;
 
-        $xSocialProfiles = $this->vcard->__get('X-SOCIALPROFILE');
+        $xSocialProfiles = $this->vCard->__get('X-SOCIALPROFILE');
         if (!AdapterUtil::isSetAndNotNull($xSocialProfiles) || empty($xSocialProfiles)) {
             return;
         }
@@ -40,26 +41,53 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
 
             $service = new OnlineService();
 
-            // Nextcloud may store username-style values as VALUE=text.
+            // Set the user/uri value
             if (
                 isset($prop['VALUE'])
                 && strtolower(trim((string) $prop['VALUE'])) === 'text'
             ) {
                 $service->setUser($value);
             } else {
-                $service->setUri($value);
+                // Check if it's a URL or just username
+                if (filter_var($value, FILTER_VALIDATE_URL)) {
+                    $service->setUri($value);
+                } else {
+                    $service->setUser($value);
+                }
             }
 
-            if (isset($prop['SERVICE-TYPE']) && trim((string) $prop['SERVICE-TYPE']) !== '') {
-                $service->setService((string) $prop['SERVICE-TYPE']);
+            // Extract service type from TYPE parameter (e.g., TYPE=twitter)
+            $serviceType = null;
+            if (isset($prop['TYPE'])) {
+                $types = $prop['TYPE']->getParts();
+                if (is_array($types) && !empty($types)) {
+                    $serviceType = strtolower(trim($types[0]));
+                }
             }
 
-            $this->applyCommonContextAndPref($service, $prop);
+            // Also check SERVICE-TYPE parameter as fallback
+            if (empty($serviceType) && isset($prop['SERVICE-TYPE'])) {
+                $serviceType = strtolower(trim((string) $prop['SERVICE-TYPE']));
+            }
 
-            // Mark origin so export can preserve Nextcloud's X-SOCIALPROFILE.
+            if (!empty($serviceType)) {
+                $service->setService($serviceType);
+            }
+
+            $contexts = $this->vCardTypeParamToContexts($prop);
+            if (!empty($contexts)) {
+                $service->setContexts($contexts);
+            }
+
+            $pref = $this->vCardPrefParamToInt($prop);
+            if ($pref !== null) {
+                $service->setPref($pref);
+            }
+
             $service->setLabel('X-SOCIALPROFILE');
 
-            $services['os' . $index++] = $service;
+            $key = $this->getMapKeyFromPropValue($prop, $value, 'os', $index, $services);
+            $services[$key] = $service;
         }
 
         if (!empty($services)) {
@@ -68,14 +96,14 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
     }
 
     /**
-     * Writes standard online services first, then also writes Nextcloud-specific X-SOCIALPROFILE
-     * for entries explicitly marked as such.
+     * This function maps the JSContact "onlineServices" property to vCard properties including
+     * Nextcloud-specific X-SOCIALPROFILE for entries explicitly marked as such
      *
-     * @param ContactCard $card
+     * @param ContactCard $card The ContactCard containing online services
      */
-    public function setOnlineFromJmap(ContactCard $card)
+    public function setOnlineServicesFromJmap($card)
     {
-        parent::setOnlineFromJmap($card);
+        parent::setOnlineServicesFromJmap($card);
 
         $services = $card->getOnlineServices();
         if (!is_array($services) || empty($services)) {
@@ -92,12 +120,12 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                 continue;
             }
 
-            $value = $this->determineOnlineExportValue($service);
+            $value = Util::getOnlineExportValue($service);
             if ($value === null || $value === '') {
                 continue;
             }
 
-            $params = array();
+            $params = [];
 
             $serviceType = $service->getService();
             if (is_string($serviceType) && $serviceType !== '') {
@@ -114,7 +142,6 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                 $params['PREF'] = $pref;
             }
 
-            // If it is a username-style profile, preserve VALUE=text.
             $user = $service->getUser();
             $uri = $service->getUri();
 
@@ -125,7 +152,7 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                 $params['VALUE'] = 'text';
             }
 
-            $this->vcard->add('X-SOCIALPROFILE', $value, $params);
+            $this->vCard->add('X-SOCIALPROFILE', $value, $params);
         }
     }
 }

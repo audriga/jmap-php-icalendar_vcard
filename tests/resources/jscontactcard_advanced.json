@@ -8,8 +8,7 @@
             { "@type": "NameComponent", "type": "surname", "value": "Public"  },
             { "@type": "NameComponent", "type": "middle",  "value": "Quinlan" },
             { "@type": "NameComponent", "type": "suffix",  "value": "Esq."   }
-        ],
-        "sortAs": { "surname": "Public", "given": "John" }
+        ]
     },
     "onlineServices": {
         "x1": {
@@ -38,6 +37,6 @@
             "date": "2023-02-28"
         }
     },
-    "uid": 1,
+    "uid": "1",
     "updated": "2008-04-24T19:52:43Z"
 }

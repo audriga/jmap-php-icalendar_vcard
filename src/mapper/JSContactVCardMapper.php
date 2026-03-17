@@ -2,11 +2,15 @@
 
 namespace OpenXPort\Mapper;
 
+use InvalidArgumentException;
 use OpenXPort\Adapter\JSContactVCardAdapter;
 use OpenXPort\Jmap\JSContact\ContactCard;
+use OpenXPort\Util\Logger;
 
 class JSContactVCardMapper extends AbstractMapper
 {
+    protected $logger;
+
     /**
      * Map from JMAP ContactCard objects (RFC 9553)
      * to vCard data.
@@ -20,55 +24,61 @@ class JSContactVCardMapper extends AbstractMapper
     {
         $map = array();
 
-        foreach ($jmapData as $creationId => $contactCard) {
-            if (!($contactCard instanceof ContactCard)) {
-                continue;
+        foreach ($jmapData as $creationId => $jsContactCard) {
+            try {
+                // start with a clean vCard each time
+                $adapter->reset();
+
+                $adapter->setAddressBookId($jsContactCard->getAddressBookIds()); // addressBookId(s)
+
+                $adapter->setUidFromJmap($jsContactCard);           // UID
+                $adapter->setUpdatedFromJmap($jsContactCard);       // REV
+                $adapter->setKindFromJmap($jsContactCard);          // KIND (incl. group)
+                $adapter->setGramGenderFromJmap($jsContactCard);    // GENDER from speakToAs
+                $adapter->setCreatedFromJmap($jsContactCard);       // CREATED
+                $adapter->setProdIdFromJmap($jsContactCard);        // PRODID
+                $adapter->setLanguageFromJmap($jsContactCard);      // LANGUAGE
+                $adapter->setNameFromJmap($jsContactCard);          // N
+                $adapter->setFnFromJmap($jsContactCard);            // FN (displayname)
+                $adapter->setNicknameFromJmap($jsContactCard);      // NICKNAME
+                $adapter->setPronounsFromJmap($jsContactCard);      // PRONOUNS
+                $adapter->setOrganizationFromJmap($jsContactCard);  // ORG
+                $adapter->setTitlesFromJmap($jsContactCard);        // TITLE / ROLE
+                $adapter->setNotesFromJmap($jsContactCard);         // NOTE
+                $adapter->setEmailsFromJmap($jsContactCard);        // EMAIL
+                $adapter->setPhonesFromJmap($jsContactCard);        // TEL
+                $adapter->setOnlineServicesFromJmap($jsContactCard);        // URL/IMPP/KEY/FBURL/CAL*
+                $adapter->setPreferredLanguagesFromJmap($jsContactCard); // LANGUAGE
+                $adapter->setMediaFromJmap($jsContactCard);         // PHOTO/LOGO/SOUND
+                $adapter->setDirectoriesFromJmap($jsContactCard);   // SOURCE/ORG-DIRECTORY
+                $adapter->setLinksFromJmap($jsContactCard);         // URL/CONTACT-URI
+                $adapter->setCryptoKeysFromJmap($jsContactCard);    // KEY
+                $adapter->setSchedulingAddressesFromJmap($jsContactCard); // CALADRURI
+                $adapter->setCalendarsFromJmap($jsContactCard);      // CALENDAR
+                $adapter->setAddressesFromJmap($jsContactCard);     // ADR (+ TZ)
+                $adapter->setAnniversariesFromJmap($jsContactCard); // BDAY/BIRTHPLACE/DEATH*/ANNIVERSARY
+                $adapter->setRelatedToFromJmap($jsContactCard);     // RELATED
+                $adapter->setMembersFromJmap($jsContactCard);       // MEMBER/KIND=group
+                $adapter->setKeywordsFromJmap($jsContactCard);      // CATEGORIES
+                $adapter->setPersonalInfoFromJmap($jsContactCard);  // personal fields
+
+                $backendContact = $adapter->getVCard();           // serialized vCard
+
+                $result = array("vCard" => $backendContact);
+
+                if ($jsContactCard->getAddressBookIds() !== null) {
+                    $result["oxpProperties"]["addressBookId"] = $jsContactCard->getAddressBookIds();
+                }
+
+                array_push($map, array($creationId => $result));
+            } catch (InvalidArgumentException $e) {
+                $this->logger = Logger::getInstance();
+                $this->logger->error($e->getMessage());
+
+                // Add a null value to the key of $creationId. This null serves as an indicator in the data access class
+                // to not perform any writing
+                array_push($map, array($creationId => null));
             }
-
-
-
-            // start with a clean vCard each time
-            $adapter->reset();
-            $adapter->setAddressBookId($contactCard->getAddressBookIds()); // addressBookId(s)
-            $adapter->setUidFromJmap($contactCard);           // UID
-            $adapter->setUpdatedFromJmap($contactCard);       // REV
-            $adapter->setKindFromJmap($contactCard);          // KIND (incl. group)
-            $adapter->setGramGenderFromJmap($contactCard);    // GENDER from speakToAs
-            $adapter->setCreatedFromJmap($contactCard);       // CREATED
-            $adapter->setProdIdFromJmap($contactCard);        // PRODID
-            $adapter->setLanguageFromJmap($contactCard);      // LANGUAGE
-            $adapter->setNameFromJmap($contactCard);          // N
-            $adapter->setFnFromJmap($contactCard);            // FN (displayname)
-            $adapter->setNicknameFromJmap($contactCard);      // NICKNAME
-            $adapter->setPronounsFromJmap($contactCard);      // PRONOUNS
-            $adapter->setOrganizationFromJmap($contactCard);  // ORG
-            $adapter->setTitlesFromJmap($contactCard);        // TITLE / ROLE
-            $adapter->setNotesFromJmap($contactCard);         // NOTE
-            $adapter->setEmailsFromJmap($contactCard);        // EMAIL
-            $adapter->setPhonesFromJmap($contactCard);        // TEL
-            $adapter->setOnlineFromJmap($contactCard);        // URL/IMPP/KEY/FBURL/CAL*
-            $adapter->setPreferredLanguagesFromJmap($contactCard); // LANGUAGE
-            $adapter->setMediaFromJmap($contactCard);         // PHOTO/LOGO/SOUND
-            $adapter->setDirectoriesFromJmap($contactCard);   // SOURCE/ORG-DIRECTORY
-            $adapter->setLinksFromJmap($contactCard);         // URL/CONTACT-URI
-            $adapter->setCryptoKeysFromJmap($contactCard);    // KEY
-            $adapter->setSchedulingAddressesFromJmap($contactCard); // CALADRURI
-            $adapter->setAddressesFromJmap($contactCard);     // ADR (+ TZ)
-            $adapter->setAnniversariesFromJmap($contactCard); // BDAY/BIRTHPLACE/DEATH*/ANNIVERSARY
-            $adapter->setRelatedToFromJmap($contactCard);     // RELATED
-            $adapter->setMembersFromJmap($contactCard);       // MEMBER/KIND=group
-            $adapter->setKeywordsFromJmap($contactCard);      // CATEGORIES
-            $adapter->setPersonalInfoFromJmap($contactCard);  // personal fields
-
-            $backendContact = $adapter->getContact();         // serialized vCard
-
-            $result = array("vCard" => $backendContact);
-
-            if ($contactCard->getAddressBookIds() !== null) {
-                $result["oxpProperties"]["addressBookId"] = $contactCard->getAddressBookIds();
-            }
-
-            $map[] = array($creationId => $result);
         }
 
         return $map;
@@ -86,57 +96,61 @@ class JSContactVCardMapper extends AbstractMapper
     {
         $list = array();
 
-        foreach ($data as $contactId => $contactVCard) {
+        foreach ($data as $contactId => $cHash) {
             $adapter->reset();
 
             // Support both plain vCard string and wrapped ["vCard" => ..., "oxpProperties" => ...] array
-            $vCardPayload = is_array($contactVCard) && array_key_exists("vCard", $contactVCard)
-                ? $contactVCard["vCard"]
-                : $contactVCard;
+            $vCardPayload = is_array($cHash) && array_key_exists("vCard", $cHash)
+                ? $cHash["vCard"]
+                : $cHash;
 
-            $adapter->setContact($vCardPayload);        // load vCard
+            $adapter->setVCard($vCardPayload);        // load vCard
 
-            $contactCard = new ContactCard();
-            $contactCard->setUid($contactId);
-            $adapter->getUidToJmap($contactCard);             // UID
-            $adapter->getUpdatedToJmap($contactCard);         // REV
-            $adapter->getKindToJmap($contactCard);            // KIND
-            $adapter->getGramGenderToJmap($contactCard);      // GENDER -> speakToAs
-            $adapter->getLanguageToJmap($contactCard);        // LANGUAGE
-            $adapter->getCreatedToJmap($contactCard);         // CREATED
-            $adapter->getProdIdToJmap($contactCard);          // PRODID
-            $adapter->getNameToJmap($contactCard);            // N
-            $adapter->getNicknameToJmap($contactCard);        // NICKNAME
-            $adapter->getPronounsToJmap($contactCard);        // PRONOUNS -> speakToAs.pronouns
-            $adapter->getOrganizationToJmap($contactCard);    // ORG
-            $adapter->getTitlesToJmap($contactCard);          // TITLE/ROLE
-            $adapter->getNotesToJmap($contactCard);           // NOTE
-            $adapter->getEmailsToJmap($contactCard);          // EMAIL
-            $adapter->getPhonesToJmap($contactCard);          // TEL
-            $adapter->getOnlineToJmap($contactCard);          // URL/IMPP/KEY/FBURL/CAL* -> onlineServices
-            $adapter->getMediaToJmap($contactCard);           // PHOTO/LOGO/SOUND -> media
-            $adapter->getDirectoriesToJmap($contactCard);     // SOURCE/ORG-DIRECTORY -> directories
-            $adapter->getLinksToJmap($contactCard);           // URL/CONTACT-URI -> links
-            $adapter->getCryptoKeysToJmap($contactCard);      // KEY -> cryptoKeys
-            $adapter->getSchedulingAddressesToJmap($contactCard); // CALADRURI
-            $adapter->getAddressesToJmap($contactCard);       // ADR/TZ -> addresses
-            $adapter->getAnniversariesToJmap($contactCard);   // BDAY/BIRTHPLACE/DEATH*/ANNIVERSARY
-            $adapter->getRelatedToToJmap($contactCard);       // RELATED
-            $adapter->getMembersToJmap($contactCard);         // MEMBER
-            $adapter->getPreferredLanguagesToJmap($contactCard); // LANGUAGE with PREF/TYPE
-            $adapter->getKeywordsToJmap($contactCard);        // CATEGORIES -> keywords
-            $adapter->getPersonalInfoToJmap($contactCard);    // personal info bundle
+            $jsContactCard = new ContactCard();
 
-            // Restore JMAP-specific fields that cannot be represented in vCard
             if (
-                is_array($contactVCard) &&
-                array_key_exists("oxpProperties", $contactVCard) &&
-                array_key_exists("addressBookId", $contactVCard["oxpProperties"])
+                is_array($cHash) &&
+                array_key_exists("oxpProperties", $cHash) &&
+                array_key_exists("addressBookId", $cHash["oxpProperties"])
             ) {
-                $contactCard->setAddressBookIds($contactVCard["oxpProperties"]["addressBookId"]);
+                $jsContactCard->setAddressBookIds($cHash["oxpProperties"]["addressBookId"]);
             }
 
-            $list[] = $contactCard;
+            $jsContactCard->setAtType("Card");
+
+            $jsContactCard->setUid($contactId);
+
+            $adapter->getUidToJmap($jsContactCard);             // UID
+            $adapter->getUpdatedToJmap($jsContactCard);         // REV
+            $adapter->getKindToJmap($jsContactCard);            // KIND
+            $adapter->getGramGenderToJmap($jsContactCard);      // GENDER -> speakToAs
+            $adapter->getLanguageToJmap($jsContactCard);        // LANGUAGE
+            $adapter->getCreatedToJmap($jsContactCard);         // CREATED
+            $adapter->getProdIdToJmap($jsContactCard);          // PRODID
+            $adapter->getNameToJmap($jsContactCard);            // N
+            $adapter->getNicknameToJmap($jsContactCard);        // NICKNAME
+            $adapter->getPronounsToJmap($jsContactCard);        // PRONOUNS -> speakToAs.pronouns
+            $adapter->getOrganizationToJmap($jsContactCard);    // ORG
+            $adapter->getTitlesToJmap($jsContactCard);          // TITLE/ROLE
+            $adapter->getNotesToJmap($jsContactCard);           // NOTE
+            $adapter->getEmailsToJmap($jsContactCard);          // EMAIL
+            $adapter->getPhonesToJmap($jsContactCard);          // TEL
+            $adapter->getOnlineServicesToJmap($jsContactCard);  // URL/IMPP/KEY/FBURL/CAL* -> onlineServices
+            $adapter->getMediaToJmap($jsContactCard);           // PHOTO/LOGO/SOUND -> media
+            $adapter->getDirectoriesToJmap($jsContactCard);     // SOURCE/ORG-DIRECTORY -> directories
+            $adapter->getLinksToJmap($jsContactCard);           // URL/CONTACT-URI -> links
+            $adapter->getCryptoKeysToJmap($jsContactCard);      // KEY -> cryptoKeys
+            $adapter->getSchedulingAddressesToJmap($jsContactCard); // CALADRURI
+            $adapter->getCalendarsToJmap($jsContactCard);       // CALENDAR -> calendars
+            $adapter->getAddressesToJmap($jsContactCard);       // ADR/TZ -> addresses
+            $adapter->getAnniversariesToJmap($jsContactCard);   // BDAY/BIRTHPLACE/DEATH*/ANNIVERSARY
+            $adapter->getRelatedToToJmap($jsContactCard);       // RELATED
+            $adapter->getMembersToJmap($jsContactCard);         // MEMBER
+            $adapter->getPreferredLanguagesToJmap($jsContactCard); // LANGUAGE with PREF/TYPE
+            $adapter->getKeywordsToJmap($jsContactCard);        // CATEGORIES -> keywords
+            $adapter->getPersonalInfoToJmap($jsContactCard);    // personal info bundle
+
+            array_push($list, $jsContactCard);
         }
 
         return $list;

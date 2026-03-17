@@ -13,41 +13,40 @@ use OpenXPort\Jmap\JSContact\EmailAddress;
 use OpenXPort\Jmap\JSContact\Phone;
 use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Jmap\JSContact\Address;
-use OpenXPort\Jmap\JSContact\AddressComponent;
 use OpenXPort\Jmap\JSContact\Anniversary;
 use OpenXPort\Jmap\JSContact\Relation;
 use OpenXPort\Jmap\JSContact\LanguagePref;
 use OpenXPort\Jmap\JSContact\PersonalInformation;
-use OpenXPort\Jmap\JSContact\Directory;
 use OpenXPort\Util\AdapterUtil;
+use OpenXPort\Util\JSContactVCardAdapterUtil as Util;
 use OpenXPort\Util\Logger;
 use Sabre\VObject;
 
 /**
- * Converts contacts back and forth between vCard and JSContact formats.
- *
- * Handles the following contact fields in both directions:
- *   uid, updated (REV), created, prodId, kind, language, name (N), fullName (FN),
- *   nicknames, grammaticalGender, pronouns, organizations, titles, notes, emails,
- *   phones, onlineServices (IMPP / SOCIALPROFILE), preferredLanguages, media (PHOTO),
- *   directories (SOURCE / ORG-DIRECTORY), links (URL / CONTACT-URI), cryptoKeys (KEY),
- *   schedulingAddresses (FBURL / CALADRURI / CALURI), addresses (ADR), anniversaries
- *   (BDAY / ANNIVERSARY), relatedTo, members, keywords (CATEGORIES), and personalInfo
- *   (EXPERTISE / HOBBY / INTEREST).
- *
- * Follows RFC 9555 for conversion rules and RFC 9554 for extended vCard properties.
+ * Generic adapter to convert between vCard <-> JSContact.
+ * Strictly follows the "JSContact: Converting from and to vCard" spec
  */
 class JSContactVCardAdapter extends AbstractAdapter
 {
-    protected $vcard;
     protected $logger;
+
+    /** @var VObject\Component\VCard */
+    protected $vCard;
+
+    /** @var string */
     protected $rawVCard;
 
-    /** @var array<int, string> Property names found in the current vCard. */
     protected $vCardChildren = array();
 
-    /** @var array<string, mixed> Extra fields that don't fit in vCard or JSContact directly. */
-    protected $oxpProperties = array();
+    /**
+     * @var array<string, X> OXP-specific properties not present in vCard or JSContact:
+     *  * addressBookId
+     *  * vCardProps
+     *      https://www.ietf.org/archive/id/draft-ietf-calext-jscontact-vCard-06.html#name-property-vCardprops
+     *  * vCardParams array<PropertyName, array<ObjectId, array<Property, Value>>>
+     *      https://www.ietf.org/archive/id/draft-ietf-calext-jscontact-vCard-06.html#name-property-vCardparams
+     */
+    protected $oxpProperties = [];
 
     /** @var bool When true, plain text birth/death places are kept as a full address string. */
     protected $placeTextAsFullAddress = true;
@@ -57,21 +56,41 @@ class JSContactVCardAdapter extends AbstractAdapter
 
     protected $addressBookId = null;
 
-    /** @var string How strict the vCard parser should be (strict / ignoreInvalidLines / ignoreInvalidVCards). */
+    /**
+     * @var string|null Config option that determines the behavior of the adapter when encountering 'broken'
+     * vCards. Possible values are:
+     * * 'strict' - Any vCard that cannot be parsed will be logged -,
+     * * 'ignoreInvalidLines' - Invalid lines in a vCard will be skipped - or
+     * * 'ignoreInvalidCards'. - Invalid vCards, which cannot be read after skipping invalid lines are skipped -
+     *
+     * Default behavior is 'strict'.
+     */
     protected $parsingConfig;
 
-    /** @var bool Whether to dump broken vCards to the log for debugging. */
+    /**
+     * @var bool|null Config option that determines if 'broken' vCards are dumped into the log or not.
+     * Default behavior is 'false'
+     */
     protected $dumpInvalidVCards;
 
     /**
-     * Sets up the adapter and configures how the vCard parser handles bad input.
+     * Constructor of this class
      *
-     * @param string|null $parsingConfig
-     * @param bool|null   $dumpInvalidVCards
+     * Initializes the $vCard property of this class to a new VCard() object
+     *
+     * @param null|string $parsingConfig Determines which behavior is expected when
+     * encountering ParseExceptions while reading vCards. 'strict' will not change
+     * anything about the parsing method. 'ignoreInvalidLines' will read the card
+     * again after it has failed for the first time, ignoring any lines that the reader
+     * does not recognise. 'IgnoreInvalidCards' will retry as well, but simply not map
+     * the card if the exception persists after re-trying.
+     *
+     * @param null|bool $dumpInvalidVCards Determines whether a vCard that causes a
+     * ParsException to be thrown gets dumped into the logs.
      */
     public function __construct($parsingConfig = 'strict', $dumpInvalidVCards = false)
     {
-        $this->vcard = new VObject\Component\VCard();
+        $this->vCard = new VObject\Component\VCard();
         $this->logger = Logger::getInstance();
         $this->parsingConfig = $parsingConfig;
         $this->dumpInvalidVCards = $dumpInvalidVCards;
@@ -86,54 +105,108 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Wipes the current vCard and all stored state so the adapter can be reused.
+     * Reset the content in the adapter.
      */
     public function reset()
     {
-        $this->vcard = new VObject\Component\VCard();
+        $this->vCard = new VObject\Component\VCard();
         $this->rawVCard = null;
-        $this->vCardChildren = array();
         $this->oxpProperties = array();
+        $this->vCardChildren = array();
     }
 
     /**
-     * Returns the current vCard as a string, or null if nothing is loaded.
+     * Return the contents of this adapter as a hash.
      *
-     * @return string|null
+     * Right now there are two properties:
+     * * "vCard": The serialized vCard is a single property of this hash
+     * * "oxpProperties": properties not present in the vCard like addressBookId
+     *
+     * @return array The hash representation of the adapter
      */
-    public function getContact()
+    public function getAsHash()
     {
-        if (!AdapterUtil::isSetAndNotNull($this->vcard)) {
+        return array(
+            'vCard' => $this->getVCard(),
+            'oxpProperties' => array(
+                'addressBookId' => $this->addressBookId,
+            ),
+        );
+    }
+
+    /**
+     * Set vCard and oxpProperties from a hash
+     */
+    public function setFromHash($cHash)
+    {
+        if (!is_array($cHash)) {
+            return;
+        }
+
+        if (isset($cHash['vCard']) && is_string($cHash['vCard'])) {
+            $this->setVCard($cHash['vCard']);
+        }
+
+        if (isset($cHash['oxpProperties']['addressBookId'])) {
+            $this->addressBookId = $cHash['oxpProperties']['addressBookId'];
+        }
+    }
+
+    /**
+     * Getter for this class' $vCard property
+     *
+     * Obtain the vCard object represented in this adapter
+     *
+     * @return string The vCard of the adapter, serialized as string
+     */
+    public function getVCard()
+    {
+        if (!AdapterUtil::isSetAndNotNull($this->vCard)) {
             return null;
         }
-        return (string) $this->vcard->serialize();
+        return $this->vCard->serialize();
     }
 
     /**
-     * Loads a vCard from a string.
+     * Setter for this class' $vCard property
      *
-     * @param string $vCardString
+     * Set the vCard object represented in this adapter
+     *
+     * @param string $vCardString The vCard string used to initialize the vCard object of this adapter
      */
-    public function setContact($vCardString)
+    public function setVCard($vCardString)
     {
         $this->rawVCard = $vCardString;
 
         try {
-            $this->vcard = VObject\Reader::read($vCardString);
+            $this->vCard = VObject\Reader::read($vCardString);
         } catch (VObject\ParseException $e) {
             $this->setBrokenVCard($vCardString, $e);
+        }
+
+        if (is_null($this->vCard)) {
+            return;
+        }
+
+        foreach ($this->vCard->children() as $vCardChild) {
+            $this->vCardChildren[] = $vCardChild->name;
         }
     }
 
     /**
-     * Handles a vCard that failed to parse, according to the configured $parsingConfig mode.
+     * Enter this method when reading a vCard string throws a ParseException.
+     * In here, the exception is handled depending on what $parsingConfig is
+     * set to.
+     * If it is:
      *
-     * 'strict' - rethrows the exception immediately.
-     * 'ignoreInvalidLines' - retries with OPTION_IGNORE_INVALID_LINES; rethrows if it still fails.
-     * 'ignoreInvalidVCards' - retries with OPTION_IGNORE_INVALID_LINES; silently sets vcard to null if it still fails.
+     * * 'strict', it is re-thrown
+     * * 'ignoreInvalidLines', it is retried with 'OPTION_IGNORE_INVALID_LINES'.
+     * * 'ignoreInvalidVCards', it is retried and skipped if an error still persists.
      *
-     * @param string                  $vCardString The raw vCard that failed to parse.
-     * @param VObject\ParseException  $e           The original parse exception.
+     * @param string $vCardString A broken vCard represented as a string.
+     *
+     * @param ParseException $e The exception thrown from the first try of running
+     * VObject\Reader::read() without 'OPTION_IGNORE_INVALID_LINES'.
      */
     protected function setBrokenVCard($vCardString, VObject\ParseException $e)
     {
@@ -144,7 +217,7 @@ class JSContactVCardAdapter extends AbstractAdapter
 
             case 'ignoreInvalidLines':
                 try {
-                    $this->vcard = VObject\Reader::read(
+                    $this->vCard = VObject\Reader::read(
                         $vCardString,
                         VObject\Reader::OPTION_IGNORE_INVALID_LINES
                     );
@@ -156,13 +229,13 @@ class JSContactVCardAdapter extends AbstractAdapter
 
             case 'ignoreInvalidVCards':
                 try {
-                    $this->vcard = VObject\Reader::read(
+                    $this->vCard = VObject\Reader::read(
                         $vCardString,
                         VObject\Reader::OPTION_IGNORE_INVALID_LINES
                     );
                 } catch (VObject\ParseException $ignored) {
                     $this->handleVCardDump($vCardString);
-                    $this->vcard = null;
+                    $this->vCard = null;
                 }
                 break;
 
@@ -172,82 +245,6 @@ class JSContactVCardAdapter extends AbstractAdapter
         }
     }
 
-    /**
-     * Same as getContact() - returns the current vCard as a string.
-     *
-     * @return string|null
-     */
-    public function getVCard()
-    {
-        return $this->getContact();
-    }
-
-    /**
-     * Same as setContact() - loads a vCard from a string.
-     *
-     * @param string $vCardString
-     */
-    public function setVCard($vCardString)
-    {
-        $this->setContact($vCardString);
-    }
-
-    /**
-     * Returns the adapter contents as an array with a 'vCard' key.
-     *
-     * @return array
-     */
-    public function getAsHash()
-    {
-        return array(
-            'vCard' => $this->getContact(),
-            'oxpProperties' => array(
-                'addressBookId' => $this->addressBookId,
-            ),
-        );
-    }
-
-    /**
-     * Loads the adapter from an array previously returned by getAsHash().
-     *
-     * @param array $cHash
-     */
-    public function setFromHash($cHash)
-    {
-        if (!is_array($cHash)) {
-            return;
-        }
-
-        if (isset($cHash['vCard']) && is_string($cHash['vCard'])) {
-            $this->setContact($cHash['vCard']);
-        }
-
-        if (isset($cHash['oxpProperties']['addressBookId'])) {
-            $this->addressBookId = $cHash['oxpProperties']['addressBookId'];
-        }
-    }
-
-    /**
-     * Returns the UID of the current vCard, or null if it isn't set.
-     *
-     * @return string|null
-     */
-    public function getUid()
-    {
-        $uid = isset($this->vcard->UID) ? $this->vcard->UID : null;
-        if (!AdapterUtil::isSetAndNotNull($uid)) {
-            return null;
-        }
-
-        $value = trim((string) $uid);
-        return $value !== '' ? $value : null;
-    }
-
-    /**
-     * Returns the address book ID, logging a warning if none has been set.
-     *
-     * @return string|null
-     */
     public function getAddressBookId()
     {
         if ($this->addressBookId === null) {
@@ -259,20 +256,15 @@ class JSContactVCardAdapter extends AbstractAdapter
         return $this->addressBookId;
     }
 
-    /**
-     * Sets the address book ID on this adapter.
-     *
-     * @param string|null $addressBookId
-     */
     public function setAddressBookId($addressBookId)
     {
         $this->addressBookId = $addressBookId;
     }
 
     /**
-     * Logs the full vCard string if the dump option is on - handy for debugging bad input.
+     * If $dumpInvalidVCards is set to true, the vCard string is dumped using the logger.
      *
-     * @param string $vCardString
+     * @param string $vCardString vCard to be dumped.
      */
     protected function handleVCardDump($vCardString)
     {
@@ -283,7 +275,6 @@ class JSContactVCardAdapter extends AbstractAdapter
         $this->logger->warning("Dumping vCard:\n$vCardString");
     }
 
-    // Internal helpers
     /**
      * Writes a vCard property, removing any existing copies of it first so there's never more than one.
      *
@@ -293,13 +284,13 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function addSingleProperty($name, $value, array $params = array())
     {
-        if (isset($this->vcard->{$name})) {
-            foreach ($this->vcard->{$name} as $prop) {
-                $this->vcard->remove($prop);
+        if (isset($this->vCard->{$name})) {
+            foreach ($this->vCard->{$name} as $prop) {
+                $this->vCard->remove($prop);
             }
         }
 
-        $this->vcard->add($name, $value, $params);
+        $this->vCard->add($name, $value, $params);
     }
 
     /**
@@ -309,25 +300,9 @@ class JSContactVCardAdapter extends AbstractAdapter
      * @param mixed $prop
      * @return array<string, true>
      */
-    protected function vcardTypeParamToContexts($prop)
+    protected function vCardTypeParamToContexts($prop)
     {
-        $contexts = array();
-
-        if (isset($prop['TYPE'])) {
-            $types = $prop['TYPE']->getParts();
-            if (is_array($types)) {
-                foreach ($types as $t) {
-                    $t = strtolower(trim((string) $t));
-                    if ($t === 'home') {
-                        $contexts['private'] = true;
-                    } elseif ($t === 'work') {
-                        $contexts['work'] = true;
-                    }
-                }
-            }
-        }
-
-        return $contexts;
+        return Util::vCardTypeParamToContexts($prop);
     }
 
     /**
@@ -337,19 +312,9 @@ class JSContactVCardAdapter extends AbstractAdapter
      * @param mixed $prop
      * @return int|null
      */
-    protected function vcardPrefParamToInt($prop)
+    protected function vCardPrefParamToInt($prop)
     {
-        if (!isset($prop['PREF'])) {
-            return null;
-        }
-
-        $raw = trim((string) $prop['PREF']);
-        if ($raw === '' || !ctype_digit($raw)) {
-            return null;
-        }
-
-        $n = (int) $raw;
-        return $n > 0 ? $n : null;
+        return Util::vCardPrefParamToInt($prop);
     }
 
     /**
@@ -361,21 +326,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function contextsToVcardTypeParam($obj)
     {
-        $types = array();
-
-        if (is_object($obj)) {
-            $ctx = $obj->getContexts();
-            if (is_array($ctx)) {
-                if (!empty($ctx['private'])) {
-                    $types[] = 'home';
-                }
-                if (!empty($ctx['work'])) {
-                    $types[] = 'work';
-                }
-            }
-        }
-
-        return $types;
+        return Util::contextsToVcardTypeParam($obj);
     }
 
     /**
@@ -387,17 +338,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function prefToVcardParam($obj)
     {
-        if (!is_object($obj)) {
-            return null;
-        }
-
-        $pref = $obj->getPref();
-        if ($pref === null) {
-            return null;
-        }
-
-        $pref = (int) $pref;
-        return $pref > 0 ? (string) $pref : null;
+        return Util::prefToVcardParam($obj);
     }
 
     /**
@@ -409,11 +350,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function parseDateToVcardDate($value)
     {
-        if (!is_string($value) || trim($value) === '' || $value === '0000-00-00') {
-            return null;
-        }
-
-        return AdapterUtil::parseDateTime($value, 'Y-m-d', 'Ymd');
+        return Util::parseDateToVcardDate($value);
     }
 
     /**
@@ -425,11 +362,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function parseDateTimeToVcardTimestamp($value)
     {
-        if (!is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        return AdapterUtil::parseDateTime($value, 'Y-m-d\TH:i:s\Z', 'Ymd\THis\Z');
+        return Util::parseDateTimeToVcardTimestamp($value);
     }
 
     /**
@@ -441,15 +374,11 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function parseTimestampToJmapDateTime($value)
     {
-        if (!is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        return AdapterUtil::parseDateTime($value, 'Ymd\THis\Z', 'Y-m-d\TH:i:s\Z');
+        return Util::parseTimestampToJmapDateTime($value);
     }
 
     /**
-     * Tries several common date/time formats to convert a vCard date value into a JSContact UTC string.
+     * Converts a vCard date value into a JSContact UTC string.
      * Returns null if none of the formats match.
      *
      * @param mixed $value
@@ -457,29 +386,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function parseDateTimeToJscontactUtc($value)
     {
-        if (!is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        $value = trim($value);
-
-        $formats = array(
-            'Ymd\THis\Z',
-            'Y-m-d\TH:i:s\Z',
-            'Ymd\THis',
-            'Y-m-d\TH:i:s',
-            'Ymd',
-            'Y-m-d',
-        );
-
-        foreach ($formats as $from) {
-            $parsed = AdapterUtil::parseDateTime($value, $from, 'Y-m-d\TH:i:s\Z');
-            if ($parsed !== null) {
-                return $parsed;
-            }
-        }
-
-        return null;
+        return Util::parseDateTimeToJscontactUtc($value);
     }
 
     /**
@@ -491,7 +398,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     protected function getPropertyValues($name)
     {
         $result = array();
-        $props = $this->vcard->{$name};
+        $props = $this->vCard->{$name};
 
         if (!AdapterUtil::isSetAndNotNull($props) || empty($props)) {
             return $result;
@@ -515,7 +422,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getSinglePropertyValue($name)
     {
-        $prop = $this->vcard->{$name};
+        $prop = $this->vCard->{$name};
         if (!AdapterUtil::isSetAndNotNull($prop)) {
             return null;
         }
@@ -531,15 +438,9 @@ class JSContactVCardAdapter extends AbstractAdapter
      * @param array<int, string> $classNames
      * @return object|null
      */
-    protected function instantiateJscontactObject(array $classNames, array $constructorArgs = [])
+    protected function instantiateJscontactObject(array $classNames, array $constructorArgs = array())
     {
-        foreach ($classNames as $className) {
-            if (class_exists($className)) {
-                return new $className(...$constructorArgs);
-            }
-        }
-
-        return null;
+        return Util::instantiateJscontactObject($classNames, $constructorArgs);
     }
 
     /**
@@ -550,21 +451,66 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function applyCommonContextAndPref($obj, $prop)
     {
-        if (!is_object($obj) || $prop === null) {
-            return;
-        }
-
-        $ctx = $this->vcardTypeParamToContexts($prop);
-        if (!empty($ctx)) {
-            $obj->setContexts($ctx);
-        }
-
-        $pref = $this->vcardPrefParamToInt($prop);
-        if ($pref !== null) {
-            $obj->setPref($pref);
-        }
+        Util::applyCommonContextAndPref($obj, $prop);
     }
-    // Name helpers
+
+    /**
+     * This function maps the vCard "UID" property to the JSContact "uid" property
+     *
+     * @return string|null The "uid" JSContact property as a string value
+     */
+    public function getUid()
+    {
+        $uid = isset($this->vCard->UID) ? $this->vCard->UID : null;
+        if (!AdapterUtil::isSetAndNotNull($uid)) {
+            return null;
+        }
+
+        $value = trim((string) $uid);
+        return $value !== '' ? $value : null;
+    }
+
+    /**
+     * Returns the vCard PROP-ID parameter if present and non-empty.
+     *
+     * @param mixed $prop
+     * @return string|null
+     */
+    protected function getPropId($prop)
+    {
+        return Util::getPropId($prop);
+    }
+
+    /**
+     * Adds PROP-ID to params if the JSContact map key is suitable.
+     *
+     * @param array<string, mixed> $params
+     * @param mixed $mapKey
+     * @return array<string, mixed>
+     */
+    protected function addPropIdParam(array $params, $mapKey)
+    {
+        return Util::addPropIdParam($params, $mapKey);
+    }
+
+    /**
+     * Picks the JSContact object/map key from vCard PROP-ID if available,
+     * otherwise falls back to the provided generated key.
+     *
+     * @param mixed $prop
+     * @param string $fallback
+     * @return string
+     */
+    protected function getMapKeyFromProp($prop, $fallback)
+    {
+        return Util::getMapKeyFromProp($prop, $fallback);
+    }
+
+    protected function getMapKeyFromPropValue($prop, $value, $fallbackPrefix, &$index, array $existingMap = array())
+    {
+        return Util::getMapKeyFromPropValue($prop, $value, $fallbackPrefix, $index, $existingMap);
+    }
+
     /**
      * Writes the five standard name components to the vCard N property.
      * Any component that is null or empty is written as an empty string.
@@ -593,7 +539,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getFirstName()
     {
-        $n = $this->vcard->N;
+        $n = $this->vCard->N;
         if (AdapterUtil::isSetAndNotNull($n)) {
             $parts = $n->getParts();
             return isset($parts[1]) ? $parts[1] : null;
@@ -608,7 +554,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getLastName()
     {
-        $n = $this->vcard->N;
+        $n = $this->vCard->N;
         if (AdapterUtil::isSetAndNotNull($n)) {
             $parts = $n->getParts();
             return isset($parts[0]) ? $parts[0] : null;
@@ -623,7 +569,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getMiddlename()
     {
-        $n = $this->vcard->N;
+        $n = $this->vCard->N;
         if (AdapterUtil::isSetAndNotNull($n)) {
             $parts = $n->getParts();
             if (isset($parts[2])) {
@@ -643,7 +589,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getPrefix()
     {
-        $n = $this->vcard->N;
+        $n = $this->vCard->N;
         if (AdapterUtil::isSetAndNotNull($n)) {
             $parts = $n->getParts();
             return isset($parts[3]) ? $parts[3] : null;
@@ -658,7 +604,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getSuffix()
     {
-        $n = $this->vcard->N;
+        $n = $this->vCard->N;
         if (AdapterUtil::isSetAndNotNull($n)) {
             $parts = $n->getParts();
             return isset($parts[4]) ? $parts[4] : null;
@@ -685,40 +631,47 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getDisplayname()
     {
-        $fn = $this->vcard->FN;
+        $fn = $this->vCard->FN;
         if (AdapterUtil::isSetAndNotNull($fn) && !empty($fn)) {
             return (string) $fn;
         }
         return null;
     }
-    // Core identity
+
     /**
-     * Writes the ContactCard UID to the vCard UID property.
+     * This function maps the "uid" JSContact property to the UID vCard property
      *
      * @param ContactCard $card
      */
     public function setUidFromJmap(ContactCard $card)
     {
         $uid = $card->getUid();
-        if (is_string($uid) && $uid !== '') {
-            $this->addSingleProperty('UID', $uid);
+
+        if (!isset($uid) || empty($uid)) {
+            return;
         }
+
+        $this->addSingleProperty('UID', $uid);
     }
 
     /**
-     * Reads the vCard UID and stores it on the ContactCard.
+     * This function maps the vCard "UID" property to the ContactCard.
      *
      * @param ContactCard $card
      */
     public function getUidToJmap(ContactCard $card)
     {
-        $uid = $this->vcard->UID;
-        if (AdapterUtil::isSetAndNotNull($uid)) {
-            $value = trim((string) $uid);
-            if ($value !== '') {
-                $card->setUid($value);
+        $vCardUidProperty = $this->vCard->UID;
+
+        if (AdapterUtil::isSetAndNotNull($vCardUidProperty)) {
+            $vCardUidPropertyValue = trim((string) $vCardUidProperty);
+            if (Util::isNonEmptyString($vCardUidPropertyValue)) {
+                $card->setUid($vCardUidPropertyValue);
+                return;
             }
         }
+
+        $card->setUid(null);
     }
 
     /**
@@ -742,7 +695,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getUpdatedToJmap(ContactCard $card)
     {
-        $rev = $this->vcard->REV;
+        $rev = $this->vCard->REV;
         if (!AdapterUtil::isSetAndNotNull($rev)) {
             return;
         }
@@ -775,7 +728,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getCreatedToJmap(ContactCard $card)
     {
-        $created = $this->vcard->__get('CREATED');
+        $created = $this->vCard->__get('CREATED');
         if (!AdapterUtil::isSetAndNotNull($created)) {
             return;
         }
@@ -845,7 +798,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getKindToJmap(ContactCard $card)
     {
-        $kind = $this->vcard->KIND;
+        $kind = $this->vCard->KIND;
         if (!AdapterUtil::isSetAndNotNull($kind)) {
             return;
         }
@@ -881,7 +834,36 @@ class JSContactVCardAdapter extends AbstractAdapter
             $card->setLanguage($value);
         }
     }
-    // Name
+
+    /**
+     * Writes N property with JSCOMPS parameter reconstructed from ordered components.
+     *
+     * @param Name $name
+     * @param array $components
+     */
+    protected function setNameWithJscomps($name, $components)
+    {
+        $kindToPosition = Util::getNameKindToPositionMap();
+        $defaultSep = '';
+
+        if (method_exists($name, 'getDefaultSeparator')) {
+            $sep = $name->getDefaultSeparator();
+            if ($sep !== null && $sep !== '') {
+                $defaultSep = $sep;
+            }
+        }
+
+        list($parts, $jscompsValue) = Util::buildJscompsData(
+            $components,
+            $kindToPosition,
+            $defaultSep,
+            8
+        );
+
+        $params = array('JSCOMPS' => $jscompsValue);
+        $this->addSingleProperty('N', $parts, $params);
+    }
+
     /**
      * Writes the vCard N property from the name components on the ContactCard.
      *
@@ -889,42 +871,38 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function setNameFromJmap(ContactCard $card)
     {
-        $name   = $card->getName();
-        $family = null;
-        $given  = null;
-        $middle = null;
-        $prefix = null;
-        $suffix = null;
+        $name = $card->getName();
+        if (!($name instanceof Name)) {
+            return;
+        }
 
-        if ($name instanceof Name) {
-            $components = $name->getComponents();
-            if (is_array($components)) {
-                foreach ($components as $component) {
-                    $kind  = $component->getKind();
-                    $value = $component->getValue();
+        $components = $name->getComponents();
+        if (!is_array($components) || empty($components)) {
+            return;
+        }
 
-                    switch ($kind) {
-                        case 'surname':
-                            $family = $value;
-                            break;
-                        case 'given':
-                            $given  = $value;
-                            break;
-                        case 'given2':
-                            $middle = $value;
-                            break;
-                        case 'title':
-                            $prefix = $value;
-                            break;
-                        case 'credential':
-                            $suffix = $value;
-                            break;
-                    }
-                }
+        $isOrdered = method_exists($name, 'getIsOrdered') ? $name->getIsOrdered() : false;
+
+        if ($isOrdered) {
+            $this->setNameWithJscomps($name, $components);
+            return;
+        }
+
+        $kindMap = ['surname' => null, 'given' => null, 'given2' => null, 'title' => null, 'credential' => null];
+        foreach ($components as $component) {
+            $kind = $component->getKind();
+            if (isset($kindMap[$kind])) {
+                $kindMap[$kind] = $component->getValue();
             }
         }
 
-        $this->setName($family, $given, $middle, $prefix, $suffix);
+        $this->setName(
+            $kindMap['surname'],
+            $kindMap['given'],
+            $kindMap['given2'],
+            $kindMap['title'],
+            $kindMap['credential']
+        );
     }
 
     /**
@@ -938,39 +916,36 @@ class JSContactVCardAdapter extends AbstractAdapter
         $name = $card->getName();
         $full = ($name instanceof Name) ? $name->getFull() : null;
 
-        if (($full === null || $full === '') && $name instanceof Name) {
-            $components = $name->getComponents();
-            if (is_array($components)) {
-                $given   = array();
-                $middle  = array();
-                $surname = array();
-
-                foreach ($components as $component) {
-                    $kind  = $component->getKind();
-                    $value = $component->getValue();
-                    if ($value === null || $value === '') {
-                        continue;
-                    }
-
-                    if ($kind === 'given') {
-                        $given[] = $value;
-                    } elseif ($kind === 'given2') {
-                        $middle[] = $value;
-                    } elseif ($kind === 'surname') {
-                        $surname[] = $value;
-                    }
-                }
-
-                $parts = array_merge($given, $middle, $surname);
-                if (!empty($parts)) {
-                    $full = implode(' ', $parts);
-                }
-            }
+        if ($full === null || $full === '') {
+            $full = $this->buildFullNameFromComponents($name);
         }
 
         if ($full !== null && $full !== '') {
             $this->setDisplayname($full);
         }
+    }
+
+    protected function buildFullNameFromComponents($name)
+    {
+        if (!($name instanceof Name)) {
+            return null;
+        }
+
+        $components = $name->getComponents();
+        if (!is_array($components)) {
+            return null;
+        }
+
+        $parts = [];
+        foreach ($components as $component) {
+            $kind = $component->getKind();
+            $value = $component->getValue();
+            if (($kind === 'given' || $kind === 'given2' || $kind === 'surname') && $value !== null && $value !== '') {
+                $parts[] = $value;
+            }
+        }
+
+        return empty($parts) ? null : implode(' ', $parts);
     }
 
     /**
@@ -980,55 +955,61 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getNameToJmap(ContactCard $card)
     {
-        $family = $this->getLastName();
-        $given  = $this->getFirstName();
-        $middle = $this->getMiddlename();
-        $prefix = $this->getPrefix();
-        $suffix = $this->getSuffix();
-        $fn     = $this->getDisplayname();
-
+        $n = $this->vCard->N;
         $name = new Name();
 
+        $fn = $this->getDisplayname();
         if ($fn !== null && $fn !== '') {
             $name->setFull($fn);
         }
 
-        $components = array();
+        // Check if JSCOMPS is present.if so, parse it to get the correct order
+        $hasJscomps = AdapterUtil::isSetAndNotNull($n) && isset($n['JSCOMPS']);
 
-        if ($prefix) {
-            $c = new NameComponent();
-            $c->setKind('title');
-            $c->setValue($prefix);
-            $components[] = $c;
-        }
-        if ($given) {
-            $c = new NameComponent();
-            $c->setKind('given');
-            $c->setValue($given);
-            $components[] = $c;
-        }
-        if ($middle) {
-            $c = new NameComponent();
-            $c->setKind('given2');
-            $c->setValue($middle);
-            $components[] = $c;
-        }
-        if ($family) {
-            $c = new NameComponent();
-            $c->setKind('surname');
-            $c->setValue($family);
-            $components[] = $c;
-        }
-        if ($suffix) {
-            $c = new NameComponent();
-            $c->setKind('credential');
-            $c->setValue($suffix);
-            $components[] = $c;
-        }
+        if ($hasJscomps) {
+            $jscompsValue = (string) $n['JSCOMPS'];
+            $parts = $n->getParts();
+            $positionToKind = Util::getNamePositionToKindMap();
 
-        if (!empty($components)) {
-            $name->setIsOrdered(true);
-            $name->setComponents($components);
+            $components = Util::parseJscompsData(
+                $jscompsValue,
+                $parts,
+                $positionToKind,
+                'OpenXPort\\Jmap\\JSContact\\NameComponent'
+            );
+
+            if (!empty($components)) {
+                $name->setComponents($components);
+                $name->setIsOrdered(true);
+
+                $defaultSep = Util::getDefaultSeparatorFromJscomps($jscompsValue);
+                if ($defaultSep !== null) {
+                    $name->setDefaultSeparator($defaultSep);
+                }
+            }
+        } else {
+            $componentMap = array(
+                'title' => $this->getPrefix(),
+                'given' => $this->getFirstName(),
+                'given2' => $this->getMiddlename(),
+                'surname' => $this->getLastName(),
+                'credential' => $this->getSuffix()
+            );
+
+            $components = array();
+            foreach ($componentMap as $kind => $value) {
+                if ($value !== null && $value !== '') {
+                    $c = new NameComponent();
+                    $c->setKind($kind);
+                    $c->setValue($value);
+                    $components[] = $c;
+                }
+            }
+
+            if (!empty($components)) {
+                $name->setComponents($components);
+                $name->setIsOrdered(true);
+            }
         }
 
         $card->setName($name);
@@ -1046,14 +1027,16 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($nicks as $nick) {
+        foreach ($nicks as $id => $nick) {
             if (!($nick instanceof Nickname)) {
                 continue;
             }
 
             $name = $nick->getName();
             if (is_string($name) && $name !== '') {
-                $this->vcard->add('NICKNAME', $name);
+                $params = array();
+                $params = $this->addPropIdParam($params, $id);
+                $this->vCard->add('NICKNAME', $name, $params);
             }
         }
     }
@@ -1065,23 +1048,39 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getNicknameToJmap(ContactCard $card)
     {
-        $values = $this->getPropertyValues('NICKNAME');
-        if (empty($values)) {
+        $vNicknames = $this->vCard->NICKNAME;
+        if (!AdapterUtil::isSetAndNotNull($vNicknames) || empty($vNicknames)) {
             return;
         }
 
         $map = array();
         $i   = 1;
 
-        foreach ($values as $nickname) {
+        foreach ($vNicknames as $prop) {
+            $nickname = trim((string) $prop);
+            if ($nickname === '') {
+                continue;
+            }
+
             $nickObj = new Nickname();
             $nickObj->setName($nickname);
-            $map['n' . $i++] = $nickObj;
+
+            $key = $this->getPropId($prop);
+            if ($key === null) {
+                $key = md5($nickname);
+                if (isset($map[$key])) {
+                    $key = 'n' . $i++;
+                }
+            }
+
+            $map[$key] = $nickObj;
         }
 
-        $card->setNicknames($map);
+        if (!empty($map)) {
+            $card->setNicknames($map);
+        }
     }
-    // Speaking (grammatical gender / pronouns)
+
     /**
      * Writes the grammatical gender to the vCard GRAMGENDER property in uppercase.
      *
@@ -1109,7 +1108,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getGramGenderToJmap(ContactCard $card)
     {
-        $gramGender = $this->vcard->__get('GRAMGENDER');
+        $gramGender = $this->vCard->__get('GRAMGENDER');
         if (AdapterUtil::isSetAndNotNull($gramGender)) {
             $value = strtolower(trim((string) $gramGender));
             if ($value !== '') {
@@ -1118,33 +1117,23 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
         }
 
-        $gender = $this->vcard->__get('GENDER');
+        $gender = $this->vCard->__get('GENDER');
         if (!AdapterUtil::isSetAndNotNull($gender)) {
             return;
         }
 
         $raw   = trim((string) $gender);
         $parts = explode(';', $raw, 2);
-        $sex   = strtolower(trim($parts[0]));
+        $sex   = trim($parts[0]);
 
-        $mapping = array(
-            'm'      => 'male',
-            'male'   => 'male',
-            'f'      => 'female',
-            'female' => 'female',
-            'n'      => 'neuter',
-            'neuter' => 'neuter',
-            'o'      => 'animate',   // "other" - closest JSContact value
-            'other'  => 'animate',
-        );
-
-        if (isset($mapping[$sex])) {
-            $this->applyGrammaticalGenderToCard($card, $mapping[$sex]);
+        $mapped = Util::mapGenderToGrammatical($sex);
+        if ($mapped !== null) {
+            $this->applyGrammaticalGenderToCard($card, $mapped);
         }
     }
 
     /**
-     * Sets grammaticalGender on the card's SpeakToAs object, creating it if needed.
+     * Sets grammaticalGender on the card's SpeakToAs object.
      *
      * @param ContactCard $card
      * @param string      $value  Lowercase JSContact gender value.
@@ -1181,7 +1170,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($pronouns as $pronounObj) {
+        foreach ($pronouns as $id => $pronounObj) {
             if (!is_object($pronounObj)) {
                 continue;
             }
@@ -1192,12 +1181,18 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             $params = array();
-            $pref = $this->prefToVcardParam($pronounObj);
-            if ($pref !== null) {
-                $params['PREF'] = $pref;
+            if (method_exists($pronounObj, 'getPref') && method_exists($pronounObj, 'getContexts')) {
+                $params = Util::buildContextPrefParams($pronounObj);
+            } else {
+                // Fallback: manually build params
+                $pref = $this->prefToVcardParam($pronounObj);
+                if ($pref !== null) {
+                    $params['PREF'] = $pref;
+                }
             }
+            $params = $this->addPropIdParam($params, $id);
 
-            $this->vcard->add('PRONOUNS', $value, $params);
+            $this->vCard->add('PRONOUNS', $value, $params);
         }
     }
 
@@ -1208,7 +1203,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getPronounsToJmap(ContactCard $card)
     {
-        $vPronouns = $this->vcard->__get('PRONOUNS');
+        $vPronouns = $this->vCard->__get('PRONOUNS');
         if (!AdapterUtil::isSetAndNotNull($vPronouns) || empty($vPronouns)) {
             return;
         }
@@ -1231,13 +1226,10 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             $pronounObj->setPronouns($value);
+            Util::applyCommonContextAndPref($pronounObj, $prop);
 
-            $pref = $this->vcardPrefParamToInt($prop);
-            if ($pref !== null) {
-                $pronounObj->setPref($pref);
-            }
-
-            $map['pr' . $idx++] = $pronounObj;
+            $key = $this->getMapKeyFromPropValue($prop, $value, 'pr', $idx, $map);
+            $map[$key] = $pronounObj;
         }
 
         if (!empty($map)) {
@@ -1254,7 +1246,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
         }
     }
-    // Organization
+
     /**
      * Writes each ContactCard organization as a vCard ORG property, including any department units.
      *
@@ -1267,7 +1259,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($orgs as $org) {
+        foreach ($orgs as $id => $org) {
             if (!($org instanceof Organization)) {
                 continue;
             }
@@ -1297,7 +1289,8 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $params['TYPE'] = $types;
             }
 
-            $this->vcard->add('ORG', $parts, $params);
+            $params = $this->addPropIdParam($params, $id);
+            $this->vCard->add('ORG', $parts, $params);
         }
     }
 
@@ -1309,7 +1302,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getOrganizationToJmap(ContactCard $card)
     {
-        $vOrgs = $this->vcard->ORG;
+        $vOrgs = $this->vCard->ORG;
         if (!AdapterUtil::isSetAndNotNull($vOrgs) || empty($vOrgs)) {
             return;
         }
@@ -1341,12 +1334,13 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $org->setUnits($units);
             }
 
-            $ctx = $this->vcardTypeParamToContexts($vOrg);
-            if (!empty($ctx)) {
-                $org->setContexts($ctx);
-            }
+            $this->checkUnsupportedParams($vOrg, 'ORG');
 
-            $map['o' . $idx++] = $org;
+            Util::applyCommonContextAndPref($org, $vOrg);
+
+            $valueForKey = implode(';', $parts);
+            $key = $this->getMapKeyFromPropValue($vOrg, $valueForKey, 'o', $idx, $map);
+            $map[$key] = $org;
         }
 
         if (!empty($map)) {
@@ -1366,7 +1360,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($titles as $titleObj) {
+        foreach ($titles as $id => $titleObj) {
             if (!($titleObj instanceof Title)) {
                 continue;
             }
@@ -1378,10 +1372,13 @@ class JSContactVCardAdapter extends AbstractAdapter
                 continue;
             }
 
+            $params = array();
+            $params = $this->addPropIdParam($params, $id);
+
             if ($kind === 'role') {
-                $this->vcard->add('ROLE', $name);
+                $this->vCard->add('ROLE', $name, $params);
             } else {
-                $this->vcard->add('TITLE', $name);
+                $this->vCard->add('TITLE', $name, $params);
             }
         }
     }
@@ -1397,7 +1394,7 @@ class JSContactVCardAdapter extends AbstractAdapter
         $map = array();
         $idx = 1;
 
-        $vTitles = $this->vcard->TITLE;
+        $vTitles = $this->vCard->TITLE;
         if (AdapterUtil::isSetAndNotNull($vTitles) && !empty($vTitles)) {
             foreach ($vTitles as $vTitle) {
                 $name = trim((string) $vTitle);
@@ -1407,11 +1404,13 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $t = new Title();
                 $t->setKind('title');
                 $t->setName($name);
-                $map['t' . $idx++] = $t;
+                $this->checkUnsupportedParams($vTitle, 'TITLE');
+                $key = $this->getMapKeyFromPropValue($vTitle, $name, 't', $idx, $map);
+                $map[$key] = $t;
             }
         }
 
-        $vRoles = $this->vcard->ROLE;
+        $vRoles = $this->vCard->ROLE;
         if (AdapterUtil::isSetAndNotNull($vRoles) && !empty($vRoles)) {
             foreach ($vRoles as $vRole) {
                 $name = trim((string) $vRole);
@@ -1421,7 +1420,9 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $t = new Title();
                 $t->setKind('role');
                 $t->setName($name);
-                $map['t' . $idx++] = $t;
+                $this->checkUnsupportedParams($vRole, 'ROLE');
+                $key = $this->getMapKeyFromPropValue($vRole, $name, 't', $idx, $map);
+                $map[$key] = $t;
             }
         }
 
@@ -1429,7 +1430,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $card->setTitles($map);
         }
     }
-    // Notes
+
     /**
      * Writes each ContactCard note as a vCard NOTE property, including author and timestamp if present.
      *
@@ -1442,7 +1443,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($notes as $note) {
+        foreach ($notes as $id => $note) {
             if (!($note instanceof Note)) {
                 continue;
             }
@@ -1467,8 +1468,9 @@ class JSContactVCardAdapter extends AbstractAdapter
                         $params['AUTHOR'] = $authorUri;
                     }
                 }
+                $params = $this->addPropIdParam($params, $id);
 
-                $this->vcard->add('NOTE', $text, $params);
+                $this->vCard->add('NOTE', $text, $params);
             }
         }
     }
@@ -1480,7 +1482,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getNotesToJmap(ContactCard $card)
     {
-        $vNotes = $this->vcard->NOTE;
+        $vNotes = $this->vCard->NOTE;
         if (!AdapterUtil::isSetAndNotNull($vNotes) || empty($vNotes)) {
             return;
         }
@@ -1523,17 +1525,18 @@ class JSContactVCardAdapter extends AbstractAdapter
                 }
                 $note->setAuthor($author);
             }
+            $this->checkUnsupportedParams($prop, 'NOTE');
 
-            $map['n' . $i++] = $note;
+            $key = $this->getMapKeyFromPropValue($prop, $noteText, 'n', $i, $map);
+            $map[$key] = $note;
         }
 
         if (!empty($map)) {
             $card->setNoteObjects($map);
         }
     }
-    // Communications
     /**
-     * Writes ContactCard email addresses as vCard EMAIL properties, preserving context and preference.
+     * Writes ContactCard email addresses as vCard EMAIL.
      *
      * @param ContactCard $card
      */
@@ -1544,7 +1547,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($emails as $email) {
+        foreach ($emails as $id => $email) {
             if (!($email instanceof EmailAddress)) {
                 continue;
             }
@@ -1555,18 +1558,22 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             $params = array();
-
-            $types = $this->contextsToVcardTypeParam($email);
-            if (!empty($types)) {
-                $params['TYPE'] = $types;
+            if (method_exists($email, 'getPref') && method_exists($email, 'getContexts')) {
+                $params = Util::buildContextPrefParams($email);
+            } else {
+                // Fallback: manually build params
+                $types = $this->contextsToVcardTypeParam($email);
+                if (!empty($types)) {
+                    $params['TYPE'] = $types;
+                }
+                $pref = $this->prefToVcardParam($email);
+                if ($pref !== null) {
+                    $params['PREF'] = $pref;
+                }
             }
+            $params = $this->addPropIdParam($params, $id);
 
-            $pref = $this->prefToVcardParam($email);
-            if ($pref !== null) {
-                $params['PREF'] = $pref;
-            }
-
-            $this->vcard->add('EMAIL', $addr, $params);
+            $this->vCard->add('EMAIL', $addr, $params);
         }
     }
 
@@ -1577,7 +1584,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getEmailsToJmap(ContactCard $card)
     {
-        $vEmails = $this->vcard->EMAIL;
+        $vEmails = $this->vCard->EMAIL;
         if (!AdapterUtil::isSetAndNotNull($vEmails) || empty($vEmails)) {
             return;
         }
@@ -1595,8 +1602,10 @@ class JSContactVCardAdapter extends AbstractAdapter
             $e->setAddress($value);
 
             $this->applyCommonContextAndPref($e, $prop);
+            $this->checkUnsupportedParams($prop, 'EMAIL');
 
-            $map['e' . $i++] = $e;
+            $key = $this->getMapKeyFromPropValue($prop, $value, 'e', $i, $map);
+            $map[$key] = $e;
         }
 
         if (!empty($map)) {
@@ -1630,49 +1639,30 @@ class JSContactVCardAdapter extends AbstractAdapter
             $label = strtolower((string)$phone->getLabel());
             $roundcubeTypes = ['home2', 'work2', 'homefax', 'workfax'];
 
+            $params = [];
+            $pref = $this->prefToVcardParam($phone);
+            if ($pref !== null) {
+                $params['PREF'] = $pref;
+            }
+
             if (in_array($label, $roundcubeTypes, true)) {
-                $params = ['TYPE' => [$label]];
-
-                $pref = $this->prefToVcardParam($phone);
-                if ($pref !== null) {
-                    $params['PREF'] = $pref;
-                }
-
-                $this->vcard->add('TEL', $number, $params);
+                $params['TYPE'] = [$label];
             } else {
-                $params = [];
                 $types = $this->contextsToVcardTypeParam($phone);
-
                 $features = $phone->getFeatures();
                 if (is_array($features)) {
                     foreach ($features as $name => $flag) {
-                        if (!$flag) {
-                            continue;
-                        }
-                        $name = strtolower((string)$name);
-                        if (
-                            in_array($name, ['voice', 'fax',
-                            'pager', 'text', 'textphone', 'video', 'main-number'], true)
-                        ) {
-                            $types[] = $name;
-                        } elseif ($name === 'mobile') {
-                            $types[] = 'cell';
+                        if ($flag) {
+                            $types[] = ($name === 'mobile') ? 'cell' : $name;
                         }
                     }
                 }
-
-                $types = array_values(array_unique($types));
                 if (!empty($types)) {
-                    $params['TYPE'] = $types;
+                    $params['TYPE'] = array_values(array_unique($types));
                 }
-
-                $pref = $this->prefToVcardParam($phone);
-                if ($pref !== null) {
-                    $params['PREF'] = $pref;
-                }
-
-                $this->vcard->add('TEL', $number, $params);
             }
+
+            $this->vCard->add('TEL', $number, $params);
         }
     }
 
@@ -1684,7 +1674,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getPhonesToJmap(ContactCard $card)
     {
-        $vPhones = $this->vcard->TEL;
+        $vPhones = $this->vCard->TEL;
         if (!AdapterUtil::isSetAndNotNull($vPhones) || empty($vPhones)) {
             return;
         }
@@ -1701,7 +1691,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $p = new Phone();
             $p->setNumber($value);
 
-            $ctx = $this->vcardTypeParamToContexts($prop);
+            $ctx = $this->vCardTypeParamToContexts($prop);
             if (!empty($ctx)) {
                 $p->setContexts($ctx);
             }
@@ -1740,12 +1730,15 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $p->setLabel(implode(', ', $labels));
             }
 
-            $pref = $this->vcardPrefParamToInt($prop);
+            $pref = $this->vCardPrefParamToInt($prop);
             if ($pref !== null) {
                 $p->setPref($pref);
             }
 
-            $map['p' . $i++] = $p;
+            $this->checkUnsupportedParams($prop, 'TEL');
+
+            $key = $this->getMapKeyFromPropValue($prop, $value, 'p', $i, $map);
+            $map[$key] = $p;
         }
 
         if (!empty($map)) {
@@ -1759,7 +1752,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      *
      * @param ContactCard $card
      */
-    public function setOnlineFromJmap(ContactCard $card)
+    public function setOnlineServicesFromJmap(ContactCard $card)
     {
         $online = $card->getOnlineServices();
         if (!is_array($online) || empty($online)) {
@@ -1774,7 +1767,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $service = $os->getService();
             $user    = $os->getUser();
 
-            $value = $this->determineOnlineExportValue($os);
+            $value = Util::getOnlineExportValue($os);
             if ($value === null || $value === '') {
                 continue;
             }
@@ -1799,83 +1792,13 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $params['PREF'] = $pref;
             }
 
-            $propName = $this->determineOnlinePropertyType(
+            $propName = Util::determineOnlinePropertyType(
                 $os->getUri(),
                 $os->getService()
             );
 
-            $this->vcard->add($propName, $value, $params);
+            $this->vCard->add($propName, $value, $params);
         }
-    }
-
-    /**
-     * Picks whether an online service should go into IMPP, SOCIALPROFILE, or URL.
-     * IMPP is used for instant messaging URIs, SOCIALPROFILE for known social networks, URL for everything else.
-     *
-     * @param string|null $uri
-     * @param string|null $service
-     * @return string
-     */
-    private function determineOnlinePropertyType($uri, $service)
-    {
-        if ($uri !== null && $uri !== '') {
-            $scheme = strtolower((string) parse_url($uri, PHP_URL_SCHEME));
-            $imppSchemes = array(
-                'xmpp', 'sip', 'sips', 'tel', 'aim', 'msnim', 'ymsgr', 'skype', 'irc'
-            );
-            if (in_array($scheme, $imppSchemes, true)) {
-                return 'IMPP';
-            }
-        }
-
-        if ($service !== null && $service !== '') {
-            $socialServices = array(
-                'facebook', 'twitter', 'x', 'linkedin', 'instagram', 'mastodon',
-                'github', 'gitlab', 'reddit', 'youtube', 'tiktok', 'snapchat',
-                'pinterest', 'flickr', 'vimeo', 'twitch', 'discord', 'telegram',
-                'whatsapp', 'signal', 'matrix', 'bluesky', 'threads'
-            );
-            if (in_array(strtolower((string) $service), $socialServices, true)) {
-                return 'SOCIALPROFILE';
-            }
-        }
-
-        return 'URL';
-    }
-
-    protected function determineOnlineExportValue(OnlineService $os)
-    {
-        $uri = $os->getUri();
-        $user = $os->getUser();
-        $service = strtolower(trim((string) $os->getService()));
-
-        if (in_array($service, ['aim', 'jabber', 'xmpp', 'sip'], true)) {
-            if (is_string($uri) && $uri !== '') {
-                return $uri;
-            }
-            if (is_string($user) && $user !== '') {
-                return $user;
-            }
-        }
-
-        if (in_array($service, ['skype', 'icq', 'msn', 'yahoo'], true)) {
-            if (is_string($user) && $user !== '') {
-                return $user;
-            }
-            if (is_string($uri) && $uri !== '') {
-                return $uri;
-            }
-        }
-
-        if (is_string($uri) && $uri !== '') {
-            return $uri;
-        }
-
-        if (is_string($user) && $user !== '') {
-            return $user;
-        }
-
-        return null;
     }
 
     /**
@@ -1883,7 +1806,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      *
      * @param ContactCard $card
      */
-    public function getOnlineToJmap(ContactCard $card)
+    public function getOnlineServicesToJmap(ContactCard $card)
     {
         $map = array();
         $idx = 1;
@@ -1892,8 +1815,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
         foreach ($props as $propName) {
             $items = $propName === 'SOCIALPROFILE'
-                ? $this->vcard->__get('SOCIALPROFILE')
-                : $this->vcard->{$propName};
+                ? $this->vCard->__get('SOCIALPROFILE')
+                : $this->vCard->{$propName};
 
             if (!AdapterUtil::isSetAndNotNull($items) || empty($items)) {
                 continue;
@@ -1911,15 +1834,20 @@ class JSContactVCardAdapter extends AbstractAdapter
                     $os->setService((string) $prop['SERVICE-TYPE']);
                 }
 
+                $serviceType = isset($prop['SERVICE-TYPE'])
+                    ? strtolower(trim((string) $prop['SERVICE-TYPE']))
+                    : null;
+
                 if (isset($prop['USERNAME'])) {
                     $os->setUser((string) $prop['USERNAME']);
                 } else {
-                    $this->assignOnlineValueToObject($os, $propName, $value, $prop);
+                    Util::assignOnlineValue($os, $propName, $value, $serviceType);
                 }
 
                 $this->applyCommonContextAndPref($os, $prop);
 
-                $map['os' . $idx++] = $os;
+                $key = $this->getMapKeyFromPropValue($prop, $value, 'os', $idx, $map);
+                $map[$key] = $os;
             }
         }
 
@@ -1935,7 +1863,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getPreferredLanguagesToJmap(ContactCard $card)
     {
-        $vLangs = $this->vcard->LANG;
+        $vLangs = $this->vCard->LANG;
         if (!AdapterUtil::isSetAndNotNull($vLangs) || empty($vLangs)) {
             return;
         }
@@ -1954,7 +1882,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
             $this->applyCommonContextAndPref($lp, $prop);
 
-            $map['lp' . $idx++] = $lp;
+            $key = $this->getMapKeyFromPropValue($prop, $tag, 'lp', $idx, $map);
+            $map[$key] = $lp;
         }
 
         if (!empty($map)) {
@@ -1985,30 +1914,34 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             $params = array();
-
-            $ctx = $lp->getContexts();
-            if (is_array($ctx)) {
-                $types = array();
-                if (!empty($ctx['private'])) {
-                    $types[] = 'home';
+            if (method_exists($lp, 'getPref') && method_exists($lp, 'getContexts')) {
+                $params = Util::buildContextPrefParams($lp);
+            } else {
+                // Fallback: manually build params
+                $ctx = $lp->getContexts();
+                if (is_array($ctx)) {
+                    $types = array();
+                    if (!empty($ctx['private'])) {
+                        $types[] = 'home';
+                    }
+                    if (!empty($ctx['work'])) {
+                        $types[] = 'work';
+                    }
+                    if (!empty($types)) {
+                        $params['TYPE'] = $types;
+                    }
                 }
-                if (!empty($ctx['work'])) {
-                    $types[] = 'work';
-                }
-                if (!empty($types)) {
-                    $params['TYPE'] = $types;
+                $pref = $lp->getPref();
+                if (is_int($pref) && $pref > 0) {
+                    $params['PREF'] = (string) $pref;
                 }
             }
+            $params = $this->addPropIdParam($params, $id);
 
-            $pref = $lp->getPref();
-            if (is_int($pref) && $pref > 0) {
-                $params['PREF'] = (string) $pref;
-            }
-
-            $this->vcard->add('LANG', $tag, $params);
+            $this->vCard->add('LANG', $tag, $params);
         }
     }
-    // Media, directories, links, security, calendar
+
     /**
      * Creates a JSContact Media object from a URI, kind, and optional vCard property for extra parameters.
      *
@@ -2019,22 +1952,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function makeMediaObject($uri, $kind, $prop = null)
     {
-        $className = 'OpenXPort\\Jmap\\JSContact\\Media';
-
-        if (!class_exists($className)) {
-            return null;
-        }
-
-        $media = new $className($kind);
-        $media->setUri($uri);
-
-        if ($prop !== null && isset($prop['MEDIATYPE'])) {
-            $media->setMediaType((string) $prop['MEDIATYPE']);
-        }
-
-        $this->applyCommonContextAndPref($media, $prop);
-
-        return $media;
+        return Util::createMediaObject($uri, $kind, $prop);
     }
 
     /**
@@ -2054,7 +1972,7 @@ class JSContactVCardAdapter extends AbstractAdapter
         );
 
         foreach ($sources as $propName => $kind) {
-            $items = $this->vcard->{$propName};
+            $items = $this->vCard->{$propName};
             if (!AdapterUtil::isSetAndNotNull($items) || empty($items)) {
                 continue;
             }
@@ -2067,7 +1985,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
                 $media = $this->makeMediaObject($uri, $kind, $prop);
                 if ($media !== null) {
-                    $map['m' . $idx++] = $media;
+                    $key = $this->getMapKeyFromPropValue($prop, $uri, 'm', $idx, $map);
+                    $map[$key] = $media;
                 }
             }
         }
@@ -2095,7 +2014,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             'sound' => 'SOUND',
         );
 
-        foreach ($mediaMap as $media) {
+        foreach ($mediaMap as $id => $media) {
             if (!is_object($media)) {
                 continue;
             }
@@ -2112,24 +2031,9 @@ class JSContactVCardAdapter extends AbstractAdapter
                 continue;
             }
 
-            $params = array();
+            $params = $this->buildCommonUriObjectParams($media, $id);
 
-            $mt = $media->getMediaType();
-            if (is_string($mt) && $mt !== '') {
-                $params['MEDIATYPE'] = $mt;
-            }
-
-            $types = $this->contextsToVcardTypeParam($media);
-            if (!empty($types)) {
-                $params['TYPE'] = $types;
-            }
-
-            $pref = $this->prefToVcardParam($media);
-            if ($pref !== null) {
-                $params['PREF'] = $pref;
-            }
-
-            $this->vcard->add($kindToVcard[$kind], $uri, $params);
+            $this->vCard->add($kindToVcard[$kind], $uri, $params);
         }
     }
 
@@ -2150,8 +2054,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
         foreach ($sources as $propName => $kind) {
             $items = $propName === 'ORG-DIRECTORY'
-                ? $this->vcard->__get('ORG-DIRECTORY')
-                : $this->vcard->{$propName};
+                ? $this->vCard->__get('ORG-DIRECTORY')
+                : $this->vCard->{$propName};
 
             if (!AdapterUtil::isSetAndNotNull($items) || empty($items)) {
                 continue;
@@ -2162,7 +2066,6 @@ class JSContactVCardAdapter extends AbstractAdapter
                 if ($uri === '') {
                     continue;
                 }
-
                 $directory = $this->instantiateJscontactObject(array(
                     'OpenXPort\\Jmap\\JSContact\\Directory',
                 ));
@@ -2187,7 +2090,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
                 $this->applyCommonContextAndPref($directory, $prop);
 
-                $map['d' . $idx++] = $directory;
+                $key = $this->getMapKeyFromPropValue($prop, $uri, 'd', $idx, $map);
+                $map[$key] = $directory;
             }
         }
 
@@ -2208,7 +2112,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($directories as $dir) {
+        foreach ($directories as $id => $dir) {
             if (!is_object($dir)) {
                 continue;
             }
@@ -2231,8 +2135,9 @@ class JSContactVCardAdapter extends AbstractAdapter
                 continue;
             }
 
-            $params = array();
+            $params = $this->buildCommonUriObjectParams($dir, $id);
 
+            // Add INDEX parameter if present
             if (method_exists($dir, 'getListAs')) {
                 $listAs = $dir->getListAs();
                 if (is_int($listAs)) {
@@ -2240,22 +2145,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                 }
             }
 
-            $mt = $dir->getMediaType();
-            if (is_string($mt) && $mt !== '') {
-                $params['MEDIATYPE'] = $mt;
-            }
-
-            $types = $this->contextsToVcardTypeParam($dir);
-            if (!empty($types)) {
-                $params['TYPE'] = $types;
-            }
-
-            $pref = $this->prefToVcardParam($dir);
-            if ($pref !== null) {
-                $params['PREF'] = $pref;
-            }
-
-            $this->vcard->add($propName, $uri, $params);
+            $this->vCard->add($propName, $uri, $params);
         }
     }
 
@@ -2276,8 +2166,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
         foreach ($sources as $propName => $kind) {
             $items = $propName === 'CONTACT-URI'
-                ? $this->vcard->__get('CONTACT-URI')
-                : $this->vcard->{$propName};
+                ? $this->vCard->__get('CONTACT-URI')
+                : $this->vCard->{$propName};
 
             if (!AdapterUtil::isSetAndNotNull($items) || empty($items)) {
                 continue;
@@ -2310,7 +2200,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
                 $this->applyCommonContextAndPref($link, $prop);
 
-                $map['l' . $idx++] = $link;
+                $key = $this->getMapKeyFromPropValue($prop, $uri, 'l', $idx, $map);
+                $map[$key] = $link;
             }
         }
 
@@ -2331,7 +2222,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($links as $link) {
+        foreach ($links as $id => $link) {
             if (!is_object($link)) {
                 continue;
             }
@@ -2344,24 +2235,9 @@ class JSContactVCardAdapter extends AbstractAdapter
             $kind = strtolower((string) $link->getKind());
             $propName = ($kind === 'contact') ? 'CONTACT-URI' : 'URL';
 
-            $params = array();
+            $params = $this->buildCommonUriObjectParams($link, $id);
 
-            $mt = $link->getMediaType();
-            if (is_string($mt) && $mt !== '') {
-                $params['MEDIATYPE'] = $mt;
-            }
-
-            $types = $this->contextsToVcardTypeParam($link);
-            if (!empty($types)) {
-                $params['TYPE'] = $types;
-            }
-
-            $pref = $this->prefToVcardParam($link);
-            if ($pref !== null) {
-                $params['PREF'] = $pref;
-            }
-
-            $this->vcard->add($propName, $uri, $params);
+            $this->vCard->add($propName, $uri, $params);
         }
     }
 
@@ -2372,7 +2248,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getCryptoKeysToJmap(ContactCard $card)
     {
-        $items = $this->vcard->KEY;
+        $items = $this->vCard->KEY;
         if (!AdapterUtil::isSetAndNotNull($items) || empty($items)) {
             return;
         }
@@ -2402,7 +2278,8 @@ class JSContactVCardAdapter extends AbstractAdapter
 
             $this->applyCommonContextAndPref($key, $prop);
 
-            $map['k' . $idx++] = $key;
+            $mapKey = $this->getMapKeyFromPropValue($prop, $uri, 'k', $idx, $map);
+            $map[$mapKey] = $key;
         }
 
         if (!empty($map)) {
@@ -2422,7 +2299,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($keys as $key) {
+        foreach ($keys as $id => $key) {
             if (!is_object($key)) {
                 continue;
             }
@@ -2432,79 +2309,49 @@ class JSContactVCardAdapter extends AbstractAdapter
                 continue;
             }
 
-            $params = array();
+            $params = $this->buildCommonUriObjectParams($key, $id);
 
-            $mt = $key->getMediaType();
-            if (is_string($mt) && $mt !== '') {
-                $params['MEDIATYPE'] = $mt;
-            }
-
-            $types = $this->contextsToVcardTypeParam($key);
-            if (!empty($types)) {
-                $params['TYPE'] = $types;
-            }
-
-            $pref = $this->prefToVcardParam($key);
-            if ($pref !== null) {
-                $params['PREF'] = $pref;
-            }
-
-            $this->vcard->add('KEY', $uri, $params);
+            $this->vCard->add('KEY', $uri, $params);
         }
     }
 
     /**
-     * Reads vCard CALADRURI, FBURL, and CALURI properties and stores them as scheduling
-     * addresses on the ContactCard.
+     * Reads vCard CALADRURI property and stores it as scheduling address on the ContactCard.
      *
-     * CALADRURI entries get no kind (calendar invitation address).
-     * FBURL entries get kind 'freeBusy' (free-busy URL).
-     * CALURI entries get kind 'calendar' (calendar subscription URI).
+     * CALADRURI entries have no kind (calendar invitation address).
      *
      * @param ContactCard $card
      */
     public function getSchedulingAddressesToJmap(ContactCard $card)
     {
+        $items = $this->vCard->__get('CALADRURI');
+        if (!AdapterUtil::isSetAndNotNull($items) || empty($items)) {
+            return;
+        }
+
         $map = array();
         $idx = 1;
 
-        // Each entry is [vCard property name, JSContact kind or null].
-        $sources = array(
-            array('CALADRURI', null),
-            array('FBURL',     'freeBusy'),
-            array('CALURI',    'calendar'),
-        );
-
-        foreach ($sources as list($propName, $kind)) {
-            $items = $this->vcard->__get($propName);
-            if (!AdapterUtil::isSetAndNotNull($items) || empty($items)) {
+        foreach ($items as $prop) {
+            $uri = trim((string) $prop);
+            if ($uri === '') {
                 continue;
             }
 
-            foreach ($items as $prop) {
-                $uri = trim((string) $prop);
-                if ($uri === '') {
-                    continue;
-                }
+            $sched = $this->instantiateJscontactObject(array(
+                'OpenXPort\\Jmap\\JSContact\\SchedulingAddress',
+            ));
 
-                $sched = $this->instantiateJscontactObject(array(
-                    'OpenXPort\\Jmap\\JSContact\\SchedulingAddress',
-                ));
-
-                if (!$sched) {
-                    continue;
-                }
-
-                $sched->setUri($uri);
-
-                if ($kind !== null) {
-                    $sched->setKind($kind);
-                }
-
-                $this->applyCommonContextAndPref($sched, $prop);
-
-                $map['sa' . $idx++] = $sched;
+            if (!$sched) {
+                continue;
             }
+
+            $sched->setUri($uri);
+
+            $this->applyCommonContextAndPref($sched, $prop);
+
+            $key = $this->getMapKeyFromPropValue($prop, $uri, 'sa', $idx, $map);
+            $map[$key] = $sched;
         }
 
         if (!empty($map)) {
@@ -2513,7 +2360,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard scheduling addresses as vCard properties.
+     * Writes ContactCard scheduling addresses as vCard CALADRURI properties.
      *
      * @param ContactCard $card
      */
@@ -2524,7 +2371,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($schedules as $sched) {
+        foreach ($schedules as $id => $sched) {
             if (!is_object($sched)) {
                 continue;
             }
@@ -2532,15 +2379,6 @@ class JSContactVCardAdapter extends AbstractAdapter
             $uri = $sched->getUri();
             if ($uri === null || $uri === '') {
                 continue;
-            }
-
-            $kind = strtolower(trim((string) $sched->getKind()));
-            if ($kind === 'freebusy') {
-                $propName = 'FBURL';
-            } elseif ($kind === 'calendar') {
-                $propName = 'CALURI';
-            } else {
-                $propName = 'CALADRURI';
             }
 
             $params = array();
@@ -2555,18 +2393,189 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $params['PREF'] = $pref;
             }
 
-            $this->vcard->add($propName, $uri, $params);
+            $params = $this->addPropIdParam($params, $id);
+
+            $this->vCard->add('CALADRURI', $uri, $params);
         }
     }
-    // Addresses
+
+    /**
+     * Reads vCard CALURI and FBURL properties and stores them as calendars on the ContactCard.
+     *
+     * CALURI entries get kind 'calendar'.
+     * FBURL entries get kind 'freeBusy'.
+     *
+     * @param ContactCard $card
+     */
+    public function getCalendarsToJmap(ContactCard $card)
+    {
+        $map = array();
+        $idx = 1;
+
+        // Each entry is [vCard property name, JSContact kind].
+        $sources = array(
+            array('CALURI', 'calendar'),
+            array('FBURL',  'freeBusy'),
+        );
+
+        foreach ($sources as list($propName, $kind)) {
+            $items = $this->vCard->__get($propName);
+            if (!AdapterUtil::isSetAndNotNull($items) || empty($items)) {
+                continue;
+            }
+
+            foreach ($items as $prop) {
+                $uri = trim((string) $prop);
+                if ($uri === '') {
+                    continue;
+                }
+
+                $calendar = $this->instantiateJscontactObject(array(
+                    'OpenXPort\\Jmap\\JSContact\\Calendar',
+                ));
+
+                if (!$calendar) {
+                    continue;
+                }
+
+                $calendar->setKind($kind);
+                $calendar->setUri($uri);
+
+                if (isset($prop['MEDIATYPE'])) {
+                    $calendar->setMediaType((string) $prop['MEDIATYPE']);
+                }
+
+                $this->applyCommonContextAndPref($calendar, $prop);
+
+                $key = $this->getMapKeyFromPropValue($prop, $uri, 'cal', $idx, $map);
+                $map[$key] = $calendar;
+            }
+        }
+
+        if (!empty($map)) {
+            $card->setCalendars($map);
+        }
+    }
+
+    /**
+     * Writes ContactCard calendars as vCard CALURI or FBURL properties.
+     *
+     * @param ContactCard $card
+     */
+    public function setCalendarsFromJmap(ContactCard $card)
+    {
+        $calendars = $card->getCalendars();
+        if (!is_array($calendars) || empty($calendars)) {
+            return;
+        }
+
+        foreach ($calendars as $id => $calendar) {
+            if (!is_object($calendar)) {
+                continue;
+            }
+
+            $uri = $calendar->getUri();
+            if ($uri === null || $uri === '') {
+                continue;
+            }
+
+            $kind = strtolower(trim((string) $calendar->getKind()));
+            if ($kind === 'freebusy') {
+                $propName = 'FBURL';
+            } elseif ($kind === 'calendar') {
+                $propName = 'CALURI';
+            } else {
+                continue;
+            }
+
+            $params = array();
+
+            $mt = $calendar->getMediaType();
+            if (is_string($mt) && $mt !== '') {
+                $params['MEDIATYPE'] = $mt;
+            }
+
+            $types = $this->contextsToVcardTypeParam($calendar);
+            if (!empty($types)) {
+                $params['TYPE'] = $types;
+            }
+
+            $pref = $this->prefToVcardParam($calendar);
+            if ($pref !== null) {
+                $params['PREF'] = $pref;
+            }
+
+            $params = $this->addPropIdParam($params, $id);
+
+            $this->vCard->add($propName, $uri, $params);
+        }
+    }
+
+    /**
+     * Writes ADR property with JSCOMPS parameter reconstructed from ordered components.
+     *
+     * @param Address $address
+     * @param array $components
+     * @param string $id
+     */
+    protected function setAddressWithJscomps($address, $components, $id)
+    {
+        $kindToPosition = Util::getAddressKindToPositionMap();
+        $defaultSep = '';
+
+        if (method_exists($address, 'getDefaultSeparator')) {
+            $sep = $address->getDefaultSeparator();
+            if ($sep !== null && $sep !== '') {
+                $defaultSep = $sep;
+            }
+        }
+
+        list($parts, $jscompsValue) = Util::buildJscompsData(
+            $components,
+            $kindToPosition,
+            $defaultSep,
+            17
+        );
+
+        $params = array('JSCOMPS' => $jscompsValue);
+
+        $fullAddr = $address->getFullAddress();
+        if ($fullAddr) {
+            $params['LABEL'] = $fullAddr;
+        }
+
+        $countryCode = $address->getCountryCode();
+        if ($countryCode) {
+            $params['CC'] = $countryCode;
+        }
+
+        $coordinates = $address->getCoordinates();
+        if ($coordinates) {
+            $params['GEO'] = $coordinates;
+        }
+
+        $timeZone = $address->getTimeZone();
+        if ($timeZone) {
+            $params['TZ'] = $timeZone;
+        }
+
+        $types = $this->contextsToVcardTypeParam($address);
+        if (!empty($types)) {
+            $params['TYPE'] = $types;
+        }
+
+        $pref = $this->prefToVcardParam($address);
+        if ($pref !== null) {
+            $params['PREF'] = $pref;
+        }
+
+        $params = $this->addPropIdParam($params, $id);
+
+        $this->vCard->add('ADR', $parts, $params);
+    }
+
     /**
      * Writes ContactCard addresses as vCard ADR properties.
-     * Uses the extended component layout from RFC 9554.
-     *
-     * A timezone-only address (label = 'timezone', no components, no full address) is
-     * written as a standalone vCard TZ property rather than an empty ADR line, matching
-     * the behaviour expected by clients that emit bare TZ properties.
-     *
      * @param ContactCard $card
      */
     public function setAddressesFromJmap(ContactCard $card)
@@ -2576,7 +2585,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        foreach ($addresses as $address) {
+        foreach ($addresses as $id => $address) {
             if (!($address instanceof Address)) {
                 continue;
             }
@@ -2587,120 +2596,60 @@ class JSContactVCardAdapter extends AbstractAdapter
             $coordinates   = $address->getCoordinates();
             $countryCode   = $address->getCountryCode();
             $hasComponents = is_array($components) && !empty($components);
-            $hasFullAddr   = is_string($fullAddr) && $fullAddr !== '';
-            $hasCoords     = is_string($coordinates) && $coordinates !== '';
-            $hasCountry    = is_string($countryCode) && $countryCode !== '';
 
-            if (
-                is_string($timeZone) && $timeZone !== ''
-                && !$hasComponents
-                && !$hasFullAddr
-                && !$hasCoords
-                && !$hasCountry
-            ) {
+            // Standalone timezone property
+            if ($timeZone && !$hasComponents && !$fullAddr && !$coordinates && !$countryCode) {
                 $this->addSingleProperty('TZ', $timeZone);
                 continue;
             }
 
-            $parts = array(
-                '', '', '', '', '', '', '',
-                '', '', '', '', '', '', '', '', '', '',
-            );
+            $isOrdered = method_exists($address, 'getIsOrdered') ? $address->getIsOrdered() : false;
 
+            if ($isOrdered && $hasComponents) {
+                $this->setAddressWithJscomps($address, $components, $id);
+                continue;
+            }
+
+            // Initialize 17 ADR parts (RFC 9554 extended format)
+            $parts = array_fill(0, 17, '');
+
+            // Component kind to index mapping
+            $kindToIndex = Util::getAddressKindToPositionMap();
+
+            // Map components to parts
             if ($hasComponents) {
                 foreach ($components as $comp) {
                     if (!is_object($comp)) {
                         continue;
                     }
 
-                    $kind  = $comp->getValue();
-                    $value = $comp->getKind();
+                    $kind = $comp->getKind();
+                    $value = $comp->getValue();
 
-                    if (!is_string($kind) || $kind === '') {
-                        continue;
-                    }
-
-                    if (!is_string($value) || $value === '') {
-                        continue;
-                    }
-
-                    switch ($kind) {
-                        case 'postOfficeBox':
-                            $parts[0]  = $value;
-                            break;
-                        case 'apartment':
-                            $parts[7]  = $value;
-                            break;
-                        case 'room':
-                            $parts[8]  = $value;
-                            break;
-                        case 'floor':
-                            $parts[9]  = $value;
-                            break;
-                        case 'number':
-                            $parts[10] = $value;
-                            break;
-                        case 'name':
-                            $parts[2]  = $value;
-                            break;
-                        case 'block':
-                            $parts[11] = $value;
-                            break;
-                        case 'building':
-                            $parts[12] = $value;
-                            break;
-                        case 'direction':
-                            $parts[13] = $value;
-                            break;
-                        case 'landmark':
-                            $parts[14] = $value;
-                            break;
-                        case 'district':
-                            $parts[15] = $value;
-                            break;
-                        case 'subdistrict':
-                            $parts[16] = $value;
-                            break;
-                        case 'locality':
-                            $parts[3]  = $value;
-                            break;
-                        case 'region':
-                            $parts[4]  = $value;
-                            break;
-                        case 'postcode':
-                            $parts[5]  = $value;
-                            break;
-                        case 'country':
-                            $parts[6]  = $value;
-                            break;
+                    if (isset($kindToIndex[$kind]) && is_string($value) && $value !== '') {
+                        $parts[$kindToIndex[$kind]] = $value;
                     }
                 }
             }
 
-            $hasAny = false;
-            foreach ($parts as $p) {
-                if ($p !== '') {
-                    $hasAny = true;
-                    break;
-                }
-            }
-
-            if (!$hasAny && $hasFullAddr) {
+            // if no components mapped and we have fullAddr, use it as street
+            $hasAny = (bool) array_filter($parts);
+            if (!$hasAny && $fullAddr) {
                 $parts[2] = $fullAddr;
             }
 
             $params = array();
 
-            if ($hasCountry) {
-                $params['CC']    = $countryCode;
+            if ($countryCode) {
+                $params['CC'] = $countryCode;
             }
-            if ($hasCoords) {
-                $params['GEO']   = $coordinates;
+            if ($coordinates) {
+                $params['GEO'] = $coordinates;
             }
-            if ($timeZone !== null && $timeZone !== '') {
+            if ($timeZone) {
                 $params['TZ'] = $timeZone;
             }
-            if ($hasFullAddr) {
+            if ($fullAddr) {
                 $params['LABEL'] = $fullAddr;
             }
 
@@ -2714,7 +2663,9 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $params['PREF'] = $pref;
             }
 
-            $this->vcard->add('ADR', $parts, $params);
+            $params = $this->addPropIdParam($params, $id);
+
+            $this->vCard->add('ADR', $parts, $params);
         }
     }
 
@@ -2725,13 +2676,13 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getAddressesToJmap(ContactCard $card)
     {
-        $vAddrs = $this->vcard->ADR;
+        $vAddrs = $this->vCard->ADR;
         if (!AdapterUtil::isSetAndNotNull($vAddrs) || empty($vAddrs)) {
             return;
         }
 
         $map = array();
-        $i   = 1;
+        $i = 1;
 
         foreach ($vAddrs as $vAddr) {
             $parts = $vAddr->getParts();
@@ -2745,94 +2696,61 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $a->setFullAddress((string) $vAddr['LABEL']);
             }
 
-            $components = array();
+            $hasJscomps = isset($vAddr['JSCOMPS']);
 
-            if (isset($parts[0]) && $parts[0] !== '') {
-                $components[] = new AddressComponent('postOfficeBox', $parts[0]);
-            }
+            if ($hasJscomps) {
+                $jscompsValue = (string) $vAddr['JSCOMPS'];
+                $positionToKind = Util::getAddressPositionToKindMap();
 
-            $isExtended = count($parts) > 7;
+                $components = Util::parseJscompsData(
+                    $jscompsValue,
+                    $parts,
+                    $positionToKind,
+                    'OpenXPort\\Jmap\\JSContact\\AddressComponent'
+                );
 
-            if ($isExtended) {
-                if (isset($parts[7])  && $parts[7]  !== '') {
-                    $components[] = new AddressComponent('apartment', $parts[7]);
-                }
-                if (isset($parts[8])  && $parts[8]  !== '') {
-                    $components[] = new AddressComponent('room', $parts[8]);
-                }
-                if (isset($parts[9])  && $parts[9]  !== '') {
-                    $components[] = new AddressComponent('floor', $parts[9]);
-                }
-                if (isset($parts[10]) && $parts[10] !== '') {
-                    $components[] = new AddressComponent('number', $parts[10]);
-                }
-                if (isset($parts[2])  && $parts[2]  !== '') {
-                    $components[] = new AddressComponent('name', $parts[2]);
-                }
-                if (isset($parts[11]) && $parts[11] !== '') {
-                    $components[] = new AddressComponent('block', $parts[11]);
-                }
-                if (isset($parts[12]) && $parts[12] !== '') {
-                    $components[] = new AddressComponent('building', $parts[12]);
-                }
-                if (isset($parts[13]) && $parts[13] !== '') {
-                    $components[] = new AddressComponent('direction', $parts[13]);
-                }
-                if (isset($parts[14]) && $parts[14] !== '') {
-                    $components[] = new AddressComponent('landmark', $parts[14]);
-                }
-                if (isset($parts[16]) && $parts[16] !== '') {
-                    $components[] = new AddressComponent('subdistrict', $parts[16]);
-                }
-                if (isset($parts[15]) && $parts[15] !== '') {
-                    $components[] = new AddressComponent('district', $parts[15]);
+                if (!empty($components)) {
+                    $a->setComponents($components);
+                    $a->setIsOrdered(true);
+
+                    $defaultSep = Util::getDefaultSeparatorFromJscomps($jscompsValue);
+                    if ($defaultSep !== null) {
+                        $a->setDefaultSeparator($defaultSep);
+                    }
                 }
             } else {
-                if (isset($parts[1]) && $parts[1] !== '') {
-                    $components[] = new AddressComponent('apartment', $parts[1]);
+                $isExtended = count($parts) > 7;
+                $positionToKind = $isExtended
+                    ? Util::getAddressPositionToKindMap()
+                    : Util::getBasicAddressPositionToKindMap();
+
+                $components = Util::buildComponentsFromParts(
+                    $parts,
+                    $positionToKind,
+                    'OpenXPort\\Jmap\\JSContact\\AddressComponent'
+                );
+
+                if (!empty($components)) {
+                    $a->setComponents($components);
+                    $a->setIsOrdered(true);
+                    $a->setDefaultSeparator(', ');
                 }
-                if (isset($parts[2]) && $parts[2] !== '') {
-                    $components[] = new AddressComponent('name', $parts[2]);
-                }
             }
 
-            if (isset($parts[3]) && $parts[3] !== '') {
-                $components[] = new AddressComponent('locality', $parts[3]);
-            }
-            if (isset($parts[4]) && $parts[4] !== '') {
-                $components[] = new AddressComponent('region', $parts[4]);
-            }
-            if (isset($parts[5]) && $parts[5] !== '') {
-                $components[] = new AddressComponent('postcode', $parts[5]);
-            }
-            if (isset($parts[6]) && $parts[6] !== '') {
-                $components[] = new AddressComponent('country', $parts[6]);
-            }
-
-            if (!empty($components)) {
-                $a->setIsOrdered(true);
-                $a->setDefaultSeparator(', ');
-                $a->setComponents($components);
-            }
-
+            // Generate fullAddress if not set
             if ($a->getFullAddress() === null) {
-                $fullParts = array();
-                foreach ($components as $comp) {
-                    if (!is_object($comp) || !method_exists($comp, 'getKind')) {
-                        continue;
+                $comps = $a->getComponents();
+                if (!empty($comps)) {
+                    $fullParts = array();
+                    foreach ($comps as $comp) {
+                        $val = $comp->getValue();
+                        if ($val !== null && $val !== '') {
+                            $fullParts[] = $val;
+                        }
                     }
-
-                    // In this AddressComponent model:
-                    // - getValue() is the component type (e.g. "locality")
-                    // - getKind() is the actual text (e.g. "Berlin")
-                    $val = $comp->getKind();
-                    if ($val !== null && $val !== '') {
-                        $fullParts[] = $val;
+                    if (!empty($fullParts)) {
+                        $a->setFullAddress(implode(', ', $fullParts));
                     }
-                }
-
-                if (!empty($fullParts)) {
-                    $a->setFullAddress(implode(', ', $fullParts));
                 }
             }
 
@@ -2846,20 +2764,22 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $a->setTimeZone((string) $vAddr['TZ']);
             }
 
-            $ctx = $this->vcardTypeParamToContexts($vAddr);
+            $ctx = $this->vCardTypeParamToContexts($vAddr);
             if (!empty($ctx)) {
                 $a->setContexts($ctx);
             }
 
-            $pref = $this->vcardPrefParamToInt($vAddr);
+            $pref = $this->vCardPrefParamToInt($vAddr);
             if ($pref !== null) {
                 $a->setPref($pref);
             }
+            $this->checkUnsupportedParams($vAddr, 'ADR');
 
-            $map['a' . $i++] = $a;
+            $key = $this->getMapKeyFromPropValue($vAddr, json_encode($parts), 'a', $i, $map);
+            $map[$key] = $a;
         }
 
-        $standaloneTz = $this->vcard->__get('TZ');
+        $standaloneTz = $this->vCard->__get('TZ');
         if (AdapterUtil::isSetAndNotNull($standaloneTz)) {
             $tzValue = trim((string) $standaloneTz);
             if ($tzValue !== '') {
@@ -2873,14 +2793,15 @@ class JSContactVCardAdapter extends AbstractAdapter
             $card->setAddresses($map);
         }
     }
-    // Anniversaries
+
     /**
+     * Anniversaries
      * Returns the BDAY date as Y-m-d, or '0000-00-00' if it's missing or can't be parsed.
      * Handles both plain dates and date-time values like 19950505T000000Z.
      */
     protected function getBirthday()
     {
-        $bday = $this->vcard->BDAY;
+        $bday = $this->vCard->BDAY;
         if (!AdapterUtil::isSetAndNotNull($bday)) {
             return '0000-00-00';
         }
@@ -2916,7 +2837,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getAnniversary()
     {
-        $ann = $this->vcard->__get('ANNIVERSARY');
+        $ann = $this->vCard->__get('ANNIVERSARY');
         if (!AdapterUtil::isSetAndNotNull($ann)) {
             return '0000-00-00';
         }
@@ -2952,7 +2873,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getBirthPlaceRaw()
     {
-        $p = $this->vcard->__get('BIRTHPLACE');
+        $p = $this->vCard->__get('BIRTHPLACE');
         if (!AdapterUtil::isSetAndNotNull($p)) {
             return null;
         }
@@ -2966,7 +2887,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getDeathDate()
     {
-        $p = $this->vcard->__get('DEATHDATE');
+        $p = $this->vCard->__get('DEATHDATE');
         if (!AdapterUtil::isSetAndNotNull($p)) {
             return '0000-00-00';
         }
@@ -2998,13 +2919,12 @@ class JSContactVCardAdapter extends AbstractAdapter
 
     /**
      * Returns the raw DEATHPLACE value, or null if it's not set.
-     * Unescapes any literal \n sequences in the value.
      *
      * @return string|null
      */
     protected function getDeathPlaceRaw()
     {
-        $p = $this->vcard->__get('DEATHPLACE');
+        $p = $this->vCard->__get('DEATHPLACE');
         if (!AdapterUtil::isSetAndNotNull($p)) {
             return null;
         }
@@ -3015,34 +2935,13 @@ class JSContactVCardAdapter extends AbstractAdapter
 
     /**
      * Converts a raw place string (plain text or geo: URI) to a JSContact Address object.
-     * Returns null if the input is empty or can't be meaningfully converted.
      *
      * @param string $raw
      * @return Address|null
      */
     protected function placeRawToAddress($raw)
     {
-        if (!is_string($raw)) {
-            return null;
-        }
-        $raw = trim($raw);
-        if ($raw === '') {
-            return null;
-        }
-
-        $addr = new Address();
-
-        if (stripos($raw, 'geo:') === 0) {
-            $addr->setCoordinates($raw);
-            return $addr;
-        }
-
-        if ($this->placeTextAsFullAddress) {
-            $addr->setFullAddress($raw);
-            return $addr;
-        }
-
-        return null;
+        return Util::placeToAddress($raw, $this->placeTextAsFullAddress);
     }
 
     /**
@@ -3054,21 +2953,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function getPlaceValueFromAddress(Address $addr)
     {
-        $coordinates = $addr->getCoordinates();
-        if (is_string($coordinates) && trim($coordinates) !== '') {
-            $coordinates = trim($coordinates);
-            if (stripos($coordinates, 'geo:') === 0) {
-                return $coordinates;
-            }
-            return 'geo:' . ltrim($coordinates, ':');
-        }
-
-        $text = $addr->getFullAddress();
-        if (is_string($text) && trim($text) !== '' && $this->placeTextAsFullAddress) {
-            return trim($text);
-        }
-
-        return null;
+        return Util::addressToPlace($addr, $this->placeTextAsFullAddress);
     }
 
     /**
@@ -3217,7 +3102,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $card->setAnniversaries($anns);
         }
     }
-    // Relations
+
     /**
      * Writes ContactCard relations as vCard RELATED properties, with relation types as TYPE parameters.
      *
@@ -3236,7 +3121,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             if (!is_object($relationObj)) {
-                $this->vcard->add('RELATED', $key);
+                $this->vCard->add('RELATED', $key);
                 continue;
             }
 
@@ -3252,9 +3137,9 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             if (empty($types)) {
-                $this->vcard->add('RELATED', $key);
+                $this->vCard->add('RELATED', $key);
             } else {
-                $this->vcard->add('RELATED', $key, array('TYPE' => $types));
+                $this->vCard->add('RELATED', $key, array('TYPE' => $types));
             }
         }
     }
@@ -3267,7 +3152,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getRelatedToToJmap(ContactCard $card)
     {
-        $vRelated = $this->vcard->RELATED;
+        $vRelated = $this->vCard->RELATED;
         if (!AdapterUtil::isSetAndNotNull($vRelated) || empty($vRelated)) {
             return;
         }
@@ -3320,7 +3205,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                 continue;
             }
 
-            $this->vcard->add('MEMBER', $uid, array('VALUE' => 'uri'));
+            $this->vCard->add('MEMBER', $uid, array('VALUE' => 'uri'));
             $wroteMember = true;
         }
 
@@ -3357,7 +3242,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $card->setMembers($members);
         }
     }
-    // Keywords
+
     /**
      * Reads vCard CATEGORIES properties and stores them as keywords on the ContactCard.
      *
@@ -3365,7 +3250,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function getKeywordsToJmap(ContactCard $card)
     {
-        $vCats = $this->vcard->CATEGORIES;
+        $vCats = $this->vCard->CATEGORIES;
         if (!AdapterUtil::isSetAndNotNull($vCats) || empty($vCats)) {
             return;
         }
@@ -3415,10 +3300,9 @@ class JSContactVCardAdapter extends AbstractAdapter
         }
 
         if (!empty($values)) {
-            $this->vcard->add('CATEGORIES', $values);
+            $this->vCard->add('CATEGORIES', $values);
         }
     }
-    // Personal info
     /**
      * Reads vCard EXPERTISE, HOBBY, and INTEREST properties and stores them on the ContactCard.
      * LEVEL values are mapped: beginner -> low, average/medium -> medium, expert -> high.
@@ -3430,7 +3314,7 @@ class JSContactVCardAdapter extends AbstractAdapter
         $info = array();
 
         $readProps = function ($propName, $kind) use (&$info) {
-            $props = $this->vcard->{$propName};
+            $props = $this->vCard->{$propName};
             if (!AdapterUtil::isSetAndNotNull($props) || empty($props)) {
                 return;
             }
@@ -3443,14 +3327,7 @@ class JSContactVCardAdapter extends AbstractAdapter
 
                 $level = null;
                 if (isset($prop['LEVEL'])) {
-                    $rawLevel = strtolower((string) $prop['LEVEL']);
-                    if ($rawLevel === 'beginner') {
-                        $level = 'low';
-                    } elseif ($rawLevel === 'average' || $rawLevel === 'medium') {
-                        $level = 'medium';
-                    } elseif ($rawLevel === 'expert') {
-                        $level = 'high';
-                    }
+                    $level = Util::mapLevelFromVcard((string) $prop['LEVEL']);
                 }
 
                 $pi = new PersonalInformation($kind, $value);
@@ -3517,12 +3394,9 @@ class JSContactVCardAdapter extends AbstractAdapter
 
             $level = $pi->getLevel();
             if (is_string($level) && $level !== '') {
-                if ($level === 'low') {
-                    $params['LEVEL'] = 'beginner';
-                } elseif ($level === 'medium') {
-                    $params['LEVEL'] = 'average';
-                } elseif ($level === 'high') {
-                    $params['LEVEL'] = 'expert';
+                $mapped = Util::mapLevelToVcard($level);
+                if ($mapped !== null) {
+                    $params['LEVEL'] = $mapped;
                 }
             }
 
@@ -3531,78 +3405,73 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $params['INDEX'] = (string) $idx;
             }
 
-            $this->vcard->add($propName, $value, $params);
+            $this->vCard->add($propName, $value, $params);
         }
     }
+
     /**
      * Returns true if the value looks like a URI or scheme-based identifier.
      *
      * @param mixed $value
      * @return bool
      */
-    protected function looksLikeUri($value)
+    protected function isUri($value)
     {
-        if (!is_string($value) || trim($value) === '') {
-            return false;
-        }
-
-        $value = trim($value);
-
-        return (bool) preg_match('/^[a-z][a-z0-9+.\-]*:/i', $value)
-            || (bool) preg_match('/^https?:\/\//i', $value);
+        return Util::isUri($value);
     }
 
     /**
-     * Assigns an online service value to uri or user based on property type and service type.
+     * Builds common vCard parameters for objects that have mediaType, contexts, pref.
+     * Used by media, directories, links, and crypto keys.
      *
-     * @param OnlineService $os
-     * @param string        $propName
-     * @param string        $value
-     * @param mixed|null    $prop
+     * @param object $obj The object to extract parameters from
+     * @param mixed $id The map key/id for PROP-ID parameter
+     * @return array<string, mixed> The vCard parameters
      */
-    protected function assignOnlineValueToObject(OnlineService $os, $propName, $value, $prop = null)
+    protected function buildCommonUriObjectParams($obj, $id = null)
     {
-        $serviceType = isset($prop['SERVICE-TYPE'])
-            ? strtolower(trim((string) $prop['SERVICE-TYPE']))
-            : null;
+        $params = array();
 
-        // IMPP is always URI-like.
-        if ($propName === 'IMPP') {
-            $os->setUri($value);
-            return;
-        }
-
-        // Known URI-style services.
-        if (in_array($serviceType, ['aim', 'jabber', 'xmpp', 'sip', 'sips'], true)) {
-            $os->setUri($value);
-            return;
-        }
-
-        // Known username-style services in this adapter.
-        if (in_array($serviceType, ['skype', 'icq', 'msn', 'yahoo'], true)) {
-            if ($this->looksLikeUri($value)) {
-                $os->setUri($value);
-            } else {
-                $os->setUser($value);
+        // MediaType
+        if (method_exists($obj, 'getMediaType')) {
+            $mt = $obj->getMediaType();
+            if (is_string($mt) && $mt !== '') {
+                $params['MEDIATYPE'] = $mt;
             }
-            return;
         }
 
-        // Social profiles and generic URLs are usually URI-like.
-        if ($propName === 'SOCIALPROFILE' || $propName === 'URL') {
-            if ($this->looksLikeUri($value)) {
-                $os->setUri($value);
-            } else {
-                $os->setUser($value);
-            }
-            return;
+        // Contexts (TYPE parameter)
+        $types = $this->contextsToVcardTypeParam($obj);
+        if (!empty($types)) {
+            $params['TYPE'] = $types;
         }
 
-        // Fallback.
-        if ($this->looksLikeUri($value)) {
-            $os->setUri($value);
-        } else {
-            $os->setUser($value);
+        // Preference
+        $pref = $this->prefToVcardParam($obj);
+        if ($pref !== null) {
+            $params['PREF'] = $pref;
+        }
+
+        // PROP-ID
+        if ($id !== null) {
+            $params = $this->addPropIdParam($params, $id);
+        }
+
+        return $params;
+    }
+
+    protected function checkUnsupportedParams($prop, $propName)
+    {
+        if (isset($prop['ALTID']) && !empty($prop['ALTID'])) {
+            $this->logger->error(
+                "Currently unsupported vCard Parameter ALTID encountered for vCard property {$propName}"
+            );
+        }
+
+        if (isset($prop['LANGUAGE']) && !empty($prop['LANGUAGE'])) {
+            $this->logger->error(
+                "Currently unsupported vCard Parameter LANGUAGE encountered for vCard property {$propName}"
+            );
         }
     }
 }
