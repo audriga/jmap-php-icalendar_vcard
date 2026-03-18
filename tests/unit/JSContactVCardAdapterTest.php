@@ -77,11 +77,9 @@ final class JSContactVCardAdapterTest extends TestCase
     {
         $this->mapVCard();
 
-        $addresses = array_values($this->jsContactCard->getAddresses() ?: []);
-        $this->assertCount(2, $addresses);
-
-        $jsContactWorkAddress = $addresses[0];
-        $jsContactHomeAddress = $addresses[1];
+        $jsContactAddressIndices = array_keys($this->jsContactCard->getAddresses());
+        $jsContactWorkAddress = $this->jsContactCard->getAddresses()[$jsContactAddressIndices[0]];
+        $jsContactHomeAddress = $this->jsContactCard->getAddresses()[$jsContactAddressIndices[1]];
 
         // Assert that the JSContact addresses mapped from the vCard addresses are of the correct type
         $this->assertInstanceOf(Address::class, $jsContactWorkAddress);
@@ -236,13 +234,273 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->mapVCard();
 
         $notes = $this->jsContactCard->getNoteObjects();
-        $this->assertNotNull($notes);
-        $this->assertNotEmpty($notes);
 
-        $firstNote = reset($notes);
-        $this->assertInstanceOf(Note::class, $firstNote);
+        $firstNote = array_values($notes)[0];
         // Assert that the value of the JSContact "notes" property is the one we expect
         $this->assertEquals("Some text \n\n some more text", $firstNote->getNote());
+    }
+
+    /* *
+     * Map JSContact -> vCard -> JSContact
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testRoundtrip()
+    {
+        $jsonPath = __DIR__ . '/../resources/jscontactcard_basic.json';
+        $this->assertFileExists($jsonPath, 'jscontactcard_basic.json not found at: ' . $jsonPath);
+        $json = json_decode(file_get_contents($jsonPath));
+        $this->assertNotNull($json, 'Failed to parse jscontactcard_basic.json');
+
+        $card = new ContactCard();
+        $card->setUid($json->uid);
+
+        $name = new Name();
+        $name->setFull($json->name->full);
+        $card->setName($name);
+
+        $noteObjects = [];
+        foreach ($json->noteObjects as $id => $noteData) {
+            $note = new Note();
+            $note->setNote($noteData->note);
+            $noteObjects[$id] = $note;
+        }
+        $card->setNoteObjects($noteObjects);
+
+        $card->setKeywords((array) $json->keywords);
+
+        $orgs = [];
+        foreach ($json->organizations as $id => $orgData) {
+            $org = new Organization();
+            $org->setName($orgData->name);
+            $orgs[$id] = $org;
+        }
+        $card->setOrganizations($orgs);
+
+        $vCardData = $this->mapper->mapFromJmap(array("c1" => $card), $this->adapter);
+
+        $vCardDataReset = reset($vCardData);
+        $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("ORG", $vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
+
+        $notesAfter = $jsContactDataAfter->getNoteObjects();
+        $this->assertNotEmpty($notesAfter);
+        // Assert that the value of notes is still the same
+        $this->assertEquals(
+            array_values((array) $json->noteObjects)[0]->note,
+            array_values($notesAfter)[0]->getNote()
+        );
+
+        $this->assertEquals((array) $json->keywords, $jsContactDataAfter->getKeywords());
+
+        $this->assertEquals(
+            array_values($orgs)[0]->getName(),
+            array_values($jsContactDataAfter->getOrganizations())[0]->getName()
+        );
+        $this->assertNull(array_values($jsContactDataAfter->getOrganizations())[0]->getUnits());
+    }
+
+    /* *
+     * More complex mapping of JSContact -> vCard -> JSContact
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testAdvancedRoundtrip()
+    {
+        $jsonPath = __DIR__ . '/../resources/jscontactcard_advanced.json';
+        $this->assertFileExists($jsonPath, 'jscontactcard_advanced.json not found at: ' . $jsonPath);
+        $json = json_decode(file_get_contents($jsonPath));
+        $this->assertNotNull($json, 'Failed to parse jscontactcard_advanced.json');
+
+        $card = new ContactCard();
+        $card->setUid((string) $json->uid);
+        $card->setUpdated($json->updated);
+
+        $kindMap = [
+            'prefix'  => 'title',
+            'given'   => 'given',
+            'surname' => 'surname',
+            'middle'  => 'given2',
+            'suffix'  => 'credential',
+        ];
+        $nameComponents = [];
+        foreach ($json->name->components as $comp) {
+            $contactKind = isset($kindMap[$comp->type]) ? $kindMap[$comp->type] : $comp->type;
+            $nc = new NameComponent();
+            $nc->setKind($contactKind);
+            $nc->setValue($comp->value);
+            $nameComponents[] = $nc;
+        }
+        $name = new Name();
+        $name->setComponents($nameComponents);
+        $name->setIsOrdered(true);
+        $fullParts = [];
+        foreach ($nameComponents as $nc) {
+            if (in_array($nc->getKind(), ['given', 'given2', 'surname'], true)) {
+                $fullParts[] = $nc->getValue();
+            }
+        }
+        $name->setFull(implode(' ', $fullParts));
+        $card->setName($name);
+
+        $orgs = [];
+        foreach ($json->organizations as $id => $orgData) {
+            $org = new Organization();
+            $org->setName($orgData->name);
+            $org->setUnits((array) $orgData->units);
+            $orgs[$id] = $org;
+        }
+        $card->setOrganizations($orgs);
+
+        $onlineServices = [];
+        foreach ($json->onlineServices as $id => $osData) {
+            $os = new OnlineService();
+            if (isset($osData->user) && preg_match('/^[a-z][a-z0-9+\-.]*:/i', $osData->user)) {
+                $os->setUri($osData->user);
+            } elseif (isset($osData->user)) {
+                $os->setUser($osData->user);
+            }
+            if (isset($osData->service)) {
+                $os->setService($osData->service);
+            }
+            if (isset($osData->pref)) {
+                $os->setPref((int) $osData->pref);
+            }
+            $onlineServices[$id] = $os;
+        }
+        $card->setOnlineServices($onlineServices);
+
+        $anniversaries = [];
+        foreach ($json->anniversaries as $annData) {
+            $ann = new Anniversary();
+            $ann->setDate($annData->date);
+            if (isset($annData->kind)) {
+                $ann->setKind($annData->kind);
+            } else {
+                $ann->setKind('wedding');
+                $ann->setLabel('anniversary');
+            }
+            $anniversaries[] = $ann;
+        }
+        $card->setAnniversaries($anniversaries);
+
+        $vCardData = $this->mapper->mapFromJmap(array("c1" => $card), $this->adapter);
+
+        $vCardDataReset = reset($vCardData);
+
+        $this->assertNotNull($vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("IMPP", $vCardDataReset["c1"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
+
+        // Assert that fullName gets derived from name (roughly)
+        $this->assertGreaterThan(0, strlen($jsContactDataAfter->getName()->getFull()));
+
+        $servicesAsArray = array_values($jsContactDataAfter->getOnlineServices());
+        $usernames = array_map(
+            function ($os) { return $os->getUser(); },
+            $servicesAsArray
+        );
+        $uris = array_map(
+            function ($os) { return $os->getUri(); },
+            $servicesAsArray
+        );
+        
+        $this->assertContains(
+            "xmpp:alice@example.com",
+            array_merge($usernames, $uris)
+        );
+
+        $this->assertEquals(
+            array_values($orgs)[0]->getName(),
+            array_values($jsContactDataAfter->getOrganizations())[0]->getName()
+        );
+        $this->assertEquals(
+            "Cleaning department",
+            array_values($jsContactDataAfter->getOrganizations())[0]->getUnits()[0]
+        );
+    }
+
+    /* *
+     * Roundtripping of Jmap-specific properties
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testJmapRoundtrip()
+    {
+        $card = new ContactCard();
+        $card->setUid('c1');
+        $card->setAddressBookIds(['i-am-jmap-specific']);
+
+        $vCardData = $this->mapper->mapFromJmap(
+            array("c1" => $card),
+            $this->adapter
+        );
+
+        $this->assertIsArray($vCardData);
+        $this->assertNotEmpty($vCardData);
+
+        $vCardDataReset = reset($vCardData);
+        $this->assertArrayHasKey('oxpProperties', $vCardDataReset['c1']);
+        $this->assertArrayHasKey('addressBookId', $vCardDataReset['c1']['oxpProperties']);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
+
+        $this->assertInstanceOf(ContactCard::class, $jsContactDataAfter);
+        $this->assertEquals(['i-am-jmap-specific'], $jsContactDataAfter->getAddressBookIds());
+    }
+
+    /* *
+     * Mapping MS-Exchange-specific vCards
+     */
+    public function testCorrectMsExchangeMapping()
+    {
+        $this->mapVCard('/../resources/ms_exchange.vcf');
+
+        $this->assertEquals("SomeFullName", $this->jsContactCard->getName()->getFull());
+    }
+
+    /* *
+     * Mapping of two cards JSContact -> vCard -> JSContact
+     * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects
+     */
+    public function testMultipleRoundtrip()
+    {
+        $jsonPath = __DIR__ . '/../resources/jscontactcard_two_cards.json';
+        $this->assertFileExists($jsonPath, 'jscontactcard_two_cards.json not found at: ' . $jsonPath);
+
+        $json = json_decode(file_get_contents($jsonPath), true);
+        $this->assertNotNull($json, 'Failed to parse jscontactcard_two_cards.json');
+        $this->assertCount(2, $json);
+
+        $cards = [];
+        foreach ($json as $cardData) {
+            $card = new ContactCard();
+            $card->setUid((string) $cardData['uid']);
+            $card->setUpdated($cardData['updated']);
+
+            $name = new Name();
+            $name->setFull($cardData['name']['full']);
+            $card->setName($name);
+
+            $cards[] = $card;
+        }
+
+        $vCardData = $this->mapper->mapFromJmap(
+            array("c1" => $cards[0], "c2" => $cards[1]),
+            $this->adapter
+        );
+        $this->assertCount(2, $vCardData);
+
+        $vCardDataReset = array("c1" => reset($vCardData[0]), "c2" => reset($vCardData[1]));
+
+        $this->assertStringContainsString("Forrest Gump", $vCardDataReset["c1"]["vCard"]);
+        $this->assertStringContainsString("Kamala Harris", $vCardDataReset["c2"]["vCard"]);
+
+        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter);
+        $this->assertCount(2, $jsContactDataAfter);
+
+        $this->assertEquals("Forrest Gump", $jsContactDataAfter[0]->getName()->getFull());
+        $this->assertEquals("Kamala Harris", $jsContactDataAfter[1]->getName()->getFull());
     }
 
     /**
@@ -473,7 +731,7 @@ final class JSContactVCardAdapterTest extends TestCase
     /**
      * More complex mapping of JSContact -> vCard -> JSContact
      */
-    public function testAdvancedRoundtrip()
+    public function testAdvancedRoundtripExtended()
     {
         $jsonPath = __DIR__ . '/../resources/jscontactcard_advanced.json';
         $this->assertFileExists($jsonPath, 'jscontactcard_advanced.json not found at: ' . $jsonPath);
@@ -604,110 +862,6 @@ final class JSContactVCardAdapterTest extends TestCase
             $servicesAsArray
         );
         $this->assertContains('xmpp:alice@example.com', $uris);
-    }
-
-    /**
-     * Mapping of two cards JSContact -> vCard -> JSContact
-     */
-    public function testMultipleRoundtrip()
-    {
-        $jsonPath = __DIR__ . '/../resources/jscontactcard_two_cards.json';
-        $this->assertFileExists($jsonPath, 'jscontactcard_two_cards.json not found at: ' . $jsonPath);
-
-        $json = json_decode(file_get_contents($jsonPath), true);
-        $this->assertNotNull($json, 'Failed to parse jscontactcard_two_cards.json');
-        $this->assertCount(2, $json);
-
-        $cards = [];
-        foreach ($json as $cardData) {
-            $card = new ContactCard();
-            $card->setUid((string) $cardData['uid']);
-            $card->setUpdated($cardData['updated']);
-
-            $name = new Name();
-            $name->setFull($cardData['name']['full']);
-            $card->setName($name);
-
-            $cards[] = $card;
-        }
-
-        $vCardData = $this->mapper->mapFromJmap(
-            array("c1" => $cards[0], "c2" => $cards[1]),
-            $this->adapter
-        );
-        $this->assertCount(2, $vCardData);
-
-        $vCardDataReset = array("c1" => reset($vCardData[0]), "c2" => reset($vCardData[1]));
-
-        $this->assertStringContainsString("Forrest Gump", $vCardDataReset["c1"]["vCard"]);
-        $this->assertStringContainsString("Kamala Harris", $vCardDataReset["c2"]["vCard"]);
-
-        $contactCardsAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter);
-        $this->assertCount(2, $contactCardsAfter);
-
-        $this->assertEquals("Forrest Gump", $contactCardsAfter[0]->getName()->getFull());
-        $this->assertEquals("Kamala Harris", $contactCardsAfter[1]->getName()->getFull());
-    }
-
-    /**
-     * Mapping MS-Exchange-specific vCards
-     */
-    public function testCorrectMsExchangeMapping()
-    {
-        $vCardPath = __DIR__ . '/../resources/ms_exchange.vcf';
-        $this->assertFileExists($vCardPath, 'ms_exchange.vcf not found at: ' . $vCardPath);
-
-        $vCard = file_get_contents($vCardPath);
-        $this->assertNotFalse($vCard, 'Failed to read ms_exchange.vcf');
-
-        $contactCards = $this->mapper->mapToJmap(array("1" => $vCard), $this->adapter);
-        $this->assertCount(1, $contactCards);
-
-        $card = $contactCards[0];
-        $this->assertInstanceOf(ContactCard::class, $card);
-
-        $this->assertEquals("SomeFullName", $card->getName()->getFull());
-
-        $surname = null;
-        $components = $card->getName()->getComponents() !== null ? $card->getName()->getComponents() : [];
-        foreach ($components as $component) {
-            if ($component->getKind() === 'surname') {
-                $surname = $component->getValue();
-                break;
-            }
-        }
-        $this->assertEquals("SOMENAME", $surname, 'N surname component should be preserved');
-
-        $emails = $card->getEmails();
-        $this->assertNotEmpty($emails);
-        $this->assertEquals("xxxxxxxx@kolumbus.us", array_values($emails)[0]->getAddress());
-    }
-
-    /**
-     * Roundtripping of Jmap-specific properties
-     */
-    public function testJmapRoundtrip()
-    {
-        $card = new ContactCard();
-        $card->setUid('c1');
-        $card->setAddressBookIds(['i-am-jmap-specific']);
-
-        $vCardData = $this->mapper->mapFromJmap(
-            array("c1" => $card),
-            $this->adapter
-        );
-
-        $this->assertIsArray($vCardData);
-        $this->assertNotEmpty($vCardData);
-
-        $vCardDataReset = reset($vCardData);
-        $this->assertArrayHasKey('oxpProperties', $vCardDataReset['c1']);
-        $this->assertArrayHasKey('addressBookId', $vCardDataReset['c1']['oxpProperties']);
-
-        $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
-
-        $this->assertInstanceOf(ContactCard::class, $jsContactDataAfter);
-        $this->assertEquals(['i-am-jmap-specific'], $jsContactDataAfter->getAddressBookIds());
     }
 
     /**

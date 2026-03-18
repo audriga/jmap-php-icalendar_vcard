@@ -31,7 +31,7 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
         if (!AdapterUtil::isSetAndNotNull($xSocialProfiles) || empty($xSocialProfiles)) {
             return;
         }
-        
+
         // This is basically the same as "SOCIALPROFILE" in parent but for X-SOCIALPROFILE.
         foreach ($xSocialProfiles as $prop) {
             $value = trim((string) $prop);

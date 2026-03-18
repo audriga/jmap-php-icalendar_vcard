@@ -2,13 +2,14 @@
 
 namespace OpenXPort\Test\Core;
 
-use PHPUnit\Framework\Testcase;
+use PHPUnit\Framework\TestCase;
 use OpenXPort\Jmap\Calendar\CalendarEvent;
+use OpenXPort\Jmap\Calendar\PatchObject;
 
 /**
  * Deserealization of JSCalendar events from JSON files.
  */
-final class OpenXPortCoreTest extends Testcase
+final class OpenXPortCoreTest extends TestCase
 {
     /** @var \OpenXPort\Jmap\Calendar\CalendarEvent */
     protected $jsCalendar = null;
@@ -172,19 +173,25 @@ final class OpenXPortCoreTest extends Testcase
 
         $recurrenceOverride = current($recurrenceOverrides);
 
-        $this->assertTrue($recurrenceOverride instanceof CalendarEvent);
-        $this->assertEquals("2023-01-23T15:00:00", $recurrenceOverride->getStart());
-        $this->assertEquals("PT2H", $recurrenceOverride->getDuration());
-        $this->assertEquals("Some Exam", $recurrenceOverride->getTitle());
-        $this->assertEquals("Bring your own paper!", $recurrenceOverride->getDescription());
+        $this->assertTrue($recurrenceOverride instanceof PatchObject);
+
+        // Access properties through getProperties() array
+        $properties = $recurrenceOverride->getProperties();
+
+        $this->assertEquals("2023-01-23T15:00:00", $properties['start']);
+        $this->assertEquals("PT2H", $properties['duration']);
+        $this->assertEquals("Some Exam", $properties['title']);
+        $this->assertEquals("Bring your own paper!", $properties['description']);
 
         $recurrenceOverride = next($recurrenceOverrides);
+        $properties = $recurrenceOverride->getProperties();
 
-        $this->assertEquals("Register for exam!", $recurrenceOverride->getDescription());
+        $this->assertEquals("Register for exam!", $properties['description']);
 
         $recurrenceOverride = end($recurrenceOverrides);
+        $properties = $recurrenceOverride->getProperties();
 
-        $this->assertTrue($recurrenceOverride->getExcluded());
+        $this->assertTrue($properties['excluded']);
     }
 
     public function testParseEventWithVirtualLocations()
@@ -281,20 +288,28 @@ final class OpenXPortCoreTest extends Testcase
     
     public function testParseEventWithRelations()
     {
-        $this->jsCalendar = CalendarEvent::fromJson(
-            file_get_contents(__DIR__ . "/../resources/jscalendar_with_relations.json")
+        $jsonData = json_decode(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_relations.json"),
+            true
         );
 
-        $this->assertEquals("1234-relation-parent-OpenXPort-TestFiles", $this->jsCalendar[0]->getUid());
-        $this->assertEquals("Relation", current($this->jsCalendar[0]->getRelatedTo())->getType());
-        $this->assertEquals(array("parent" => true), current($this->jsCalendar[0]->getRelatedTo())->getRelation());
+        $event1 = CalendarEvent::fromJson(json_decode(json_encode($jsonData[0])));
+        $event2 = CalendarEvent::fromJson(json_decode(json_encode($jsonData[1])));
 
+        $this->assertEquals("1234-relation-parent-OpenXPort-TestFiles", $event1->getUid());
+        
+        $relatedTo1 = $event1->getRelatedTo();
+        $firstRelation1 = array_values($relatedTo1)[0];
+        $this->assertEquals("Relation", $firstRelation1->getType());
+        $this->assertEquals(array("parent" => true), $firstRelation1->getRelation());
 
-        $this->assertEquals("1234-relation-child-OpenXPort-TestFiles", $this->jsCalendar[1]->getUid());
-        $this->assertEquals("Relation", current($this->jsCalendar[0]->getRelatedTo())->getType());
-        $this->assertEquals(array("parent" => true), current($this->jsCalendar[0]->getRelatedTo())->getRelation());
+        $this->assertEquals("1234-relation-child-OpenXPort-TestFiles", $event2->getUid());
+        
+        $relatedTo2 = $event2->getRelatedTo();
+        $firstRelation2 = array_values($relatedTo2)[0];
+        $this->assertEquals("Relation", $firstRelation2->getType());
+        $this->assertEquals(array("child" => true), $firstRelation2->getRelation());
     }
-
     public function testParseEventWithCustomProperties()
     {
         $this->jsCalendar = CalendarEvent::fromJson(

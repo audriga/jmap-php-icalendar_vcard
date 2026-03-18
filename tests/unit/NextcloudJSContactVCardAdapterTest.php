@@ -57,41 +57,25 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
         $this->jsContactCard = $this->mapper->mapToJmap($this->vCardData, $this->adapter)[0];
     }
 
-    public function testReadNextcloudSpecificXSocialProfile()
+    public function testReadNextcloudSpecific()
     {
         $this->mapVCard();
 
-        $this->assertInstanceOf(ContactCard::class, $this->jsContactCard);
+        $uris = [];
+        $labels = [];
 
-        $onlineServices = $this->jsContactCard->getOnlineServices() ?: array();
-        $this->assertNotEmpty($onlineServices);
-
-        $usernames = array();
-        $uris = array();
-        $labels = array();
-
-        foreach ($onlineServices as $id => $service) {
-            $user = $service->getUser();
+        foreach ($this->jsContactCard->getOnlineServices() as $id => $service) {
             $uri = $service->getUri();
-            $label = method_exists($service, 'getLabel') ? $service->getLabel() : null;
+            $label = $service->getLabel();
 
-            if ($user !== null && $user !== '') {
-                array_push($usernames, $user);
-            }
-
-            if ($uri !== null && $uri !== '') {
-                array_push($uris, $uri);
-            }
-
-            if ($label !== null && $label !== '') {
-                array_push($labels, $label);
-            }
+            array_push($uris, $uri);
+            
+            array_push($labels, $label);
         }
 
-        // Assert that for an empty IM in vCard we don't have anything mapped in JMAP
         $this->assertContains(
             "https://github.com/apache/james-project",
-            array_merge($usernames, $uris)
+            $uris
         );
 
         $this->assertContains('X-SOCIALPROFILE', $labels);

@@ -104,7 +104,6 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
         $list = [];
 
         foreach ($data as $contactId => $vCard) {
-
             // Try setting the vCard from the received String. If it cannot be parsed, add
             // more info to the thrown ParseException.
             try {

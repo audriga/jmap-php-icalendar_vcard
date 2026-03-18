@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/audriga/openxport-jmap.git",
-                "reference": "04e323b33e4976f4c389c581557abf4f1d300d1e"
+                "reference": "cb6ddc2ca1ca8a8da62da75993aa56b268ffccd9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/audriga/openxport-jmap/zipball/04e323b33e4976f4c389c581557abf4f1d300d1e",
-                "reference": "04e323b33e4976f4c389c581557abf4f1d300d1e",
+                "url": "https://api.github.com/repos/audriga/openxport-jmap/zipball/cb6ddc2ca1ca8a8da62da75993aa56b268ffccd9",
+                "reference": "cb6ddc2ca1ca8a8da62da75993aa56b268ffccd9",
                 "shasum": ""
             },
             "require": {
@@ -64,7 +64,7 @@
                 "source": "https://github.com/audriga/openxport-jmap/tree/7676-ietf_implementation",
                 "issues": "https://github.com/audriga/openxport-jmap/issues"
             },
-            "time": "2026-03-17T22:09:45+00:00"
+            "time": "2026-03-18T14:40:42+00:00"
         },
         {
             "name": "psr/log",
