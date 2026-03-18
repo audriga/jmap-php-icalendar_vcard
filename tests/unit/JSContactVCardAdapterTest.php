@@ -109,24 +109,24 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertNotEmpty($homeComponents);
 
         // Assert correctness of the addresses' street components
-        $this->assertSame('100 Waters Edge', $this->findAddressComponentText($workComponents, 'name'));
-        $this->assertSame('42 Plantation St.', $this->findAddressComponentText($homeComponents, 'name'));
+        $this->assertEquals('100 Waters Edge', $this->findAddressComponentText($workComponents, 'name'));
+        $this->assertEquals('42 Plantation St.', $this->findAddressComponentText($homeComponents, 'name'));
 
         // Assert correctness of the locality property
-        $this->assertSame('Baytown', $this->findAddressComponentText($workComponents, 'locality'));
-        $this->assertSame('Baytown', $this->findAddressComponentText($homeComponents, 'locality'));
+        $this->assertEquals('Baytown', $this->findAddressComponentText($workComponents, 'locality'));
+        $this->assertEquals('Baytown', $this->findAddressComponentText($homeComponents, 'locality'));
 
         // Assert correctness of the region property
-        $this->assertSame('LA', $this->findAddressComponentText($workComponents, 'region'));
-        $this->assertSame('LA', $this->findAddressComponentText($homeComponents, 'region'));
+        $this->assertEquals('LA', $this->findAddressComponentText($workComponents, 'region'));
+        $this->assertEquals('LA', $this->findAddressComponentText($homeComponents, 'region'));
 
         // Assert correctness of the country property
-        $this->assertSame('United States of America', $this->findAddressComponentText($workComponents, 'country'));
-        $this->assertSame('United States of America', $this->findAddressComponentText($homeComponents, 'country'));
+        $this->assertEquals('United States of America', $this->findAddressComponentText($workComponents, 'country'));
+        $this->assertEquals('United States of America', $this->findAddressComponentText($homeComponents, 'country'));
 
         // Assert correctness of the postcode property
-        $this->assertSame('30314', $this->findAddressComponentText($workComponents, 'postcode'));
-        $this->assertSame('30314', $this->findAddressComponentText($homeComponents, 'postcode'));
+        $this->assertEquals('30314', $this->findAddressComponentText($workComponents, 'postcode'));
+        $this->assertEquals('30314', $this->findAddressComponentText($homeComponents, 'postcode'));
     }
 
     private function findAddressComponentText(array $components, $kind)
@@ -582,7 +582,7 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertCount(1, $contactCards);
         $cardAfter = $contactCards[0];
 
-        $this->assertEquals('1', $cardAfter->getUid());
+        $this->assertSame('1', $cardAfter->getUid());
 
         // Assert that fullName gets derived from name
         $this->assertNotNull($cardAfter->getName());
@@ -701,10 +701,6 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertNotEmpty($vCardData);
 
         $vCardDataReset = reset($vCardData);
-        $this->assertIsArray($vCardDataReset);
-        $this->assertArrayHasKey('c1', $vCardDataReset);
-        $this->assertIsArray($vCardDataReset['c1']);
-        $this->assertArrayHasKey('vCard', $vCardDataReset['c1']);
         $this->assertArrayHasKey('oxpProperties', $vCardDataReset['c1']);
         $this->assertArrayHasKey('addressBookId', $vCardDataReset['c1']['oxpProperties']);
 
@@ -738,7 +734,7 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertNotEmpty($nameComponents);
         $this->assertCount(2, $nameComponents);
         
-        $this->assertSame('山田太郎', $name->getFull());
+        $this->assertEquals('山田太郎', $name->getFull());
         
         $addresses = $card->getAddresses();
         $this->assertNotEmpty($addresses, 'Card should have addresses');

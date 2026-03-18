@@ -165,7 +165,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $card = $result[0];
 
-        $this->assertSame('c1', $card->getUid());
+        $this->assertEquals('c1', $card->getUid());
 
         $name = $card->getName();
         $this->assertNotNull($name);
@@ -176,7 +176,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $firstEmail = reset($emails);
         $this->assertNotFalse($firstEmail);
-        $this->assertSame('jane.doe@example.com', $firstEmail->getAddress());
+        $this->assertEquals('jane.doe@example.com', $firstEmail->getAddress());
 
         $phones = $card->getPhones();
         $this->assertIsArray($phones);
@@ -184,7 +184,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $firstPhone = reset($phones);
         $this->assertNotFalse($firstPhone);
-        $this->assertSame('+49-170-555-0101', $firstPhone->getNumber());
+        $this->assertEquals('+49-170-555-0101', $firstPhone->getNumber());
     }
     public function testComplexRoundcubeVCardRoundtripFromFile()
     {
@@ -205,15 +205,15 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $card = $cards[0];
 
-        $this->assertSame('rc-complex-001', $card->getUid());
-        $this->assertSame(
+        $this->assertEquals('rc-complex-001', $card->getUid());
+        $this->assertEquals(
             '-//Roundcube Webmail//NONSGML Roundcube Contact//EN',
             $card->getProdId()
         );
-        $this->assertSame('2026-03-16T12:00:00Z', $card->getUpdated());
+        $this->assertEquals('2026-03-16T12:00:00Z', $card->getUpdated());
 
         // Maiden name
-        $this->assertSame(
+        $this->assertEquals(
             'Öster',
             $card->getProperty('audriga.eu/roundcube:maidenName')
         );
@@ -221,31 +221,31 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         // Name
         $name = $card->getName();
         $this->assertNotNull($name);
-        $this->assertSame('Dr. Jörg Åström', $name->getFull());
+        $this->assertEquals('Dr. Jörg Åström', $name->getFull());
 
         $components = $name->getComponents();
         $this->assertCount(3, $components);
-        $this->assertSame('title', $components[0]->getKind());
-        $this->assertSame('Dr.', $components[0]->getValue());
-        $this->assertSame('given', $components[1]->getKind());
-        $this->assertSame('Jörg', $components[1]->getValue());
-        $this->assertSame('surname', $components[2]->getKind());
-        $this->assertSame('Åström', $components[2]->getValue());
+        $this->assertEquals('title', $components[0]->getKind());
+        $this->assertEquals('Dr.', $components[0]->getValue());
+        $this->assertEquals('given', $components[1]->getKind());
+        $this->assertEquals('Jörg', $components[1]->getValue());
+        $this->assertEquals('surname', $components[2]->getKind());
+        $this->assertEquals('Åström', $components[2]->getValue());
 
         // Nickname
         $nicknames = $card->getNicknames();
         $this->assertCount(1, $nicknames);
         $nickname = reset($nicknames);
         $this->assertNotFalse($nickname);
-        $this->assertSame('Jörgi', $nickname->getName());
+        $this->assertEquals('Jörgi', $nickname->getName());
 
         // Organization
         $organizations = $card->getOrganizations();
         $this->assertCount(1, $organizations);
         $organization = reset($organizations);
         $this->assertNotFalse($organization);
-        $this->assertSame('Äcme GmbH', $organization->getName());
-        $this->assertSame(
+        $this->assertEquals('Äcme GmbH', $organization->getName());
+        $this->assertEquals(
             array('Forschung und Entwicklung', 'Forschung'),
             $organization->getUnits()
         );
@@ -255,13 +255,13 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertCount(1, $titles);
         $title = reset($titles);
         $this->assertNotFalse($title);
-        $this->assertSame('Leitender Entwickler', $title->getName());
-        $this->assertSame('title', $title->getKind());
+        $this->assertEquals('Leitender Entwickler', $title->getName());
+        $this->assertEquals('title', $title->getKind());
 
         // SpeakToAs / gender
         $speakToAs = $card->getSpeakToAs();
         $this->assertNotNull($speakToAs);
-        $this->assertSame('male', $speakToAs->getGrammaticalGender());
+        $this->assertEquals('male', $speakToAs->getGrammaticalGender());
 
         // Emails
         $emails = $card->getEmails();
@@ -310,14 +310,14 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $addressComponents = $address->getComponents();
         $this->assertCount(4, $addressComponents);
 
-        $this->assertSame('name', $addressComponents[0]->getKind());
-        $this->assertSame('Münzstraße 12', $addressComponents[0]->getValue());
-        $this->assertSame('locality', $addressComponents[1]->getKind());
-        $this->assertSame('Berlin', $addressComponents[1]->getValue());
-        $this->assertSame('postcode', $addressComponents[2]->getKind());
-        $this->assertSame('10178', $addressComponents[2]->getValue());
-        $this->assertSame('country', $addressComponents[3]->getKind());
-        $this->assertSame('Germany', $addressComponents[3]->getValue());
+        $this->assertEquals('name', $addressComponents[0]->getKind());
+        $this->assertEquals('Münzstraße 12', $addressComponents[0]->getValue());
+        $this->assertEquals('locality', $addressComponents[1]->getKind());
+        $this->assertEquals('Berlin', $addressComponents[1]->getValue());
+        $this->assertEquals('postcode', $addressComponents[2]->getKind());
+        $this->assertEquals('10178', $addressComponents[2]->getValue());
+        $this->assertEquals('country', $addressComponents[3]->getKind());
+        $this->assertEquals('Germany', $addressComponents[3]->getValue());
 
         $addressContexts = $address->getContexts();
         $this->assertTrue($addressContexts['private']);
@@ -327,7 +327,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertCount(1, $notes);
         $note = reset($notes);
         $this->assertNotFalse($note);
-        $this->assertSame(
+        $this->assertEquals(
             'Roundcube test contact with UTF-8 characters: ä ö ü ß é Å.',
             $note->getNote()
         );
@@ -347,20 +347,20 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertArrayHasKey('X-JABBER', $onlineByLabelOrUri);
         $this->assertArrayHasKey('X-SKYPE-USERNAME', $onlineByLabelOrUri);
 
-        $this->assertSame('joergaim', $onlineByLabelOrUri['X-AIM']->getUri());
-        $this->assertSame('aim', $onlineByLabelOrUri['X-AIM']->getService());
-        $this->assertSame('joerg@jabber.example', $onlineByLabelOrUri['X-JABBER']->getUri());
-        $this->assertSame('jabber', $onlineByLabelOrUri['X-JABBER']->getService());
-        $this->assertSame('joerg.astrom.skype', $onlineByLabelOrUri['X-SKYPE-USERNAME']->getUser());
-        $this->assertSame('skype', $onlineByLabelOrUri['X-SKYPE-USERNAME']->getService());
+        $this->assertEquals('joergaim', $onlineByLabelOrUri['X-AIM']->getUri());
+        $this->assertEquals('aim', $onlineByLabelOrUri['X-AIM']->getService());
+        $this->assertEquals('joerg@jabber.example', $onlineByLabelOrUri['X-JABBER']->getUri());
+        $this->assertEquals('jabber', $onlineByLabelOrUri['X-JABBER']->getService());
+        $this->assertEquals('joerg.astrom.skype', $onlineByLabelOrUri['X-SKYPE-USERNAME']->getUser());
+        $this->assertEquals('skype', $onlineByLabelOrUri['X-SKYPE-USERNAME']->getService());
 
         // Anniversaries
         $anniversaries = $card->getAnniversaries();
         $this->assertCount(1, $anniversaries);
         $anniversary = reset($anniversaries);
         $this->assertNotFalse($anniversary);
-        $this->assertSame('birth', $anniversary->getKind());
-        $this->assertSame('1988-04-12', $anniversary->getDate());
+        $this->assertEquals('birth', $anniversary->getKind());
+        $this->assertEquals('1988-04-12', $anniversary->getDate());
 
         // Relations
         $relatedTo = $card->getRelatedTo();
@@ -437,10 +437,10 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $rtCard = $roundtripped[0];
 
-        $this->assertSame('rc-complex-001', $rtCard->getUid());
-        $this->assertSame($card->getProdId(), $rtCard->getProdId());
-        $this->assertSame($card->getUpdated(), $rtCard->getUpdated());
-        $this->assertSame(
+        $this->assertEquals('rc-complex-001', $rtCard->getUid());
+        $this->assertEquals($card->getProdId(), $rtCard->getProdId());
+        $this->assertEquals($card->getUpdated(), $rtCard->getUpdated());
+        $this->assertEquals(
             'Öster',
             $rtCard->getProperty('audriga.eu/roundcube:maidenName')
         );
@@ -491,7 +491,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertCount(1, $rtNotes);
         $rtNote = reset($rtNotes);
         $this->assertNotFalse($rtNote);
-        $this->assertSame(
+        $this->assertEquals(
             'Roundcube test contact with UTF-8 characters: ä ö ü ß é Å.',
             $rtNote->getNote()
         );
@@ -665,19 +665,19 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $rtCard = $roundtripped[0];
 
-        $this->assertSame('1', $rtCard->getUid());
-        $this->assertSame('2008-04-24T19:52:43Z', $rtCard->getUpdated());
+        $this->assertEquals('1', $rtCard->getUid());
+        $this->assertEquals('2008-04-24T19:52:43Z', $rtCard->getUpdated());
 
         $rtName = $rtCard->getName();
         $this->assertNotNull($rtName);
-        $this->assertSame('Mr. John Quinlan Public Esq.', $rtName->getFull());
+        $this->assertEquals('Mr. John Quinlan Public Esq.', $rtName->getFull());
 
         $rtOrganizations = $rtCard->getOrganizations() ?: array();
         $this->assertCount(1, $rtOrganizations);
         $rtOrg = reset($rtOrganizations);
         $this->assertNotFalse($rtOrg);
-        $this->assertSame('Bubba Gump Shrimp Co.', $rtOrg->getName());
-        $this->assertSame(array('Cleaning department'), $rtOrg->getUnits());
+        $this->assertEquals('Bubba Gump Shrimp Co.', $rtOrg->getName());
+        $this->assertEquals(array('Cleaning department'), $rtOrg->getUnits());
 
         $rtAnniversaries = $rtCard->getAnniversaries() ?: array();
         $this->assertNotEmpty($rtAnniversaries);

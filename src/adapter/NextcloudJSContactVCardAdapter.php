@@ -14,12 +14,11 @@ use OpenXPort\Util\JSContactVCardAdapterUtil as Util;
 class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
 {
     /**
-     * This function maps the vCard "IMPP", "SOCIALPROFILE", "URL" and Nextcloud-specific
-     * "X-SOCIALPROFILE" property to the JSContact "onlineServices" property
+     * Nextcloud uses X-SOCIALPROFILE instead of SOCIALPROFILE
      *
-     * Note: Nextcloud uses X-SOCIALPROFILE with TYPE parameter to specify the service
+     * TODO Not sure if we also need writing logic here
      *
-     * @param ContactCard $card The ContactCard to populate
+     * Overrides getOnlineServices from parent
      */
     public function getOnlineServices($card)
     {
@@ -32,7 +31,8 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
         if (!AdapterUtil::isSetAndNotNull($xSocialProfiles) || empty($xSocialProfiles)) {
             return;
         }
-
+        
+        // This is basically the same as "SOCIALPROFILE" in parent but for X-SOCIALPROFILE.
         foreach ($xSocialProfiles as $prop) {
             $value = trim((string) $prop);
             if ($value === '') {
@@ -74,12 +74,12 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                 $service->setService($serviceType);
             }
 
-            $contexts = $this->vCardTypeParamToContexts($prop);
+            $contexts = Util::vCardTypeParamToContexts($prop);
             if (!empty($contexts)) {
                 $service->setContexts($contexts);
             }
 
-            $pref = $this->vCardPrefParamToInt($prop);
+            $pref = Util::vCardPrefParamToInt($prop);
             if ($pref !== null) {
                 $service->setPref($pref);
             }
@@ -132,12 +132,12 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                 $params['SERVICE-TYPE'] = $serviceType;
             }
 
-            $types = $this->contextsToVcardTypeParam($service);
+            $types = Util::contextsToVcardTypeParam($service);
             if (!empty($types)) {
                 $params['TYPE'] = $types;
             }
 
-            $pref = $this->prefToVcardParam($service);
+            $pref = Util::prefToVcardParam($service);
             if ($pref !== null) {
                 $params['PREF'] = $pref;
             }

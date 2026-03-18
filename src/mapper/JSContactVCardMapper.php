@@ -16,7 +16,7 @@ class JSContactVCardMapper extends AbstractMapper
      * to vCard data.
      * https://datatracker.ietf.org/doc/rfc9555/
      *
-     * @param array<string,ContactCard> $jmapData  creationId => ContactCard
+     * @param array<string,ContactCard> $jmapData
      * @param JSContactVCardAdapter     $adapter
      *
      * @return array<int,array<string,mixed>>
@@ -31,7 +31,10 @@ class JSContactVCardMapper extends AbstractMapper
                 // start with a clean vCard each time
                 $adapter->reset();
 
-                $adapter->setAddressBookId($jsContactCard->getAddressBookIds()); // addressBookId(s)
+                $addressBookIds = $jsContactCard->getAddressBookIds();
+                if (is_array($addressBookIds) && !empty($addressBookIds)) {
+                    $adapter->setAddressBookId($addressBookIds[0]);
+                }
 
                 $adapter->setUid($jsContactCard);           // UID
                 $adapter->setUpdated($jsContactCard);       // REV
@@ -68,8 +71,9 @@ class JSContactVCardMapper extends AbstractMapper
 
                 $result = array("vCard" => $backendContact);
 
-                if ($jsContactCard->getAddressBookIds() !== null) {
-                    $result["oxpProperties"]["addressBookId"] = $jsContactCard->getAddressBookIds();
+                $addressBookIds = $jsContactCard->getAddressBookIds();
+                if (is_array($addressBookIds) && !empty($addressBookIds)) {
+                    $result["oxpProperties"]["addressBookId"] = $addressBookIds[0];
                 }
 
                 array_push($map, array($creationId => $result));
@@ -102,21 +106,21 @@ class JSContactVCardMapper extends AbstractMapper
         foreach ($data as $contactId => $cHash) {
             $adapter->reset();
 
-            // Support both plain vCard string and wrapped ["vCard" => ..., "oxpProperties" => ...] array
             $vCardPayload = is_array($cHash) && array_key_exists("vCard", $cHash)
                 ? $cHash["vCard"]
                 : $cHash;
-
-            $adapter->setVCard($vCardPayload);        // load vCard
+            $adapter->setVCard($vCardPayload);
 
             $jsContactCard = new ContactCard();
 
+
+            // Handle oxpProperties if present
             if (
                 is_array($cHash) &&
                 array_key_exists("oxpProperties", $cHash) &&
                 array_key_exists("addressBookId", $cHash["oxpProperties"])
             ) {
-                $jsContactCard->setAddressBookIds($cHash["oxpProperties"]["addressBookId"]);
+                $jsContactCard->setAddressBookIds([$cHash["oxpProperties"]["addressBookId"]]);
             }
 
             $jsContactCard->setAtType("Card");

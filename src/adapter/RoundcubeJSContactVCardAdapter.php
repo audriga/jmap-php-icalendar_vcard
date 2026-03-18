@@ -6,7 +6,6 @@ use OpenXPort\Jmap\JSContact\Anniversary;
 use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Jmap\JSContact\Relation;
 use OpenXPort\Jmap\JSContact\Organization;
-use OpenXPort\Jmap\JSContact\OrgUnit;
 use OpenXPort\Util\JSContactVCardAdapterUtil as Util;
 use OpenXPort\Jmap\JSContact\SpeakToAs;
 use OpenXPort\Jmap\JSContact\ContactCard;
@@ -143,12 +142,12 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             }
             $service->setLabel($propertyName);
 
-            $contexts = $this->vCardTypeParamToContexts($property);
+            $contexts = Util::vCardTypeParamToContexts($property);
             if (!empty($contexts)) {
                 $service->setContexts($contexts);
             }
 
-            $pref = $this->vCardPrefParamToInt($property);
+            $pref = Util::vCardPrefParamToInt($property);
             if ($pref !== null) {
                 $service->setPref($pref);
             }
@@ -510,7 +509,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             $parts = array_merge(array($name), $units);
 
             $params = array();
-            $types = $this->contextsToVcardTypeParam($org);
+            $types = Util::contextsToVcardTypeParam($org);
             if (!empty($types)) {
                 $params['TYPE'] = $types;
             }

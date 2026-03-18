@@ -104,17 +104,11 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
         $list = [];
 
         foreach ($data as $contactId => $vCard) {
-            $adapter->reset();
-
-            // Support both plain vCard string and wrapped ["vCard" => ..., "oxpProperties" => ...] array
-            $vCardPayload = is_array($vCard) && array_key_exists('vCard', $vCard)
-                ? $vCard['vCard']
-                : $vCard;
 
             // Try setting the vCard from the received String. If it cannot be parsed, add
             // more info to the thrown ParseException.
             try {
-                $adapter->setVCard($vCardPayload);
+                $adapter->setVCard($vCard);
             } catch (ParseException $e) {
                 throw new ParseException(
                     $e->getMessage() . "\nNon-parseable vCard: $contactId",
@@ -131,19 +125,12 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
 
             $jsContactCard = new ContactCard();
 
-            if (
-                is_array($vCard) &&
-                array_key_exists("oxpProperties", $vCard) &&
-                array_key_exists("addressBookId", $vCard["oxpProperties"])
-            ) {
-                $jsContactCard->setAddressBookIds($vCard["oxpProperties"]["addressBookId"]);
-            }
-
             $jsContactCard->setAtType("Card");
 
             $jsContactCard->setUid($contactId);
 
             $adapter->getUid($jsContactCard);
+            $adapter->getAddressBookId($jsContactCard);
             $adapter->getUpdated($jsContactCard);
             $adapter->getKind($jsContactCard);
             $adapter->getGramGender($jsContactCard);
