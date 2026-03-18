@@ -21,9 +21,9 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard to populate
      */
-    public function getOnlineServicesToJmap($card)
+    public function getOnlineServices($card)
     {
-        parent::getOnlineServicesToJmap($card);
+        parent::getOnlineServices($card);
 
         $services = $card->getOnlineServices() ?: array();
         $index = count($services) + 1;
@@ -86,7 +86,7 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
 
             $service->setLabel('X-SOCIALPROFILE');
 
-            $key = $this->getMapKeyFromPropValue($prop, $value, 'os', $index, $services);
+            $key = Util::getMapKeyFromPropValue($prop, $value, 'os', $index, $services);
             $services[$key] = $service;
         }
 
@@ -101,9 +101,9 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard containing online services
      */
-    public function setOnlineServicesFromJmap($card)
+    public function setOnlineServices($card)
     {
-        parent::setOnlineServicesFromJmap($card);
+        parent::setOnlineServices($card);
 
         $services = $card->getOnlineServices();
         if (!is_array($services) || empty($services)) {
@@ -120,7 +120,7 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                 continue;
             }
 
-            $value = Util::getOnlineExportValue($service);
+            $value = Util::getOnlineServiceExportValue($service);
             if ($value === null || $value === '') {
                 continue;
             }

@@ -110,7 +110,7 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
         // Convert vCard -> JSContact
         $this->adapter->setVCard(reset($this->vCardData)["vCard"]);
         $card = new ContactCard();
-        $this->adapter->getOnlineServicesToJmap($card);
+        $this->adapter->getOnlineServices($card);
 
         $onlineServices = $card->getOnlineServices();
         $this->assertNotEmpty($onlineServices, "Online services should not be empty");
@@ -127,7 +127,7 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
 
         // Convert JSContact -> vCard (roundtrip)
         $this->adapter->reset();
-        $this->adapter->setOnlineServicesFromJmap($card);
+        $this->adapter->setOnlineServices($card);
 
         $socialProfiles = $this->adapter->getVCard();
         $this->assertStringContainsString('X-SOCIALPROFILE', $socialProfiles);
@@ -168,7 +168,7 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
 
         // JSContact -> vCard
         $this->adapter->reset();
-        $this->adapter->setOnlineServicesFromJmap($card);
+        $this->adapter->setOnlineServices($card);
         
         $vCardResult = $this->adapter->getVCard();
         $this->assertNotEmpty($vCardResult, "vCard should not be empty");

@@ -5,6 +5,12 @@ namespace OpenXPort\Test\VCard;
 use OpenXPort\Adapter\RoundcubeJSContactVCardAdapter;
 use OpenXPort\Jmap\JSContact\ContactCard;
 use OpenXPort\Jmap\JSContact\Phone;
+use OpenXPort\Jmap\JSContact\Organization;
+use OpenXPort\Jmap\JSContact\Anniversary;
+use OpenXPort\Jmap\JSContact\OnlineService;
+use OpenXPort\Jmap\JSContact\Address;
+use OpenXPort\Jmap\JSContact\Name;
+use OpenXPort\Jmap\JSContact\NameComponent;
 use OpenXPort\Mapper\RoundcubeJSContactVCardMapper;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\ParseException;
@@ -299,7 +305,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $address = reset($addresses);
         $this->assertNotFalse($address);
-        $this->assertInstanceOf(\OpenXPort\Jmap\JSContact\Address::class, $address);
+        $this->assertInstanceOf(Address::class, $address);
 
         $addressComponents = $address->getComponents();
         $this->assertCount(4, $addressComponents);
@@ -543,11 +549,11 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $card->setUpdated($data['updated']);
 
         // Name
-        $name = new \OpenXPort\Jmap\JSContact\Name();
+        $name = new Name();
         $components = array();
 
         foreach ($data['name']['components'] as $componentData) {
-            $component = new \OpenXPort\Jmap\JSContact\NameComponent();
+            $component = new NameComponent();
 
             $type = $componentData['type'];
             $value = $componentData['value'];
@@ -574,7 +580,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         // Online services
         $services = array();
         foreach ($data['onlineServices'] as $id => $serviceData) {
-            $service = new \OpenXPort\Jmap\JSContact\OnlineService();
+            $service = new OnlineService();
             $service->setService(strtolower((string) $serviceData['service']));
 
             if ($serviceData['type'] === 'impp') {
@@ -591,7 +597,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         // Organizations
         $organizations = array();
         foreach ($data['organizations'] as $id => $orgData) {
-            $organization = new \OpenXPort\Jmap\JSContact\Organization();
+            $organization = new Organization();
             $organization->setName($orgData['name']);
             $organization->setUnits($orgData['units']);
             $organizations[$id] = $organization;
@@ -601,7 +607,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         // Anniversaries
         $anniversaries = array();
         foreach ($data['anniversaries'] as $id => $annData) {
-            $anniversary = new \OpenXPort\Jmap\JSContact\Anniversary();
+            $anniversary = new Anniversary();
             $anniversary->setKind('wedding');
             $anniversary->setLabel('anniversary');
             $anniversary->setDate($annData['date']);

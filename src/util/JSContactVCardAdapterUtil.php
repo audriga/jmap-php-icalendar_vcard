@@ -3,10 +3,8 @@
 namespace OpenXPort\Util;
 
 use OpenXPort\Jmap\JSContact\Address;
-use OpenXPort\Jmap\JSContact\AddressComponent;
-use OpenXPort\Jmap\JSContact\NameComponent;
+use OpenXPort\Jmap\JSContact\Media;
 use OpenXPort\Util\AdapterUtil;
-use InvalidArgumentException;
 
 /**
  * Utility class used by JSContactVCardAdapters to convert property values.
@@ -164,7 +162,7 @@ class JSContactVCardAdapterUtil
     /**
      * Converts vCard TIMESTAMP to JSContact UTC timestamp
      */
-    public static function parseTimestampToJmapDateTime($value)
+    public static function parseTimestampDateTime($value)
     {
         if (!is_string($value) || trim($value) === '') {
             return null;
@@ -353,14 +351,11 @@ class JSContactVCardAdapterUtil
      * @param string $jscompsValue JSCOMPS parameter value
      * @param array $parts Property parts array
      * @param array $positionToKind Map of positions to component kinds
-     * @param string $componentClass Class name for components (NameComponent or AddressComponent)
+     * @param  $componentClass Class name for components (NameComponent or AddressComponent)
      * @return array Array of component objects
      */
     public static function parseJscompsData($jscompsValue, $parts, $positionToKind, $componentClass)
     {
-        if (!class_exists($componentClass)) {
-            return array();
-        }
 
         $entries = explode(';', $jscompsValue);
         $components = array();
@@ -420,14 +415,11 @@ class JSContactVCardAdapterUtil
      *
      * @param array $parts Property parts array
      * @param array $indexToKind Map of part indexes to component kinds
-     * @param string $componentClass Class name for components
+     * @param $componentClass Class name for components
      * @return array Array of component objects
      */
     public static function buildComponentsFromParts($parts, $indexToKind, $componentClass)
     {
-        if (!class_exists($componentClass)) {
-            return array();
-        }
 
         $components = array();
 
@@ -469,20 +461,6 @@ class JSContactVCardAdapterUtil
             4 => 'credential',
             6 => 'generation',
             7 => 'surname2',
-        );
-    }
-
-    /**
-     * Basic N property position to kind mapping (vCard 3.0/4.0)
-     */
-    public static function getBasicNamePositionToKindMap()
-    {
-        return array(
-            0 => 'surname',
-            1 => 'given',
-            2 => 'given2',
-            3 => 'title',
-            4 => 'credential',
         );
     }
 
@@ -769,7 +747,7 @@ class JSContactVCardAdapterUtil
     /**
      * Gets export value from online service
      */
-    public static function getOnlineExportValue($os)
+    public static function getOnlineServiceExportValue($os)
     {
         $uri = $os->getUri();
         $user = $os->getUser();
@@ -777,30 +755,24 @@ class JSContactVCardAdapterUtil
 
         // URI-first services
         if (in_array($service, ['aim', 'jabber', 'xmpp', 'sip'], true)) {
-            return $uri ?? $user;
+            $result = $uri ?? $user;
         }
-
         // Username-first services
-        if (in_array($service, ['skype', 'icq', 'msn', 'yahoo'], true)) {
-            return $user ?? $uri;
+        elseif (in_array($service, ['skype', 'icq', 'msn', 'yahoo'], true)) {
+            $result = $user ?? $uri;
+        }
+        // Default
+        else {
+            $result = $uri ?? $user;
         }
 
-        // Default: uri first
-        return $uri ?? $user;
-    }
-
-    /**
-     * Tries to instantiate first available class from list
-     */
-    public static function instantiateJscontactObject(array $classNames, array $constructorArgs = array())
-    {
-        foreach ($classNames as $className) {
-            if (class_exists($className)) {
-                return new $className(...$constructorArgs);
-            }
+        if ($result === null) {
+            Logger::getInstance()->warning(
+                "OnlineService has neither uri nor user set for service: {$service}"
+            );
         }
 
-        return null;
+        return $result;
     }
 
     /**
@@ -808,10 +780,7 @@ class JSContactVCardAdapterUtil
      */
     public static function createMediaObject($uri, $kind, $prop = null)
     {
-        $className = 'OpenXPort\\Jmap\\JSContact\\Media';
-
-        $media = new $className($kind);
-        $media->setUri($uri);
+        $media = new Media($kind, $uri);
 
         if ($prop !== null && isset($prop['MEDIATYPE'])) {
             $media->setMediaType((string) $prop['MEDIATYPE']);
@@ -823,27 +792,11 @@ class JSContactVCardAdapterUtil
     }
 
     /**
-     * Checks if value is set and not null
-     */
-    public static function isSetAndNotNull($value)
-    {
-        return AdapterUtil::isSetAndNotNull($value);
-    }
-
-    /**
      * Checks if value is non-empty string
      */
     public static function isNonEmptyString($value)
     {
         return is_string($value) && trim($value) !== '';
-    }
-
-    /**
-     * Checks if value is non-empty array
-     */
-    public static function isNonEmptyArray($value)
-    {
-        return is_array($value) && !empty($value);
     }
 
     /**

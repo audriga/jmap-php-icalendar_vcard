@@ -28,10 +28,10 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
      *
      * Handles both standard RFC 9553 properties and Roundcube-specific X-properties.
      *
-     * @param array<string,ContactCard> $jmapData  creationId => ContactCard
+     * @param array<string,ContactCard> $jmapData
      * @param RoundcubeJSContactVCardAdapter $adapter
      *
-     * @return array<int,array<string,mixed>>  [ [ creationId => vcardString ], ... ]
+     * @return array<int,array<string,mixed>>
      */
     public function mapFromJmap($jmapData, $adapter)
     {
@@ -43,37 +43,37 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
 
                 $adapter->setAddressBookId($jsContactCard->getAddressBookIds()); // addressBookId(s)
 
-                $adapter->setUidFromJmap($jsContactCard);           // UID
-                $adapter->setUpdatedFromJmap($jsContactCard);       // REV
-                $adapter->setKindFromJmap($jsContactCard);          // KIND
-                $adapter->setGramGenderFromJmap($jsContactCard);    // X-GENDER + X-MAIDENNAME
-                $adapter->setCreatedFromJmap($jsContactCard);       // CREATED
-                $adapter->setProdIdFromJmap($jsContactCard);        // PRODID
-                $adapter->setLanguageFromJmap($jsContactCard);      // LANGUAGE
-                $adapter->setNameFromJmap($jsContactCard);          // N
-                $adapter->setFnFromJmap($jsContactCard);            // FN
-                $adapter->setNicknameFromJmap($jsContactCard);      // NICKNAME
-                $adapter->setMaidenNameFromJmap($jsContactCard);    // X-MAIDENNAME
-                $adapter->setPronounsFromJmap($jsContactCard);      // PRONOUNS
-                $adapter->setOrganizationFromJmap($jsContactCard);  // ORG + X-DEPARTMENT
-                $adapter->setTitlesFromJmap($jsContactCard);        // TITLE / ROLE
-                $adapter->setNotesFromJmap($jsContactCard);         // NOTE
-                $adapter->setEmailsFromJmap($jsContactCard);        // EMAIL
-                $adapter->setPhonesFromJmap($jsContactCard);        // TEL
-                $adapter->setOnlineServicesFromJmap($jsContactCard);  // URL/IMPP + X-AIM/ICQ/MSN/YAHOO/JABBER/SKYPE
-                $adapter->setPreferredLanguagesFromJmap($jsContactCard); // LANGUAGE
-                $adapter->setMediaFromJmap($jsContactCard);         // PHOTO/LOGO/SOUND
-                $adapter->setDirectoriesFromJmap($jsContactCard);   // SOURCE/ORG-DIRECTORY
-                $adapter->setLinksFromJmap($jsContactCard);         // URL/CONTACT-URI
-                $adapter->setCryptoKeysFromJmap($jsContactCard);    // KEY
-                $adapter->setSchedulingAddressesFromJmap($jsContactCard); // CALADRURI
-                $adapter->setCalendarsFromJmap($jsContactCard);
-                $adapter->setAddressesFromJmap($jsContactCard);     // ADR
-                $adapter->setAnniversariesFromJmap($jsContactCard); // BDAY/ANNIVERSARY + X-ANNIVERSARY
-                $adapter->setRelatedToFromJmap($jsContactCard);     // RELATED + X-MANAGER/ASSISTANT/SPOUSE
-                $adapter->setMembersFromJmap($jsContactCard);       // MEMBER
-                $adapter->setKeywordsFromJmap($jsContactCard);      // CATEGORIES
-                $adapter->setPersonalInfoFromJmap($jsContactCard);  // personal fields
+                $adapter->setUid($jsContactCard);           // UID
+                $adapter->setUpdated($jsContactCard);       // REV
+                $adapter->setKind($jsContactCard);          // KIND
+                $adapter->setGramGender($jsContactCard);    // X-GENDER + X-MAIDENNAME
+                $adapter->setCreated($jsContactCard);       // CREATED
+                $adapter->setProdId($jsContactCard);        // PRODID
+                $adapter->setLanguage($jsContactCard);      // LANGUAGE
+                $adapter->setName($jsContactCard);          // N
+                $adapter->setFn($jsContactCard);            // FN
+                $adapter->setNickname($jsContactCard);      // NICKNAME
+                $adapter->setMaidenName($jsContactCard);    // X-MAIDENNAME
+                $adapter->setPronouns($jsContactCard);      // PRONOUNS
+                $adapter->setOrganizations($jsContactCard);  // ORG + X-DEPARTMENT
+                $adapter->setTitles($jsContactCard);        // TITLE / ROLE
+                $adapter->setNotes($jsContactCard);         // NOTE
+                $adapter->setEmails($jsContactCard);        // EMAIL
+                $adapter->setPhones($jsContactCard);        // TEL
+                $adapter->setOnlineServices($jsContactCard);  // URL/IMPP + X-AIM/ICQ/MSN/YAHOO/JABBER/SKYPE
+                $adapter->setPreferredLanguages($jsContactCard); // LANGUAGE
+                $adapter->setMedia($jsContactCard);         // PHOTO/LOGO/SOUND
+                $adapter->setDirectories($jsContactCard);   // SOURCE/ORG-DIRECTORY
+                $adapter->setLinks($jsContactCard);         // URL/CONTACT-URI
+                $adapter->setCryptoKeys($jsContactCard);    // KEY
+                $adapter->setSchedulingAddresses($jsContactCard); // CALADRURI
+                $adapter->setCalendars($jsContactCard);     // CALURI
+                $adapter->setAddresses($jsContactCard);     // ADR
+                $adapter->setAnniversaries($jsContactCard); // BDAY/ANNIVERSARY + X-ANNIVERSARY
+                $adapter->setRelatedTo($jsContactCard);     // RELATED + X-MANAGER/ASSISTANT/SPOUSE
+                $adapter->setMembers($jsContactCard);       // MEMBER
+                $adapter->setKeywords($jsContactCard);      // CATEGORIES
+                $adapter->setPersonalInfo($jsContactCard);  // personal fields
 
                 $backendContact = $adapter->getVCard();
 
@@ -94,7 +94,7 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
     /**
      * Map from vCard to JMAP ContactCard objects with Roundcube extensions.
      *
-     * @param array<string,string> $data  contactId => vcardString
+     * @param array<string,string> $data
      * @param RoundcubeJSContactVCardAdapter $adapter
      *
      * @return ContactCard[]
@@ -143,36 +143,36 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
 
             $jsContactCard->setUid($contactId);
 
-            $adapter->getUidToJmap($jsContactCard);
-            $adapter->getUpdatedToJmap($jsContactCard);
-            $adapter->getKindToJmap($jsContactCard);
-            $adapter->getGramGenderToJmap($jsContactCard);
-            $adapter->getLanguageToJmap($jsContactCard);
-            $adapter->getCreatedToJmap($jsContactCard);
-            $adapter->getProdIdToJmap($jsContactCard);
-            $adapter->getNameToJmap($jsContactCard);
-            $adapter->getMaidenNameToJmap($jsContactCard);
-            $adapter->getNicknameToJmap($jsContactCard);
-            $adapter->getPronounsToJmap($jsContactCard);
-            $adapter->getOrganizationToJmap($jsContactCard);
-            $adapter->getTitlesToJmap($jsContactCard);
-            $adapter->getNotesToJmap($jsContactCard);
-            $adapter->getEmailsToJmap($jsContactCard);
-            $adapter->getPhonesToJmap($jsContactCard);
-            $adapter->getOnlineServicesToJmap($jsContactCard);
-            $adapter->getMediaToJmap($jsContactCard);
-            $adapter->getDirectoriesToJmap($jsContactCard);
-            $adapter->getLinksToJmap($jsContactCard);
-            $adapter->getCryptoKeysToJmap($jsContactCard);
-            $adapter->getSchedulingAddressesToJmap($jsContactCard);
-            $adapter->getCalendarsToJmap($jsContactCard);
-            $adapter->getAddressesToJmap($jsContactCard);
-            $adapter->getAnniversariesToJmap($jsContactCard);
-            $adapter->getRelatedToToJmap($jsContactCard);
-            $adapter->getMembersToJmap($jsContactCard);
-            $adapter->getPreferredLanguagesToJmap($jsContactCard);
-            $adapter->getKeywordsToJmap($jsContactCard);
-            $adapter->getPersonalInfoToJmap($jsContactCard);
+            $adapter->getUid($jsContactCard);
+            $adapter->getUpdated($jsContactCard);
+            $adapter->getKind($jsContactCard);
+            $adapter->getGramGender($jsContactCard);
+            $adapter->getLanguage($jsContactCard);
+            $adapter->getCreated($jsContactCard);
+            $adapter->getProdId($jsContactCard);
+            $adapter->getName($jsContactCard);
+            $adapter->getMaidenName($jsContactCard);
+            $adapter->getNickname($jsContactCard);
+            $adapter->getPronouns($jsContactCard);
+            $adapter->getOrganizations($jsContactCard);
+            $adapter->getTitles($jsContactCard);
+            $adapter->getNotes($jsContactCard);
+            $adapter->getEmails($jsContactCard);
+            $adapter->getPhones($jsContactCard);
+            $adapter->getOnlineServices($jsContactCard);
+            $adapter->getMedia($jsContactCard);
+            $adapter->getDirectories($jsContactCard);
+            $adapter->getLinks($jsContactCard);
+            $adapter->getCryptoKeys($jsContactCard);
+            $adapter->getSchedulingAddresses($jsContactCard);
+            $adapter->getCalendars($jsContactCard);
+            $adapter->getAddresses($jsContactCard);
+            $adapter->getAnniversaries($jsContactCard);
+            $adapter->getRelatedTo($jsContactCard);
+            $adapter->getMembers($jsContactCard);
+            $adapter->getPreferredLanguages($jsContactCard);
+            $adapter->getKeywords($jsContactCard);
+            $adapter->getPersonalInfo($jsContactCard);
 
             // Map Roundcube-specific vCard properties to audriga-defined JSContact properties
             // Note: X-DEPARTMENT is currently mapped to "organizations"
