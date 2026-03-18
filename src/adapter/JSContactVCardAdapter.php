@@ -150,16 +150,14 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     public function setFromHash($cHash)
     {
-        if (!is_array($cHash)) {
+        $this->setVCard($cHash["vCard"]);
+
+        if (!array_key_exists('oxpProperties', $cHash)) {
             return;
         }
 
-        if (isset($cHash['vCard']) && is_string($cHash['vCard'])) {
-            $this->setVCard($cHash['vCard']);
-        }
-
-        if (isset($cHash['oxpProperties']['addressBookId'])) {
-            $this->addressBookId = $cHash['oxpProperties']['addressBookId'];
+        if (array_key_exists('addressBookId', $cHash["oxpProperties"])) {
+            $this->oxpProperties["addressBookId"] = $cHash["oxpProperties"]["addressBookId"];
         }
     }
 
@@ -225,7 +223,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             case 'strict':
                 $this->handleVCardDump($vCardString);
                 throw $e;
-
+                break;
             case 'ignoreInvalidLines':
                 try {
                     $this->vCard = VObject\Reader::read(

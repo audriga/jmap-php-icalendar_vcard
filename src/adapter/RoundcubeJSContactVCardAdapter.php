@@ -256,7 +256,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 
         $organizations = $card->getOrganizations() ?: [];
 
-        // If there is no ORG yet, create one so X-DEPARTMENT still has somewhere to go.
+        // If there is no ORG yet, create it to add X-DEPARTMENT.
         if (empty($organizations)) {
             $org = new Organization();
             $organizations['o1'] = $org;
