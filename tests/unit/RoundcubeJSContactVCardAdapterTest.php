@@ -400,7 +400,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertStringContainsString('BEGIN:VCARD', $unfoldedVCard);
         $this->assertStringContainsString('END:VCARD', $unfoldedVCard);
         $this->assertStringContainsString('FN:Dr. Jörg Åström', $unfoldedVCard);
-        $this->assertStringContainsString('Åström;Jörg;;Dr.;', $unfoldedVCard);
+        $this->assertStringContainsString('N:Åström;Jörg;;Dr.;', $unfoldedVCard);
         $this->assertStringContainsString('NICKNAME:Jörgi', $unfoldedVCard);
         $this->assertStringContainsString('joerg.aestroem@example.com', $unfoldedVCard);
         $this->assertStringContainsString('joerg.astrom@work.example', $unfoldedVCard);

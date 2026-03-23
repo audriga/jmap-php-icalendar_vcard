@@ -724,10 +724,17 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        $kindMap = ['surname' => null, 'given' => null, 'given2' => null, 'title' => null, 'credential' => null];
+        $kindMap = [
+            'surname' => null,
+            'given' => null,
+            'given2' => null,
+            'title' => null,
+            'credential' => null
+        ];
+
         foreach ($components as $component) {
             $kind = $component->getKind();
-            if (isset($kindMap[$kind])) {
+            if (array_key_exists($kind, $kindMap)) {
                 $kindMap[$kind] = $component->getValue();
             }
         }
@@ -740,7 +747,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $kindMap['credential']
         );
     }
-
+    
     /**
      * Writes the vCard FN from name.full on the ContactCard.
      * Falls back to joining given, middle, and surname if name.full is empty.
@@ -844,7 +851,7 @@ class JSContactVCardAdapter extends AbstractAdapter
 
             if (!empty($components)) {
                 $name->setComponents($components);
-                $name->setIsOrdered(true);
+                $name->setIsOrdered(false);
             }
         }
 
@@ -872,6 +879,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             if (is_string($name) && $name !== '') {
                 $params = array();
                 $params = Util::addPropIdParam($params, $id);
+                $params = $this->restoreVcardParams($card, 'NICKNAME', $id, $params);
                 $this->vCard->add('NICKNAME', $name, $params);
             }
         }
@@ -909,6 +917,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                 }
             }
 
+            $this->preserveVcardParams($card, 'NICKNAME', $key, $prop);
             $map[$key] = $nickObj;
         }
 
@@ -1024,6 +1033,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                 }
             }
             $params = Util::addPropIdParam($params, $id);
+            $params = $this->restoreVcardParams($card, 'PRONOUNS', $id, $params);
 
             $this->vCard->add('PRONOUNS', $value, $params);
         }
@@ -1060,6 +1070,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             Util::applyCommonContextAndPref($pronounObj, $prop);
 
             $key = Util::getMapKeyFromPropValue($prop, $value, 'pr', $idx, $map);
+            $this->preserveVcardParams($card, 'PRONOUNS', $key, $prop);
             $map[$key] = $pronounObj;
         }
 
@@ -1119,6 +1130,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             $params = Util::addPropIdParam($params, $id);
+            $params = $this->restoreVcardParams($card, 'ORG', $id, $params);
             $this->vCard->add('ORG', $parts, $params);
         }
     }
@@ -1166,12 +1178,11 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $org->setUnits($units);
             }
 
-            $this->checkUnsupportedParams($vOrg, 'ORG');
-
             Util::applyCommonContextAndPref($org, $vOrg);
 
             $valueForKey = implode(';', $parts);
             $key = Util::getMapKeyFromPropValue($vOrg, $valueForKey, 'o', $idx, $map);
+            $this->preserveVcardParams($card, 'ORG', $key, $vOrg);
             $map[$key] = $org;
         }
 
@@ -1208,8 +1219,10 @@ class JSContactVCardAdapter extends AbstractAdapter
             $params = Util::addPropIdParam($params, $id);
 
             if ($kind === 'role') {
+                $params = $this->restoreVcardParams($card, 'ROLE', $id, $params);
                 $this->vCard->add('ROLE', $name, $params);
             } else {
+                $params = $this->restoreVcardParams($card, 'TITLE', $id, $params);
                 $this->vCard->add('TITLE', $name, $params);
             }
         }
@@ -1236,8 +1249,8 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $t = new Title();
                 $t->setKind('title');
                 $t->setName($name);
-                $this->checkUnsupportedParams($vTitle, 'TITLE');
                 $key = Util::getMapKeyFromPropValue($vTitle, $name, 't', $idx, $map);
+                $this->preserveVcardParams($card, 'TITLE', $key, $vTitle);
                 $map[$key] = $t;
             }
         }
@@ -1252,8 +1265,8 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $t = new Title();
                 $t->setKind('role');
                 $t->setName($name);
-                $this->checkUnsupportedParams($vRole, 'ROLE');
                 $key = Util::getMapKeyFromPropValue($vRole, $name, 't', $idx, $map);
+                $this->preserveVcardParams($card, 'ROLE', $key, $vRole);
                 $map[$key] = $t;
             }
         }
@@ -1301,7 +1314,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                     }
                 }
                 $params = Util::addPropIdParam($params, $id);
-
+                $params = $this->restoreVcardParams($card, 'NOTE', $id, $params);
                 $this->vCard->add('NOTE', $text, $params);
             }
         }
@@ -1355,9 +1368,10 @@ class JSContactVCardAdapter extends AbstractAdapter
                 }
                 $note->setAuthor($author);
             }
-            $this->checkUnsupportedParams($prop, 'NOTE');
 
             $key = Util::getMapKeyFromPropValue($prop, $noteText, 'n', $i, $map);
+            $this->preserveVcardParams($card, 'NOTE', $key, $prop);
+
             $map[$key] = $note;
         }
 
@@ -1433,7 +1447,6 @@ class JSContactVCardAdapter extends AbstractAdapter
             $e->setAddress($value);
 
             Util::applyCommonContextAndPref($e, $prop);
-            $this->checkUnsupportedParams($prop, 'EMAIL');
 
             $key = Util::getMapKeyFromPropValue($prop, $value, 'e', $i, $map);
             $map[$key] = $e;
@@ -1565,8 +1578,6 @@ class JSContactVCardAdapter extends AbstractAdapter
             if ($pref !== null) {
                 $p->setPref($pref);
             }
-
-            $this->checkUnsupportedParams($prop, 'TEL');
 
             $key = Util::getMapKeyFromPropValue($prop, $value, 'p', $i, $map);
             $map[$key] = $p;
@@ -2584,7 +2595,6 @@ class JSContactVCardAdapter extends AbstractAdapter
             if ($pref !== null) {
                 $a->setPref($pref);
             }
-            $this->checkUnsupportedParams($vAddr, 'ADR');
 
             $key = Util::getMapKeyFromPropValue($vAddr, json_encode($parts), 'a', $i, $map);
             $map[$key] = $a;
@@ -3263,22 +3273,77 @@ class JSContactVCardAdapter extends AbstractAdapter
         return $params;
     }
 
-     /* Check if the currently unsupported vCard parameter ALTID is present
-     * If yes, then provide an error log with some information that it is not supported
-     * TODO : Implement support for ALTID and LANGUAGE parameters in the future
-     * */
-    protected function checkUnsupportedParams($prop, $propName)
+    /*
+    * Preserve selected vCard parameters (ALTID, LANGUAGE) on the ContactCard
+    * so they can be restored on export.
+    *
+    * Stored in properties['vCardParams'][propName][mapKey].
+    */
+    protected function preserveVcardParams(ContactCard $card, $propName, $mapKey, $prop)
     {
-        if (isset($prop['ALTID']) && !empty($prop['ALTID'])) {
-            $this->logger->error(
-                "Currently unsupported vCard Parameter ALTID encountered for vCard property {$propName}"
-            );
+        $params = array();
+
+        if (isset($prop['ALTID'])) {
+            $altId = trim((string) $prop['ALTID']);
+            if ($altId !== '') {
+                $params['ALTID'] = $altId;
+            }
         }
 
-        if (isset($prop['LANGUAGE']) && !empty($prop['LANGUAGE'])) {
-            $this->logger->error(
-                "Currently unsupported vCard Parameter LANGUAGE encountered for vCard property {$propName}"
-            );
+        if (isset($prop['LANGUAGE'])) {
+            $language = trim((string) $prop['LANGUAGE']);
+            if ($language !== '') {
+                $params['LANGUAGE'] = $language;
+            }
         }
+
+        if (empty($params) || $mapKey === null || $mapKey === '') {
+            return;
+        }
+
+        $all = $card->getProperty('vCardParams');
+        if (!is_array($all)) {
+            $all = array();
+        }
+
+        if (!isset($all[$propName]) || !is_array($all[$propName])) {
+            $all[$propName] = array();
+        }
+
+        $all[$propName][$mapKey] = $params;
+        $card->setProperty('vCardParams', $all);
+    }
+
+    /**
+     * Restore previously preserved vCard parameters from ContactCard::properties.
+     *
+     * @param ContactCard $card
+     * @param string $propName
+     * @param string $mapKey
+     * @param array $params
+     * @return array
+     */
+    protected function restoreVcardParams(ContactCard $card, $propName, $mapKey, array $params = array())
+    {
+        $all = $card->getProperty('vCardParams');
+        if (!is_array($all)) {
+            return $params;
+        }
+
+        if (!isset($all[$propName]) || !is_array($all[$propName])) {
+            return $params;
+        }
+
+        if (!isset($all[$propName][$mapKey]) || !is_array($all[$propName][$mapKey])) {
+            return $params;
+        }
+
+        foreach ($all[$propName][$mapKey] as $name => $value) {
+            if (!isset($params[$name]) && is_string($value) && $value !== '') {
+                $params[$name] = $value;
+            }
+        }
+
+        return $params;
     }
 }

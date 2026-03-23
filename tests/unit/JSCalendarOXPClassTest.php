@@ -18,14 +18,10 @@ final class JSCalendarOXPClassTest extends TestCase
         $recurrenceRule = new \OpenXport\Jmap\Calendar\RecurrenceRule();
         $recurrenceRule->setType("RecurrenceRule");
 
-        $calendarEvent->setRecurrenceRule(array($recurrenceRule));
         $calendarEvent->setRecurrenceRules(array($recurrenceRule));
 
-        $this->assertNotNull($calendarEvent->getRecurrenceRule());
         $this->assertNotNull($calendarEvent->getRecurrenceRules());
 
-        $this->assertEquals($calendarEvent->getRecurrenceRule(), $calendarEvent->getRecurrenceRules());
-        $this->assertEquals($calendarEvent->getRecurrenceRule()[0]->getType(), "RecurrenceRule");
         $this->assertEquals($calendarEvent->getRecurrenceRules()[0]->getType(), "RecurrenceRule");
     }
 

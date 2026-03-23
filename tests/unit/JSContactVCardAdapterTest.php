@@ -937,4 +937,55 @@ final class JSContactVCardAdapterTest extends TestCase
             'Address TYPE parameter should be preserved');
     
     }
+
+    public function testVcardAltIdLanguageRoundtripFromFile()
+    {
+        $vcfPath = __DIR__ . '/../resources/vcard_altid_language.vcf';
+        $this->assertFileExists($vcfPath, 'vcard_altid_language.vcf not found at: ' . $vcfPath);
+
+        $vcard = file_get_contents($vcfPath);
+        $this->assertNotFalse($vcard, 'Failed to read vCard file');
+
+        $adapter = new JSContactVCardAdapter();
+
+        // vCard -> JSContact
+        $adapter->setVCard($vcard);
+
+        $card = new ContactCard();
+
+        $adapter->getUid($card);
+        $adapter->getTitles($card);
+        $adapter->getNotes($card);
+
+        // check preserved params
+        $params = $card->getProperty('vCardParams');
+        $this->assertIsArray($params);
+
+        $this->assertArrayHasKey('TITLE', $params);
+        $this->assertArrayHasKey('NOTE', $params);
+
+        // Check ALTID + LANGUAGE exist
+        $titleParams = array_values($params['TITLE']);
+        $this->assertEquals('1', $titleParams[0]['ALTID']);
+        $this->assertArrayHasKey('LANGUAGE', $titleParams[0]);
+
+        // JSContact -> vCard
+        $adapter->reset();
+        $adapter->setUid($card);
+        $adapter->setTitles($card);
+        $adapter->setNotes($card);
+
+        $out = $adapter->getVCard();
+
+        $this->assertNotEmpty($out);
+
+        $this->assertStringContainsString('ALTID=1', $out);
+        $this->assertStringContainsString('LANGUAGE=en', $out);
+        $this->assertStringContainsString('LANGUAGE=de', $out);
+
+        $this->assertStringContainsString('Chief Executive Officer', $out);
+        $this->assertStringContainsString('Geschäftsführer', $out);
+        $this->assertStringContainsString('Hello', $out);
+        $this->assertStringContainsString('Hallo', $out);
+    }
 }
