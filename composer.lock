@@ -4,21 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fb84ce63ffcf5963aa1bd15982d6403b",
+    "content-hash": "e4ae8724a07ebe0fd57f17698221499c",
     "packages": [
         {
             "name": "audriga/jmap-openxport",
             "version": "dev-7676-ietf_implementation",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/audriga/openxport-jmap.git",
-                "reference": "7b1d455b7561d19bd25882d14888261064891cac"
-            },
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/audriga/openxport-jmap/zipball/7b1d455b7561d19bd25882d14888261064891cac",
-                "reference": "7b1d455b7561d19bd25882d14888261064891cac",
-                "shasum": ""
+                "type": "path",
+                "url": "../openxport-jmap",
+                "reference": "6dcd128a17535b6f874ff4b147744c6d2ec413ea"
             },
             "require": {
                 "php": ">=5.6",
@@ -60,11 +54,10 @@
                 "jmap",
                 "migration"
             ],
-            "support": {
-                "source": "https://github.com/audriga/openxport-jmap/tree/7676-ietf_implementation",
-                "issues": "https://github.com/audriga/openxport-jmap/issues"
-            },
-            "time": "2026-03-24T13:02:39+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "psr/log",

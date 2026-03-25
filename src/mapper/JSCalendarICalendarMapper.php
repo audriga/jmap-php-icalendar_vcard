@@ -410,38 +410,10 @@ class JSCalendarICalendarMapper extends AbstractMapper
             return true;
         }
 
-        if (method_exists($recurrenceOverride, 'hasProperty')) {
-            $properties = [
-                'title',
-                'description',
-                'created',
-                'updated',
-                'sequence',
-                'start',
-                'duration',
-                'timeZone',
-                'keywords',
-                'locations',
-                'virtualLocations',
-                'freeBusyStatus',
-                'status',
-                'color',
-                'priority',
-                'alerts',
-                'participants',
-                'links',
-                'showWithoutTime',
-            ];
-
-            foreach ($properties as $property) {
-                if ($recurrenceOverride->hasProperty($property)) {
-                    return false;
-                }
-            }
-
-            return true;
+        if ($recurrenceOverride instanceof PatchObject) {
+            return $recurrenceOverride->isEmpty();
         }
 
-        return empty((array)$recurrenceOverride);
+        return empty((array) $recurrenceOverride);
     }
 }

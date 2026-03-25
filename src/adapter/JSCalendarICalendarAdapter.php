@@ -651,16 +651,16 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     public function getCategories()
     {
-        $categoriesProp = $this->iCalEvent->VEVENT->CATEGORIES;
+        $categories = $this->iCalEvent->VEVENT->CATEGORIES;
 
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($categoriesProp)) {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($categories)) {
             return null;
         }
 
         $jmapKeyWords = [];
 
-        foreach ($categoriesProp as $catProp) {
-            foreach ($catProp->getParts() as $value) {
+        foreach ($categories as $cat) {
+            foreach ($cat->getParts() as $value) {
                 $value = trim($value);
                 if (AdapterUtil::isSetNotNullAndNotEmpty($value)) {
                     $jmapKeyWords[$value] = true;
@@ -868,7 +868,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         foreach ($alerts as $id => $alert) {
             $this->iCalEvent->VEVENT->add("VALARM", []);
 
-            $jsCalAction = is_object($alert) && method_exists($alert, 'getAction')
+            $jsCalAction = is_object($alert)
                 ? $alert->getAction()
                 : (is_object($alert) && property_exists($alert, 'action') ? strtolower($alert->action) : "display");
 
@@ -883,7 +883,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("ACTION", $iCalAction);
 
-            $jsCalTrigger = is_object($alert) && method_exists($alert, 'getTrigger')
+            $jsCalTrigger = is_object($alert)
                 ? $alert->getTrigger()
                 : (is_object($alert) && property_exists($alert, 'trigger') ? $alert->trigger : null);
 
@@ -892,20 +892,23 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 continue;
             }
 
-            $triggerType = is_object($jsCalTrigger) && method_exists($jsCalTrigger, 'getType')
+            $triggerType = is_object($jsCalTrigger)
                 ? $jsCalTrigger->getType()
-                : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, '@type') ? $jsCalTrigger->{'@type'} : null);
+                : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, '@type')
+                 ? $jsCalTrigger->{'@type'} : null);
 
             // Set the TRIGGER property.
             if (strcmp($triggerType, "OffsetTrigger") === 0) {
-                $triggerValue = is_object($jsCalTrigger) && method_exists($jsCalTrigger, 'getOffset')
+                $triggerValue = is_object($jsCalTrigger)
                     ? $jsCalTrigger->getOffset()
-                    : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, 'offset') ? $jsCalTrigger->offset : null);
+                    : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, 'offset')
+                     ? $jsCalTrigger->offset : null);
 
                 // An offset trigger can contain a relativeTo parameter, which needs to be mapped as well.
-                $relativeTo = is_object($jsCalTrigger) && method_exists($jsCalTrigger, 'getRelativeTo')
+                $relativeTo = is_object($jsCalTrigger)
                     ? $jsCalTrigger->getRelativeTo()
-                    : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, 'relativeTo') ? $jsCalTrigger->relativeTo : null);
+                    : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, 'relativeTo')
+                     ? $jsCalTrigger->relativeTo : null);
 
                 if (!is_null($relativeTo)) {
                     $iCalRelated = strtoupper($relativeTo);
@@ -919,7 +922,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue);
                 }
             } elseif (strcmp($triggerType, "AbsoluteTrigger") === 0) {
-                $whenValue = is_object($jsCalTrigger) && method_exists($jsCalTrigger, 'getWhen')
+                $whenValue = is_object($jsCalTrigger)
                     ? $jsCalTrigger->getWhen()
                     : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, 'when') ? $jsCalTrigger->when : null);
 
@@ -945,7 +948,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 continue;
             }
 
-            $acknowledged = is_object($alert) && method_exists($alert, 'getAcknowledged')
+            $acknowledged = is_object($alert)
                 ? $alert->getAcknowledged()
                 : (is_object($alert) && property_exists($alert, 'acknowledged') ? $alert->acknowledged : null);
 

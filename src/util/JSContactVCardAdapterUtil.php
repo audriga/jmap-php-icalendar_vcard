@@ -753,16 +753,11 @@ class JSContactVCardAdapterUtil
         $user = $os->getUser();
         $service = strtolower(trim((string) $os->getService()));
 
-        // URI-first services
         if (in_array($service, ['aim', 'jabber', 'xmpp', 'sip'], true)) {
             $result = $uri ?? $user;
-        }
-        // Username-first services
-        elseif (in_array($service, ['skype', 'icq', 'msn', 'yahoo'], true)) {
+        } elseif (in_array($service, ['skype', 'icq', 'msn', 'yahoo'], true)) {
             $result = $user ?? $uri;
-        }
-        // Default
-        else {
+        } else {
             $result = $uri ?? $user;
         }
 
