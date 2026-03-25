@@ -322,17 +322,14 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return false; // Default is false for timed events without the property
         }
 
-        // Parse the value
         $value = strtoupper(trim((string) $showWithoutTime));
 
-        // Handle both TRUE and FALSE explicitly
         if ($value === 'TRUE') {
             return true;
         } elseif ($value === 'FALSE') {
             return false;
         }
 
-        // Invalid value - log and return false
         $this->logger->warning("Invalid SHOW-WITHOUT-TIME value: " . $value);
         return false;
     }
@@ -511,7 +508,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $uid = $this->iCalEvent->VEVENT->UID;
 
         if (!AdapterUtil::isSetNotNullAndNotEmpty($uid)) {
-            return uniqid("", true) . ".OpenXPort";
+            $uid =  uniqid("", true) . ".OpenXPort";
         }
 
         return $uid->getValue();
@@ -870,7 +867,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $jsCalAction = is_object($alert)
                 ? $alert->getAction()
-                : (is_object($alert) && property_exists($alert, 'action') ? strtolower($alert->action) : "display");
+                : "display";
 
             // Set the ACTION property. Only "EMAIL" and "DISPLAY" are directly mapped.
             if (strcmp($jsCalAction, "email") === 0) {
@@ -885,7 +882,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $jsCalTrigger = is_object($alert)
                 ? $alert->getTrigger()
-                : (is_object($alert) && property_exists($alert, 'trigger') ? $alert->trigger : null);
+                : null;
 
             if (is_null($jsCalTrigger)) {
                 $alarmIndex++;
@@ -894,21 +891,18 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $triggerType = is_object($jsCalTrigger)
                 ? $jsCalTrigger->getType()
-                : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, '@type')
-                 ? $jsCalTrigger->{'@type'} : null);
+                : null;
 
             // Set the TRIGGER property.
             if (strcmp($triggerType, "OffsetTrigger") === 0) {
                 $triggerValue = is_object($jsCalTrigger)
                     ? $jsCalTrigger->getOffset()
-                    : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, 'offset')
-                     ? $jsCalTrigger->offset : null);
+                    : null;
 
                 // An offset trigger can contain a relativeTo parameter, which needs to be mapped as well.
                 $relativeTo = is_object($jsCalTrigger)
                     ? $jsCalTrigger->getRelativeTo()
-                    : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, 'relativeTo')
-                     ? $jsCalTrigger->relativeTo : null);
+                    : null;
 
                 if (!is_null($relativeTo)) {
                     $iCalRelated = strtoupper($relativeTo);
@@ -924,7 +918,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             } elseif (strcmp($triggerType, "AbsoluteTrigger") === 0) {
                 $whenValue = is_object($jsCalTrigger)
                     ? $jsCalTrigger->getWhen()
-                    : (is_object($jsCalTrigger) && property_exists($jsCalTrigger, 'when') ? $jsCalTrigger->when : null);
+                    : null;
 
                 $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $whenValue);
 
@@ -950,7 +944,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $acknowledged = is_object($alert)
                 ? $alert->getAcknowledged()
-                : (is_object($alert) && property_exists($alert, 'acknowledged') ? $alert->acknowledged : null);
+                : null;
 
             if (AdapterUtil::isSetNotNullAndNotEmpty($acknowledged)) {
                 $acknowledgedDateTime = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $acknowledged);
