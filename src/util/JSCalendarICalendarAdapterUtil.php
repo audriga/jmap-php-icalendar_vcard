@@ -673,6 +673,8 @@ class JSCalendarICalendarAdapterUtil
 
     public static function splitJmapLinkMapIntoICalProperties($linkMap)
     {
+        $linkMap = self::normalizeJmapLinks($linkMap);
+
         if (
             !AdapterUtil::isSetNotNullAndNotEmpty($linkMap) ||
             !is_array($linkMap)
@@ -710,6 +712,35 @@ class JSCalendarICalendarAdapterUtil
         return $splitLinkMap;
     }
 
+    /**
+     * Convert a JMAP link map so that all entries are Link objects.
+    */
+    public static function normalizeJmapLinks($linkMap)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($linkMap)) {
+            return null;
+        }
+
+        if ($linkMap instanceof \stdClass) {
+            $linkMap = (array) $linkMap;
+        }
+
+        if (!is_array($linkMap)) {
+            return null;
+        }
+
+        $normalizedLinks = [];
+
+        foreach ($linkMap as $id => $link) {
+            $normalizedLink = \OpenXPort\Jmap\Calendar\Link::fromMixed($link);
+
+            if (!is_null($normalizedLink)) {
+                $normalizedLinks[$id] = $normalizedLink;
+            }
+        }
+
+        return $normalizedLinks;
+    }
     public static function extractMediaTypeFromDataUrlMetaDataString($metaData)
     {
         // Data URLs use a "/" to show the [type]/[subtype] of their data.

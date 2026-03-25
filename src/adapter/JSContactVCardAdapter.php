@@ -747,7 +747,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $kindMap['credential']
         );
     }
-    
+
     /**
      * Writes the vCard FN from name.full on the ContactCard.
      * Falls back to joining given, middle, and surname if name.full is empty.

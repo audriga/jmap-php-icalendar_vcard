@@ -645,5 +645,129 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getTitle(), $this->jsCalendarAfter->getLinks()["1"]->getTitle());
     }
 
-    // TODO: Add roundtrip testing for Attachments in recurrence overrides.
+    /**
+     * Test whether an empty recurrence override is mapped to RDATE.
+     */
+    public function testRDateFromEmptyRecurrenceOverride()
+    {
+        $this->jsCalendarBefore = new CalendarEvent();
+        $this->jsCalendarBefore->setType("Event");
+        $this->jsCalendarBefore->setUid("test-rdate@example.com");
+        $this->jsCalendarBefore->setTitle("Test event");
+        $this->jsCalendarBefore->setStart("2023-05-20T10:00:00");
+        $this->jsCalendarBefore->setDuration("PT1H");
+        $this->jsCalendarBefore->setTimeZone("Etc/UTC");
+
+        $recurrenceRule = new \OpenXPort\Jmap\Calendar\RecurrenceRule();
+        $recurrenceRule->setType("RecurrenceRule");
+        $recurrenceRule->setFrequency("daily");
+        $this->jsCalendarBefore->setRecurrenceRules([$recurrenceRule]);
+
+        $emptyOverride = new \OpenXPort\Jmap\Calendar\PatchObject();
+
+        $this->jsCalendarBefore->setRecurrenceOverrides([
+            "2023-05-22T10:00:00" => $emptyOverride
+        ]);
+
+        $this->iCalendarData = $this->mapper->mapFromJmap(
+            array("c1" => $this->jsCalendarBefore),
+            $this->adapter
+        );
+
+        $this->iCalendar = Reader::read($this->iCalendarData[0]["c1"]["iCalendar"]);
+
+        $this->assertStringContainsString(
+            "RDATE:20230522T100000Z",
+            $this->iCalendarData[0]["c1"]["iCalendar"]
+        );
+    }
+
+    /**
+     * Test whether ATTACH parameters LABEL and SIZE are mapped correctly from a file.
+     */
+    public function testMapICalendarAttachLabelAndSizeFromFile()
+    {
+        $this->mapICalendar('/../resources/icalendar_with_attach_label_and_size.ics');
+
+        $this->assertCount(1, $this->jsCalendarAfter->getLinks());
+        $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()["1"]->getRel());
+        $this->assertEquals("application/pdf", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
+        $this->assertEquals("Agenda", $this->jsCalendarAfter->getLinks()["1"]->getTitle());
+        $this->assertEquals(12345, $this->jsCalendarAfter->getLinks()["1"]->getSize());
+        $this->assertEquals("https://example.com/agenda.pdf", $this->jsCalendarAfter->getLinks()["1"]->getHref());
+    }
+
+    /**
+     * Test whether Link title and size are mapped to ATTACH LABEL and SIZE in roundtrip.
+     */
+    public function testAttachmentsLabelAndSizeRoundtripFromFile()
+    {
+        $this->mapJSCalendar(__DIR__ . '/../resources/jscalendar_with_attachment_label_and_size.json');
+
+        $this->assertStringContainsString(
+            "ATTACH;FMTTYPE=application/pdf;LABEL=Agenda;SIZE=12345:https://example.com/agenda.pdf",
+            str_replace("\r\n ", "", $this->iCalendarData[0]["c1"]["iCalendar"])
+        );
+
+        $this->assertCount(1, $this->jsCalendarAfter->getLinks());
+        $this->assertEquals("Agenda", $this->jsCalendarAfter->getLinks()["1"]->getTitle());
+        $this->assertEquals(12345, $this->jsCalendarAfter->getLinks()["1"]->getSize());
+        $this->assertEquals("application/pdf", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
+    }
+
+    /**
+     * Test whether attachments in recurrence overrides are mapped correctly.
+     */
+    public function testAttachmentsInRecurrenceOverrideRoundtrip()
+    {
+        $this->mapJSCalendar(__DIR__ . '/../resources/jscalendar_with_attachment_in_recurrence_override.json');
+
+        $this->assertCount(2, $this->iCalendar->VEVENT);
+
+        $this->assertEquals(
+            "RECURRENCE-ID:20230522T100000Z",
+            str_replace("\r\n", "", $this->iCalendar->VEVENT[1]->{"RECURRENCE-ID"}->serialize())
+        );
+
+        $this->assertStringContainsString(
+            "ATTACH",
+            $this->iCalendar->VEVENT[1]->serialize()
+        );
+
+        $this->assertStringContainsString(
+            "ATTACH;FMTTYPE=application/pdf;LABEL=Override Agenda;SIZE=12345:https://example.com/override.pdf",
+            str_replace("\r\n ", "", $this->iCalendar->VEVENT[1]->serialize())
+        );
+
+        $this->assertNotEmpty($this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks());
+        $this->assertEquals(
+            "https://example.com/override.pdf",
+            $this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks()["1"]->getHref()
+        );
+        $this->assertEquals(
+            "application/pdf",
+            $this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks()["1"]->getContentType()
+        );
+        $this->assertEquals(
+            "Override Agenda",
+            $this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks()["1"]->getTitle()
+        );
+        $this->assertEquals(
+            12345,
+            $this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks()["1"]->getSize()
+        );
+    }
+
+    /**
+     * Test whether ACTION:AUDIO is correctly mapped to display.
+    */
+    public function testMapICalendarAudioAlertFromFile()
+    {
+        $this->mapICalendar('/../resources/icalendar_with_audio_alarm.ics');
+
+        $this->assertCount(1, $this->jsCalendarAfter->getAlerts());
+        $this->assertNull($this->jsCalendarAfter->getAlerts()["1"]->getAction());
+        $this->assertEquals("-PT5M", $this->jsCalendarAfter->getAlerts()["1"]->getTrigger()->getOffset());
+        $this->assertEquals("OffsetTrigger", $this->jsCalendarAfter->getAlerts()["1"]->getTrigger()->getType());
+    }
 }
