@@ -25,11 +25,8 @@
     },
     "repositories": [
         {
-            "type": "path",
-            "url": "../openxport-jmap",
-            "options": {
-                "symlink": true
-            }
+        "type": "vcs",
+        "url": "https://github.com/audriga/openxport-jmap"
         }
     ],
  
