@@ -865,9 +865,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         foreach ($alerts as $id => $alert) {
             $this->iCalEvent->VEVENT->add("VALARM", []);
 
-            $jsCalAction = is_object($alert)
-                ? $alert->getAction()
-                : "display";
+            $jsCalAction = $alert->getAction();
 
             // Set the ACTION property. Only "EMAIL" and "DISPLAY" are directly mapped.
             if (strcmp($jsCalAction, "email") === 0) {
@@ -880,29 +878,21 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("ACTION", $iCalAction);
 
-            $jsCalTrigger = is_object($alert)
-                ? $alert->getTrigger()
-                : null;
+            $jsCalTrigger = $alert->getTrigger();
 
             if (is_null($jsCalTrigger)) {
                 $alarmIndex++;
                 continue;
             }
 
-            $triggerType = is_object($jsCalTrigger)
-                ? $jsCalTrigger->getType()
-                : null;
+            $triggerType = $jsCalTrigger->getType();
 
             // Set the TRIGGER property.
             if (strcmp($triggerType, "OffsetTrigger") === 0) {
-                $triggerValue = is_object($jsCalTrigger)
-                    ? $jsCalTrigger->getOffset()
-                    : null;
+                $triggerValue = $jsCalTrigger->getOffset();
 
                 // An offset trigger can contain a relativeTo parameter, which needs to be mapped as well.
-                $relativeTo = is_object($jsCalTrigger)
-                    ? $jsCalTrigger->getRelativeTo()
-                    : null;
+                $relativeTo = $jsCalTrigger->getRelativeTo();
 
                 if (!is_null($relativeTo)) {
                     $iCalRelated = strtoupper($relativeTo);
@@ -916,11 +906,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue);
                 }
             } elseif (strcmp($triggerType, "AbsoluteTrigger") === 0) {
-                $whenValue = is_object($jsCalTrigger)
-                    ? $jsCalTrigger->getWhen()
-                    : null;
-
-                $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $whenValue);
+                $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->getWhen());
 
                 // If the date time is false, it was probably not in UTC, which is the standard for both formats.
                 // Log and skip to the next alert.
@@ -928,7 +914,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     // TODO: Add the alert to the event as some sort of custom alert if this happens.
                     $this->logger->error(
                         "Unable to create date time for absolute trigger from value: "
-                        . $whenValue
+                        . $jsCalTrigger->getWhen()
                     );
 
                     continue;
@@ -942,9 +928,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 continue;
             }
 
-            $acknowledged = is_object($alert)
-                ? $alert->getAcknowledged()
-                : null;
+            $acknowledged = $alert->getAcknowledged();
 
             if (AdapterUtil::isSetNotNullAndNotEmpty($acknowledged)) {
                 $acknowledgedDateTime = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $acknowledged);
