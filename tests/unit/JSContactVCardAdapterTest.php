@@ -398,14 +398,18 @@ final class JSContactVCardAdapterTest extends TestCase
 
         $servicesAsArray = array_values($jsContactDataAfter->getOnlineServices());
         $usernames = array_map(
-            function ($os) { return $os->getUser(); },
+            function ($os) {
+                return $os->getUser();
+            },
             $servicesAsArray
         );
         $uris = array_map(
-            function ($os) { return $os->getUri(); },
+            function ($os) {
+                return $os->getUri();
+            },
             $servicesAsArray
         );
-        
+
         $this->assertContains(
             "xmpp:alice@example.com",
             array_merge($usernames, $uris)
@@ -527,17 +531,17 @@ final class JSContactVCardAdapterTest extends TestCase
         $regeneratedVCard = $vCardData[0]["c1"]["vCard"];
         $this->assertNotNull($regeneratedVCard, 'Regenerated vCard should not be null');
 
-        $this->assertStringContainsString("VERSION:4.0",           $regeneratedVCard);
-        $this->assertStringContainsString("ORG",                   $regeneratedVCard);
+        $this->assertStringContainsString("VERSION:4.0", $regeneratedVCard);
+        $this->assertStringContainsString("ORG", $regeneratedVCard);
         $this->assertStringContainsString("Bubba Gump Shrimp Co.", $regeneratedVCard);
-        $this->assertStringContainsString("TITLE",                 $regeneratedVCard);
-        $this->assertStringContainsString("Shrimp Man",            $regeneratedVCard);
-        $this->assertStringContainsString("EMAIL",                 $regeneratedVCard);
-        $this->assertStringContainsString("TEL",                   $regeneratedVCard);
-        $this->assertStringContainsString("ADR",                   $regeneratedVCard);
-        $this->assertStringContainsString("BDAY",                  $regeneratedVCard);
-        $this->assertStringContainsString("ANNIVERSARY",           $regeneratedVCard);
-        $this->assertStringContainsString("NOTE",                  $regeneratedVCard);
+        $this->assertStringContainsString("TITLE", $regeneratedVCard);
+        $this->assertStringContainsString("Shrimp Man", $regeneratedVCard);
+        $this->assertStringContainsString("EMAIL", $regeneratedVCard);
+        $this->assertStringContainsString("TEL", $regeneratedVCard);
+        $this->assertStringContainsString("ADR", $regeneratedVCard);
+        $this->assertStringContainsString("BDAY", $regeneratedVCard);
+        $this->assertStringContainsString("ANNIVERSARY", $regeneratedVCard);
+        $this->assertStringContainsString("NOTE", $regeneratedVCard);
 
         $contactCards2 = $this->mapper->mapToJmap(array("c1" => $regeneratedVCard), $this->adapter);
         $this->assertCount(1, $contactCards2);
@@ -561,8 +565,12 @@ final class JSContactVCardAdapterTest extends TestCase
         $emails2 = array_values($contactCard2->getEmails());
         $this->assertEquals(count($emails1), count($emails2), 'Email count should be preserved');
 
-        $addresses1 = array_map(function ($e) { return $e->getAddress(); }, $emails1);
-        $addresses2 = array_map(function ($e) { return $e->getAddress(); }, $emails2);
+        $addresses1 = array_map(function ($e) {
+            return $e->getAddress();
+        }, $emails1);
+        $addresses2 = array_map(function ($e) {
+            return $e->getAddress();
+        }, $emails2);
         sort($addresses1);
         sort($addresses2);
         $this->assertEquals($addresses1, $addresses2, 'Email addresses should be preserved');
@@ -587,10 +595,14 @@ final class JSContactVCardAdapterTest extends TestCase
         $bday1 = null;
         $bday2 = null;
         foreach ($anns1 as $a) {
-            if ($a->getKind() === 'birth') { $bday1 = $a->getDate(); }
+            if ($a->getKind() === 'birth') {
+                $bday1 = $a->getDate();
+            }
         }
         foreach ($anns2 as $a) {
-            if ($a->getKind() === 'birth') { $bday2 = $a->getDate(); }
+            if ($a->getKind() === 'birth') {
+                $bday2 = $a->getDate();
+            }
         }
         $this->assertEquals($bday1, $bday2, 'Birthday date should be preserved');
 
@@ -858,7 +870,9 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertNotEmpty($onlineAfter);
         $servicesAsArray = array_values($onlineAfter);
         $uris = array_map(
-            function ($os) { return $os->getUri() !== null ? $os->getUri() : $os->getUser(); },
+            function ($os) {
+                return $os->getUri() !== null ? $os->getUri() : $os->getUser();
+            },
             $servicesAsArray
         );
         $this->assertContains('xmpp:alice@example.com', $uris);
@@ -872,41 +886,41 @@ final class JSContactVCardAdapterTest extends TestCase
     {
         $vCard = file_get_contents(__DIR__ . '/../resources/vcard_with_jscomps.vcf');
         $this->assertNotFalse($vCard, 'Failed to read vcard_with_jscomps.vcf');
-        
+
         // vCard -> JSContact
         $cards = $this->mapper->mapToJmap(['test' => $vCard], $this->adapter);
         $this->assertIsArray($cards);
         $this->assertCount(1, $cards);
-        
+
         $card = $cards[0];
         $this->assertInstanceOf(ContactCard::class, $card);
-        
+
         $name = $card->getName();
         $this->assertNotNull($name);
-        
+
         $nameComponents = $name->getComponents();
         $this->assertNotEmpty($nameComponents);
         $this->assertCount(2, $nameComponents);
-        
+
         $this->assertEquals('山田太郎', $name->getFull());
-        
+
         $addresses = $card->getAddresses();
         $this->assertNotEmpty($addresses, 'Card should have addresses');
-        
+
         $address = reset($addresses);
         $this->assertInstanceOf(Address::class, $address);
-        
+
         $addrComponents = $address->getComponents();
         $this->assertNotEmpty($addrComponents);
-        
+
         $contexts = $address->getContexts();
         $this->assertTrue($contexts['work']);
-        
+
         $exported = $this->mapper->mapFromJmap(['test' => $card], $this->adapter);
-        
+
         $this->assertIsArray($exported);
         $this->assertNotEmpty($exported);
-        
+
         $unwrapped = array();
         foreach ($exported as $entry) {
             foreach ($entry as $id => $payload) {
@@ -915,27 +929,38 @@ final class JSContactVCardAdapterTest extends TestCase
                     : $payload;
             }
         }
-        
+
         $this->assertArrayHasKey('test', $unwrapped);
         $exportedVCard = $unwrapped['test'];
         $unfolded = preg_replace("/\r\n[ \t]/", '', $exportedVCard);
-        
-        
+
+
         // Check N property with JSCOMPS
-        $this->assertStringContainsString('N;JSCOMPS=";0;1"', $unfolded, 
-            'N property JSCOMPS should be preserved');
-        $this->assertStringContainsString('山田;太郎', $unfolded,
-            'Name components should be preserved');
-        
+        $this->assertStringContainsString(
+            'N;JSCOMPS=";0;1"',
+            $unfolded,
+            'N property JSCOMPS should be preserved'
+        );
+        $this->assertStringContainsString(
+            '山田;太郎',
+            $unfolded,
+            'Name components should be preserved'
+        );
+
         // Check ADR property with JSCOMPS
         $this->assertStringContainsString('ADR;', $unfolded);
-        $this->assertStringContainsString('JSCOMPS=', $unfolded,
-            'ADR property JSCOMPS should be preserved');
+        $this->assertStringContainsString(
+            'JSCOMPS=',
+            $unfolded,
+            'ADR property JSCOMPS should be preserved'
+        );
         $this->assertStringContainsString('54321', $unfolded);
         $this->assertStringContainsString('Oak St', $unfolded);
-        $this->assertStringContainsString('TYPE=work', $unfolded,
-            'Address TYPE parameter should be preserved');
-    
+        $this->assertStringContainsString(
+            'TYPE=work',
+            $unfolded,
+            'Address TYPE parameter should be preserved'
+        );
     }
 
     public function testVcardAltIdLanguageRoundtripFromFile()

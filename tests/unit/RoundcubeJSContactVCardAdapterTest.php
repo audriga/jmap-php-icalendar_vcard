@@ -412,7 +412,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertStringContainsString('https://example.com/~joerg', $unfoldedVCard);
         $this->assertStringContainsString('X-MAIDENNAME:Öster', $unfoldedVCard);
         $this->assertTrue(
-            str_contains($unfoldedVCard, '19880412') || 
+            str_contains($unfoldedVCard, '19880412') ||
             str_contains($unfoldedVCard, '1988-04-12')
         );
         $this->assertStringContainsString('ADR;', $unfoldedVCard);

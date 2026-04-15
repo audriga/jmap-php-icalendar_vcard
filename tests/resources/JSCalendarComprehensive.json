@@ -1,0 +1,155 @@
+{
+  "@type": "Event",
+  "uid": "comprehensive-test@example.com",
+  "title": "Comprehensive Test Event",
+  "description": "Event testing all newly implemented properties",
+  "start": "2026-05-15T14:00:00",
+  "timeZone": "Europe/Berlin",
+  "duration": "PT2H",
+  "showWithoutTime": true,
+  "status": "confirmed",
+  "color": "blue",
+  "priority": 5,
+  "privacy": "public",
+  "freeBusyStatus": "busy",
+  "coordinates": "geo:52.520008,13.404954",
+  "url": "https://example.com/events/test",
+  "method": "request",
+  "replyTo": {
+    "imip": "mailto:rsvp@example.com"
+  },
+  "requestStatus": ["2.0;Success"],
+  "keywords": {
+    "meeting": true,
+    "important": true
+  },
+  "locations": {
+    "1": {
+      "@type": "Location",
+      "name": "Conference Room A"
+    }
+  },
+  "vLocations": {
+    "1": {
+      "@type": "Location",
+      "name": "Berlin Office",
+      "coordinates": "geo:52.520008,13.404954"
+    }
+  },
+  "virtualLocations": {
+    "1": {
+      "@type": "VirtualLocation",
+      "name": "Zoom Meeting",
+      "uri": "https://zoom.us/j/123456789",
+      "features": {
+        "audio": true,
+        "video": true,
+        "chat": true
+      }
+    }
+  },
+  "relatedTo": {
+    "parent-event-uid@example.com": {
+      "@type": "Relation",
+      "relation": {
+        "parent": true
+      }
+    }
+  },
+  "participants": {
+    "participant1": {
+      "@type": "Participant",
+      "name": "Alice Attendee",
+      "sendTo": {
+        "imip": "mailto:alice@example.com"
+      },
+      "roles": {
+        "attendee": true
+      },
+      "participationStatus": "accepted",
+      "expectReply": true
+    },
+    "participant2": {
+      "@type": "Participant",
+      "name": "Project Team",
+      "sendTo": {
+        "imip": "mailto:team@example.com"
+      },
+      "kind": "group",
+      "roles": {
+        "attendee": true
+      },
+      "memberOf": [
+        "mailto:alice@example.com",
+        "mailto:bob@example.com"
+      ]
+    },
+    "participant3": {
+      "@type": "Participant",
+      "name": "External Contact",
+      "sendTo": {
+        "imip": "mailto:external@partner.com"
+      },
+      "roles": {
+        "attendee": true
+      },
+      "links": {
+        "dir1": {
+          "@type": "Link",
+          "href": "https://contacts.example.com/external",
+          "rel": "describedby"
+        }
+      }
+    },
+    "organizer": {
+      "@type": "Participant",
+      "name": "John Organizer",
+      "sendTo": {
+        "imip": "mailto:john@example.com"
+      },
+      "roles": {
+        "owner": true
+      },
+      "expectReply": false
+    }
+  },
+  "alerts": {
+    "1": {
+      "@type": "Alert",
+      "trigger": {
+        "@type": "OffsetTrigger",
+        "offset": "-PT15M",
+        "relativeTo": "start"
+      },
+      "action": "display"
+    }
+  },
+  "links": {
+    "attachment1": {
+      "@type": "Link",
+      "href": "https://example.com/agenda.pdf",
+      "rel": "enclosure",
+      "contentType": "application/pdf",
+      "title": "Meeting Agenda",
+      "size": 52480
+    }
+  },
+  "recurrenceRules": [
+    {
+      "@type": "RecurrenceRule",
+      "frequency": "weekly",
+      "interval": 2,
+      "byDay": [
+        {
+          "@type": "NDay",
+          "day": "tu"
+        },
+        {
+          "@type": "NDay",
+          "day": "th"
+        }
+      ],
+      "count": 10
+    }
+  ]
+}

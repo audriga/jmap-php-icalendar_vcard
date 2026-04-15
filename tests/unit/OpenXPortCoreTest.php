@@ -16,7 +16,6 @@ final class OpenXPortCoreTest extends TestCase
 
     public function setUp(): void
     {
-
     }
 
     public function tearDown(): void
@@ -88,7 +87,7 @@ final class OpenXPortCoreTest extends TestCase
         $this->assertEquals("Biggest conference room in the upper level of the main building", $currentLocation->getDescription());
         $this->assertEquals("Europe/Amsterdam", $currentLocation->getTimeZone());
         $this->assertEquals("geo:49.00937,8.40444", $currentLocation->getCoordinates());
-        
+
         // Check the parsing of the second location.
         $curentLocation = next($locations);
         $this->assertEquals("Location", $curentLocation->getType());
@@ -162,7 +161,7 @@ final class OpenXPortCoreTest extends TestCase
         $this->assertEquals("NDay", $recurrenceRule->getByDay()[0]->getType());
         $this->assertEquals("su", $recurrenceRule->getByDay()[0]->getDay());
         $this->assertEquals("1", $recurrenceRule->getCount());
-        
+
         // Check the recurrence overrides.
         $this->assertEquals(
             array_keys($this->jsCalendar->getRecurrenceOverrides()),
@@ -203,7 +202,7 @@ final class OpenXPortCoreTest extends TestCase
         $virtualLocations = $this->jsCalendar->getVirtualLocations();
 
         $virtualLocation = current($virtualLocations);
-        
+
         $this->assertEquals("VirtualLocation", $virtualLocation->getType());
         $this->assertEquals("Video Call", $virtualLocation->getName());
         $this->assertEquals("Internal video call", $virtualLocation->getDescription());
@@ -214,7 +213,7 @@ final class OpenXPortCoreTest extends TestCase
         );
 
         $virtualLocation = next($virtualLocations);
-        
+
         $this->assertEquals("VirtualLocation", $virtualLocation->getType());
         $this->assertEquals("Feature Keynote", $virtualLocation->getName());
         $this->assertEquals("Keynote of our new Feature to be made public directly afterwards.", $virtualLocation->getDescription());
@@ -285,7 +284,7 @@ final class OpenXPortCoreTest extends TestCase
         $this->assertEquals("none", $participant->getScheduleAgent());
         $this->assertEquals("2022-12-30T12:00:00Z", $participant->getScheduleUpdated());
     }
-    
+
     public function testParseEventWithRelations()
     {
         $jsonData = json_decode(
@@ -297,14 +296,14 @@ final class OpenXPortCoreTest extends TestCase
         $event2 = CalendarEvent::fromJson(json_decode(json_encode($jsonData[1])));
 
         $this->assertEquals("1234-relation-parent-OpenXPort-TestFiles", $event1->getUid());
-        
+
         $relatedTo1 = $event1->getRelatedTo();
         $firstRelation1 = array_values($relatedTo1)[0];
         $this->assertEquals("Relation", $firstRelation1->getType());
         $this->assertEquals(array("parent" => true), $firstRelation1->getRelation());
 
         $this->assertEquals("1234-relation-child-OpenXPort-TestFiles", $event2->getUid());
-        
+
         $relatedTo2 = $event2->getRelatedTo();
         $firstRelation2 = array_values($relatedTo2)[0];
         $this->assertEquals("Relation", $firstRelation2->getType());
@@ -318,7 +317,7 @@ final class OpenXPortCoreTest extends TestCase
 
         // Check that properties are read correctly.
         $customProperties = $this->jsCalendar->getCustomProperties();
-        
+
         $this->assertEquals("Bar", $customProperties["foo"]);
         $this->assertEquals("SomeObject", $customProperties["someObjects"]->{"abc-123"}->{"@type"});
         $this->assertEquals("1234-someObject-OpenXPort-TestFiles", $customProperties["someObjects"]->{"abc-123"}->{"uid"});
@@ -331,7 +330,7 @@ final class OpenXPortCoreTest extends TestCase
 
         $link = $this->jsCalendar->getLinks()["2j3j5d-6ygpgd-aljx-xup8"];
         $this->assertEquals("2023-01-01T00:00:00Z", $link->getCustomProperties()["until"]);
-        
+
         $relation = $this->jsCalendar->getRelatedTo()["1234-someTask-OpenXPort-TestFiles"];
         $this->assertEquals(true, $relation->getCustomProperties()["requiredFinished"]);
 

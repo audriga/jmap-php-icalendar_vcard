@@ -4,8 +4,8 @@ namespace OpenXPort\Test\VCard;
 
 use OpenXPort\Adapter\NextcloudJSContactVCardAdapter;
 use OpenXPort\Jmap\JSContact\ContactCard;
-use \OpenXPort\Jmap\JSContact\Name;
-use \OpenXPort\Jmap\JSContact\OnlineService;
+use OpenXPort\Jmap\JSContact\Name;
+use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Mapper\JSContactVCardMapper;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Reader;
@@ -69,7 +69,7 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
             $label = $service->getLabel();
 
             array_push($uris, $uri);
-            
+
             array_push($labels, $label);
         }
 
@@ -87,7 +87,7 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
         $this->assertNotFalse($vCardString, 'Failed to read nextcloud_socialprofile.vcf');
         $this->assertStringContainsString('BEGIN:VCARD', $vCardString);
         $this->assertStringContainsString('END:VCARD', $vCardString);
-        
+
         $this->vCard = Reader::read($vCardString);
         $this->vCardData = array("1" => array("vCard" => $this->vCard->serialize()));
 
@@ -127,19 +127,19 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
     {
         $jsonString = file_get_contents(__DIR__ . '/../resources/jscontactcard_nc.json');
         $this->assertNotFalse($jsonString, 'Failed to read jscontactcard_nc.json');
-        
+
         $jsonData = json_decode($jsonString, true);
         $this->assertNotNull($jsonData, 'Failed to decode JSON');
         $this->assertIsArray($jsonData, 'JSON should decode to array');
 
         $card = new ContactCard();
-        
+
         $card->setUid($jsonData['uid']);
-        
+
         $name = new Name();
         $name->setFull($jsonData['name']['full']);
         $card->setName($name);
-        
+
         $services = array();
         foreach ($jsonData['onlineServices'] as $key => $serviceData) {
             $service = new OnlineService();
@@ -153,7 +153,7 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
         // JSContact -> vCard
         $this->adapter->reset();
         $this->adapter->setOnlineServices($card);
-        
+
         $vCardResult = $this->adapter->getVCard();
         $this->assertNotEmpty($vCardResult, "vCard should not be empty");
         $this->assertStringContainsString('X-SOCIALPROFILE', $vCardResult);

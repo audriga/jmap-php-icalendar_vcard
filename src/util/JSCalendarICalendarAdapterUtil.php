@@ -424,7 +424,6 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromJmapUntilToICalUntil($until, $dtStart)
     {
-        //TODO: Figure out how to add the timezone difference to the value.
         if (!AdapterUtil::isSetNotNullAndNotEmpty($until)) {
             return null;
         }
@@ -441,6 +440,7 @@ class JSCalendarICalendarAdapterUtil
         * UNTIL rule part MUST be specified as a date with UTC time."
         */
         $iCalFormat = "Ymd\THis";
+        $needsUtcConversion = false;
 
         if (
             AdapterUtil::isSetNotNullAndNotEmpty($dtStart)
@@ -450,6 +450,7 @@ class JSCalendarICalendarAdapterUtil
             )
         ) {
                 $iCalFormat = "Ymd\THis\Z";
+                $needsUtcConversion = true;
         }
 
 
@@ -465,11 +466,19 @@ class JSCalendarICalendarAdapterUtil
             return null;
         }
 
+        // Convert to UTC if DTSTART has timezone or is UTC
+        if ($needsUtcConversion && AdapterUtil::isSetNotNullAndNotEmpty($dtStart)) {
+            $dtStartTimeZone = $dtStart->getDateTime()->getTimeZone();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($dtStartTimeZone)) {
+                $jmapUntilDate->setTimezone($dtStartTimeZone);
+            }
+            $jmapUntilDate->setTimezone(new \DateTimeZone('UTC'));
+        }
+
         $iCalUntil = date_format($jmapUntilDate, $iCalFormat);
 
         return $iCalUntil;
     }
-
     public static function convertFromICalCUTypeToJmapKind($cutype)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($cutype)) {

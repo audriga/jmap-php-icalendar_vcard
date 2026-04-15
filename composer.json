@@ -25,8 +25,8 @@
     },
     "repositories": [
         {
-        "type": "vcs",
-        "url": "https://github.com/audriga/openxport-jmap"
+            "type": "vcs",
+            "url": "https://github.com/audriga/openxport-jmap"
         }
     ], 
     "require-dev": {
@@ -50,4 +50,5 @@
             "dev-main": "1.x-dev"
         }
     }
+
 }
