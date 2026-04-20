@@ -35,7 +35,7 @@ use Sabre\VObject\ParseException;
 
 /**
  * Generic adapter to convert between vCard <-> JSContact.
- * Strictly follows the "JSContact: Converting from and to vCard" spec
+ * Strictly follows the "JSContact: Converting from and to vCard" spec (RFC 9555)
  */
 class JSContactVCardAdapter extends AbstractAdapter
 {
@@ -768,6 +768,12 @@ class JSContactVCardAdapter extends AbstractAdapter
         }
     }
 
+    /**
+     * Build a full name string from name components.
+     *
+     * @param Name|null $name
+     * @return string|null
+     */
     protected function buildFullNameFromComponents($name)
     {
         if (!($name instanceof Name)) {
@@ -806,7 +812,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $name->setFull($fn);
         }
 
-        // Check if JSCOMPS is present.if so, parse it to get the correct order
+        // Check if JSCOMPS is present - if so, parse it to get the correct order
         $hasJscomps = AdapterUtil::isSetAndNotNull($n) && isset($n['JSCOMPS']);
 
         if ($hasJscomps) {
@@ -2616,7 +2622,6 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Anniversaries
      * Returns the BDAY date as Y-m-d, or '0000-00-00' if it's missing or can't be parsed.
      * Handles both plain dates and date-time values like 19950505T000000Z.
      */
@@ -3127,6 +3132,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $this->vCard->add('CATEGORIES', $values);
         }
     }
+
     /**
      * Reads vCard EXPERTISE, HOBBY, and INTEREST properties and stores them on the ContactCard.
      * LEVEL values are mapped: beginner -> low, average/medium -> medium, expert -> high.
@@ -3234,8 +3240,10 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Builds common vCard parameters for objects that have mediaType, contexts, pref.
-     * Used by media, directories, links, and crypto keys.
+     * Build common vCard parameters for URI-based objects.
+     *
+     * Extracts mediaType, contexts (TYPE parameter), and pref from objects.
+     * Used by media, directories, links, crypto keys, and scheduling addresses.
      *
      * @param object $obj The object to extract parameters from
      * @param mixed $id The map key/id for PROP-ID parameter
@@ -3273,12 +3281,17 @@ class JSContactVCardAdapter extends AbstractAdapter
         return $params;
     }
 
-    /*
-    * Preserve selected vCard parameters (ALTID, LANGUAGE) on the ContactCard
-    * so they can be restored on export.
-    *
-    * Stored in properties['vCardParams'][propName][mapKey].
-    */
+    /**
+     * Preserve selected vCard parameters (ALTID, LANGUAGE) on the ContactCard
+     * so they can be restored on export.
+     *
+     * Stored in properties['vCardParams'][propName][mapKey].
+     *
+     * @param ContactCard $card The contact card
+     * @param string $propName vCard property name (e.g., 'NICKNAME', 'NOTE')
+     * @param string $mapKey Map key/ID for the JSContact object
+     * @param Property $prop vCard property object
+     */
     protected function preserveVcardParams(ContactCard $card, $propName, $mapKey, $prop)
     {
         $params = array();
@@ -3317,11 +3330,11 @@ class JSContactVCardAdapter extends AbstractAdapter
     /**
      * Restore previously preserved vCard parameters from ContactCard::properties.
      *
-     * @param ContactCard $card
-     * @param string $propName
-     * @param string $mapKey
-     * @param array $params
-     * @return array
+     * @param ContactCard $card The contact card
+     * @param string $propName vCard property name
+     * @param string $mapKey Map key/ID for the JSContact object
+     * @param array $params Existing parameters to merge with
+     * @return array Merged parameters with preserved values
      */
     protected function restoreVcardParams(ContactCard $card, $propName, $mapKey, array $params = array())
     {

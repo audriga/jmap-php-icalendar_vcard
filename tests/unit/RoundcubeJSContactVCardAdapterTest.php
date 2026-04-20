@@ -12,8 +12,10 @@ use OpenXPort\Jmap\JSContact\Address;
 use OpenXPort\Jmap\JSContact\Name;
 use OpenXPort\Jmap\JSContact\NameComponent;
 use OpenXPort\Mapper\RoundcubeJSContactVCardMapper;
+use OpenXPort\Test\VCard\TestUtils;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\ParseException;
+use Sabre\VObject\Reader;
 
 /**
  * Roundcube-specific converting between vCard <-> JSContact
@@ -87,7 +89,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
     /**
      * Make sure that no exception is thrown for each of the config options and that they do map some jscontact result.
      */
-    public function testConfigCleanVCard()
+    public function testConfigCleanVCard(): void
     {
         $this->vCard = file_get_contents(__DIR__ . "/../resources/rc-vcard.vcf");
 
@@ -111,7 +113,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
     /**
      * Check that the right exception is thrown for an invalid vCard and that it is not if the line is ignored.
      */
-    public function testConfigInvalidLine()
+    public function testConfigInvalidLine(): void
     {
         $this->vCard = file_get_contents(__DIR__ . "/../resources/rc-vcard-invalid-line.vcf");
 
@@ -129,7 +131,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
     /**
      * Check that the right exceptions are thrown and that they are not thrown if the entire card gets ignored.
      */
-    public function testConfigInvalidVCard()
+    public function testConfigInvalidVCard(): void
     {
         $this->vCard = file_get_contents(__DIR__ . "/../resources/rc-vcard-invalid-card.vcf");
 
@@ -141,12 +143,15 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
 
         $this->assertNull($this->jsContactCard);
 
-        $this->jsContactCard = $this->mapper->mapToJmap(array("c1" => $this->vCard), new RoundcubeJSContactVCardAdapter('ignoreInvalidVCards'));
+        $this->jsContactCard = $this->mapper->mapToJmap(array("c1" => $this->vCard), new RoundcubeJSContactVCardAdapter('ignoreInvalidCards'));
 
         $this->assertNotNull($this->jsContactCard);
     }
 
-    public function testMinimalRoundcubeVCardFromFileMapsToContactCard()
+    /**
+     * Check that a minimal Roundcube vCard file maps to a ContactCard with the expected uid, name, email and phone.
+     */
+    public function testMinimalRoundcubeVCardFromFileMapsToContactCard(): void
     {
         $vCard = file_get_contents(__DIR__ . '/../resources/rc_vcard_basic.vcf');
         $this->assertNotFalse($vCard, 'Failed to read rc_vcard_basic.vcf');
@@ -155,7 +160,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $adapter = new RoundcubeJSContactVCardAdapter();
 
         $result = $mapper->mapToJmap(
-            ['c1' => $vCard],
+            array('c1' => $vCard),
             $adapter
         );
 
@@ -186,7 +191,12 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertNotFalse($firstPhone);
         $this->assertEquals('+49-170-555-0101', $firstPhone->getNumber());
     }
-    public function testComplexRoundcubeVCardRoundtripFromFile()
+
+    /**
+     * Check that a complex Roundcube vCard file correctly roundtrips through JSContact and back to vCard,
+     * preserving all fields including UTF-8 characters, phones, addresses, online services and relations.
+     */
+    public function testComplexRoundcubeVCardRoundtripFromFile(): void
     {
         $vCard = file_get_contents(__DIR__ . '/../resources/rc_vcard_advanced.vcf');
         $this->assertNotFalse($vCard, 'Failed to read rc_vcard_advanced.vcf');
@@ -534,7 +544,12 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
             array_values($rtCard->getRelatedTo())
         );
     }
-    public function testJsContactJsonFileRoundtripToRoundcubeVCard()
+
+    /**
+     * Check that a JSContact JSON file correctly roundtrips to a Roundcube vCard and back,
+     * preserving name, organization, anniversary and online service fields.
+     */
+    public function testJsContactJsonFileRoundtripToRoundcubeVCard(): void
     {
         $json = file_get_contents(__DIR__ . '/../resources/jscontactcard_advanced.json');
         $this->assertNotFalse($json, 'Failed to read jscontactcard_advanced.json');

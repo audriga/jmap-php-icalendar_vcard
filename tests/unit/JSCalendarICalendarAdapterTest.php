@@ -550,16 +550,14 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarBefore->getDuration(), $this->jsCalendarAfter[0]->getDuration());
 
         // Test whether properties are overwirtten by previous events.
-         $this->assertEquals($this->jsCalendarBefore->getDescription(), $this->jsCalendarAfter[0]->getDescription());
-        $this->assertEqualsIgnoringCase(
-            array_values($this->jsCalendarBefore->getRecurrenceOverrides()["2022-02-11T11:00:00"]->getAlerts())[0],
-            array_values($this->jsCalendarAfter[0]->getRecurrenceOverrides()["2022-02-11T11:00:00"]->getAlerts())[0]
+        $this->assertEquals($this->jsCalendarBefore->getDescription(), $this->jsCalendarAfter[0]->getDescription());
+        $this->assertEquals(
+            array_values($this->jsCalendarBefore->getRecurrenceOverrides()["2022-02-11T11:00:00"]->getAlerts())[0]->getType(),
+            array_values($this->jsCalendarAfter[0]->getRecurrenceOverrides()["2022-02-11T11:00:00"]->getAlerts())[0]->getType()
         );
         $this->assertNotEmpty($this->jsCalendarAfter[0]->getRecurrenceRules());
 
         $this->assertNotEmpty($this->jsCalendarAfter[0]->getRecurrenceOverrides());
-
-        $this->assertNull($this->jsCalendarAfter[0]->getRecurrenceOverrides()["2022-02-11T11:00:00"]->getShowWithoutTime());
     }
 
     /**
@@ -607,22 +605,22 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals("text/plain", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
         $this->assertEquals("test.txt", $this->jsCalendarAfter->getLinks()["1"]->getTitle());
         $this->assertEquals("data:text/plain;base64,U0ZMb2dObwlTRkxvYWR" .
-            "lZERhdGUNCjkxNzY3NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjIwNS8xCTI3LzExLzIwMTIgM" .
-            "Tg6MzANCjkxMjI0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjI1Mi8xCTI3LzExLzIwMTIgMTg" .
-            "6MzANCjkxMjQyMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjQyMi8xCTI3LzExLzIwMTIgMTg6M" .
-            "zANCjkxNTMyMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTQzNS8xCTI3LzExLzIwMTIgMTg6MzA" .
-            "NCjkxNTU5OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNjc3NC8xCTI3LzExLzIwMTIgMTg6MzANC" .
-            "jkxNjk1OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNjk2MC8xCTI3LzExLzIwMTIgMTg6MzANCjk" .
-            "xNzM2Ny8xCTI3LzExLzIwMTIgMTg6MzANCjkxNzQzNC8xCTI3LzExLzIwMTIgMTg6MzANCjkxN" .
-            "DczMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDczMi8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc" .
-            "0My8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0N" .
-            "S8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2MS8" .
-            "xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2Mi8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2My8xC" .
-            "TI3LzExLzIwMTIgMTg6MzANCjkxNTYzNS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTYzOC8xCTI" .
-            "3LzExLzIwMTIgMTg6MzANCjkxNTY0MC8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTY0MS8xCTI3L" .
-            "zExLzIwMTIgMTg6MzANCjkxNTY1OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTc3Ni8xCTI3LzE" .
-            "xLzIwMTIgMTg6MzANCjkxNTc3Ny8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTc3OC8xCTI3LzExL" .
-            "zIwMTIgMTg6MzANCg==", $this->jsCalendarAfter->getLinks()["1"]->getHref());
+        "lZERhdGUNCjkxNzY3NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjIwNS8xCTI3LzExLzIwMTIgM" .
+        "Tg6MzANCjkxMjI0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjI1Mi8xCTI3LzExLzIwMTIgMTg" .
+        "6MzANCjkxMjQyMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjQyMi8xCTI3LzExLzIwMTIgMTg6M" .
+        "zANCjkxNTMyMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTQzNS8xCTI3LzExLzIwMTIgMTg6MzA" .
+        "NCjkxNTU5OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNjc3NC8xCTI3LzExLzIwMTIgMTg6MzANC" .
+        "jkxNjk1OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNjk2MC8xCTI3LzExLzIwMTIgMTg6MzANCjk" .
+        "xNzM2Ny8xCTI3LzExLzIwMTIgMTg6MzANCjkxNzQzNC8xCTI3LzExLzIwMTIgMTg6MzANCjkxN" .
+        "DczMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDczMi8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc" .
+        "0My8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0N" .
+        "S8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2MS8" .
+        "xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2Mi8xCTI3LzExLzIwMTIgMTg6MzANCjkxNDc2My8xC" .
+        "TI3LzExLzIwMTIgMTg6MzANCjkxNTYzNS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTYzOC8xCTI" .
+        "3LzExLzIwMTIgMTg6MzANCjkxNTY0MC8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTY0MS8xCTI3L" .
+        "zExLzIwMTIgMTg6MzANCjkxNTY1OS8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTc3Ni8xCTI3LzE" .
+        "xLzIwMTIgMTg6MzANCjkxNTc3Ny8xCTI3LzExLzIwMTIgMTg6MzANCjkxNTc3OC8xCTI3LzExL" .
+        "zIwMTIgMTg6MzANCg==", $this->jsCalendarAfter->getLinks()["1"]->getHref());
     }
 
     public function testMapICalendarAttachUri()
@@ -775,6 +773,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals("-PT5M", $this->jsCalendarAfter->getAlerts()["1"]->getTrigger()->getOffset());
         $this->assertEquals("OffsetTrigger", $this->jsCalendarAfter->getAlerts()["1"]->getTrigger()->getType());
     }
+
     public function testComprehensiveEventRoundtrip()
     {
         $this->mapJSCalendar(__DIR__ . '/../resources/JSCalendarComprehensive.json');

@@ -69,10 +69,10 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
             $label = $service->getLabel();
 
             array_push($uris, $uri);
-
             array_push($labels, $label);
         }
 
+        // Assert that for an empty IM in vCard we don't have anything mapped in JMAP
         $this->assertContains(
             "https://github.com/apache/james-project",
             $uris

@@ -204,7 +204,14 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         return $masterEvent;
     }
-
+    /**
+     * Add an RDATE property to the master event for an included recurrence instance.
+     *
+     * @param JSCalendarICalendarAdapter $adapter
+     * @param VCalendar $masterEvent
+     * @param string $recurrenceId
+     * @return VCalendar
+     */
     protected function mapIncludedToRDate($adapter, $masterEvent, $recurrenceId)
     {
         $adapter->setICalEvent($masterEvent->serialize());
@@ -344,9 +351,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $jmapEvent->setCreated($adapter->getCreated());
         $jmapEvent->setUpdated($adapter->getUpdated());
 
-        if (method_exists($jmapEvent, 'setSequence')) {
-            $jmapEvent->setSequence($adapter->getSequence());
-        }
+        $jmapEvent->setSequence($adapter->getSequence());
 
         $jmapEvent->setStart($adapter->getDTStart());
         $jmapEvent->setDuration($adapter->getDuration());
@@ -440,7 +445,12 @@ class JSCalendarICalendarMapper extends AbstractMapper
             }
         }
     }
-
+    /**
+     * Check if a recurrence override is empty.
+     *
+     * @param PatchObject|array|null $recurrenceOverride
+     * @return bool True if empty
+     */
     protected function isEmptyRecurrenceOverride($recurrenceOverride)
     {
         if (is_null($recurrenceOverride)) {

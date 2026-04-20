@@ -25,16 +25,22 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard to populate
      */
-    public function getAnniversaries($card)
+    public function getAnniversaries(ContactCard $card)
     {
+        // Call parent first to handle standard properties
         parent::getAnniversaries($card);
 
+        // Get X-ANNIVERSARY property
         $xAnniversary = $this->vCard->__get("X-ANNIVERSARY");
         if (!AdapterUtil::isSetAndNotNull($xAnniversary)) {
             return;
         }
 
-        $anniversaries = $card->getAnniversaries() ?: [];
+        // Get existing anniversaries or initialize
+        $jsContactAnniversariesProperty = $card->getAnniversaries();
+        if (!is_array($jsContactAnniversariesProperty)) {
+            $jsContactAnniversariesProperty = array();
+        }
 
         foreach ($xAnniversary as $prop) {
             $value = trim((string) $prop);
@@ -42,13 +48,15 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
                 continue;
             }
 
+            // Parse the date value
             $date = AdapterUtil::parseDateTime($value, 'Y-m-d', 'Y-m-d', 'Ymd');
             if ($date === null) {
                 continue;
             }
 
+            // Check if this anniversary already exists
             $alreadyExists = false;
-            foreach ($anniversaries as $existing) {
+            foreach ($jsContactAnniversariesProperty as $existing) {
                 if (!($existing instanceof Anniversary)) {
                     continue;
                 }
@@ -66,16 +74,18 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
                 continue;
             }
 
-            $anniversary = new Anniversary();
-            $anniversary->setKind('other');
-            $anniversary->setLabel('x-anniversary');
-            $anniversary->setDate($date);
+            // Create new Anniversary object
+            $jsContactXAnniversary = new Anniversary();
+            $jsContactXAnniversary->setKind('other');
+            $jsContactXAnniversary->setLabel('x-anniversary');
+            $jsContactXAnniversary->setDate($date);
 
-            $anniversaries[] = $anniversary;
+            $jsContactAnniversariesProperty[] = $jsContactXAnniversary;
         }
 
-        if (!empty($anniversaries)) {
-            $card->setAnniversaries($anniversaries);
+        // Update the card with all anniversaries
+        if (!empty($jsContactAnniversariesProperty)) {
+            $card->setAnniversaries($jsContactAnniversariesProperty);
         }
     }
 
@@ -93,22 +103,30 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard to populate
      */
-    public function getOnlineServices($card)
+    public function getOnlineServices(ContactCard $card)
     {
+        // Call parent first to handle standard properties
         parent::getOnlineServices($card);
 
-        $services = $card->getOnlineServices() ?: [];
-        $index = count($services) + 1;
+        // Get existing services or initialize
+        $jsContactOnlineProperty = $card->getOnlineServices();
+        if (!is_array($jsContactOnlineProperty)) {
+            $jsContactOnlineProperty = array();
+        }
 
-        $this->readRoundcubeIM("X-AIM", "aim", $services, $index);
-        $this->readRoundcubeIM("X-ICQ", "icq", $services, $index);
-        $this->readRoundcubeIM("X-MSN", "msn", $services, $index);
-        $this->readRoundcubeIM("X-YAHOO", "yahoo", $services, $index);
-        $this->readRoundcubeIM("X-JABBER", "jabber", $services, $index);
-        $this->readRoundcubeIM("X-SKYPE-USERNAME", "skype", $services, $index);
+        $index = count($jsContactOnlineProperty) + 1;
 
-        if (!empty($services)) {
-            $card->setOnlineServices($services);
+        // Map all Roundcube-specific IM properties
+        $this->readRoundcubeIM("X-AIM", "aim", $jsContactOnlineProperty, $index);
+        $this->readRoundcubeIM("X-ICQ", "icq", $jsContactOnlineProperty, $index);
+        $this->readRoundcubeIM("X-MSN", "msn", $jsContactOnlineProperty, $index);
+        $this->readRoundcubeIM("X-YAHOO", "yahoo", $jsContactOnlineProperty, $index);
+        $this->readRoundcubeIM("X-JABBER", "jabber", $jsContactOnlineProperty, $index);
+        $this->readRoundcubeIM("X-SKYPE-USERNAME", "skype", $jsContactOnlineProperty, $index);
+
+        // Update the card with all online services
+        if (!empty($jsContactOnlineProperty)) {
+            $card->setOnlineServices($jsContactOnlineProperty);
         }
     }
 
@@ -133,26 +151,31 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
                 continue;
             }
 
-            $service = new OnlineService();
-            $service->setService($serviceName);
-            if (in_array($serviceName, ['skype', 'icq', 'msn', 'yahoo'], true)) {
-                $service->setUser($value);
-            } else {
-                $service->setUri($value);
-            }
-            $service->setLabel($propertyName);
+            $jsContactOnlineEntry = new OnlineService();
+            $jsContactOnlineEntry->setService($serviceName);
 
+            // Set user or uri based on service type
+            if (in_array($serviceName, ['skype', 'icq', 'msn', 'yahoo'], true)) {
+                $jsContactOnlineEntry->setUser($value);
+            } else {
+                $jsContactOnlineEntry->setUri($value);
+            }
+
+            $jsContactOnlineEntry->setLabel($propertyName);
+
+            // Map contexts from TYPE parameter
             $contexts = Util::vCardTypeParamToContexts($property);
             if (!empty($contexts)) {
-                $service->setContexts($contexts);
+                $jsContactOnlineEntry->setContexts($contexts);
             }
 
+            // Map preference
             $pref = Util::vCardPrefParamToInt($property);
             if ($pref !== null) {
-                $service->setPref($pref);
+                $jsContactOnlineEntry->setPref($pref);
             }
 
-            $services['os' . $index++] = $service;
+            $services['os' . $index++] = $jsContactOnlineEntry;
         }
     }
 
@@ -162,7 +185,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard to populate
      */
-    public function getGramGender($card)
+    public function getGramGender(ContactCard $card)
     {
         $xGender = $this->vCard->__get("X-GENDER");
         if (AdapterUtil::isSetAndNotNull($xGender)) {
@@ -172,17 +195,18 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
                 $normalizedValue = strtolower($value);
 
                 if ($normalizedValue === "male" || $normalizedValue === "female") {
-                    $speakToAs = $card->getSpeakToAs();
-                    if (!$speakToAs) {
-                        $speakToAs = new SpeakToAs();
+                    $jsContactSpeakToAsProperty = $card->getSpeakToAs();
+                    if (!$jsContactSpeakToAsProperty) {
+                        $jsContactSpeakToAsProperty = new SpeakToAs();
                     }
-                    $speakToAs->setGrammaticalGender($normalizedValue);
-                    $card->setSpeakToAs($speakToAs);
+                    $jsContactSpeakToAsProperty->setGrammaticalGender($normalizedValue);
+                    $card->setSpeakToAs($jsContactSpeakToAsProperty);
                     return;
                 }
             }
         }
 
+        // Fall back to parent implementation for standard GRAMGENDER
         parent::getGramGender($card);
     }
 
@@ -192,18 +216,25 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard to populate
      */
-    public function getRelatedTo($card)
+    public function getRelatedTo(ContactCard $card)
     {
+        // Call parent first to handle standard RELATED property
         parent::getRelatedTo($card);
 
-        $relations = $card->getRelatedTo() ?: [];
+        // Get existing relations or initialize
+        $jsContactRelatedToProperty = $card->getRelatedTo();
+        if (!is_array($jsContactRelatedToProperty)) {
+            $jsContactRelatedToProperty = array();
+        }
 
-        $this->readRelatedX("X-MANAGER", "manager", $relations);
-        $this->readRelatedX("X-ASSISTANT", "assistant", $relations);
-        $this->readRelatedX("X-SPOUSE", "spouse", $relations);
+        // Map Roundcube-specific X-properties
+        $this->readRelatedX("X-MANAGER", "manager", $jsContactRelatedToProperty);
+        $this->readRelatedX("X-ASSISTANT", "assistant", $jsContactRelatedToProperty);
+        $this->readRelatedX("X-SPOUSE", "spouse", $jsContactRelatedToProperty);
 
-        if (!empty($relations)) {
-            $card->setRelatedTo($relations);
+        // Update the card with all relations
+        if (!empty($jsContactRelatedToProperty)) {
+            $card->setRelatedTo($jsContactRelatedToProperty);
         }
     }
 
@@ -233,7 +264,10 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             }
 
             $relation = $relations[$uid];
-            $types = $relation->getRelation() ?: [];
+            $types = $relation->getRelation();
+            if (!is_array($types)) {
+                $types = array();
+            }
             $types[$relationType] = true;
             $relation->setRelation($types);
         }
@@ -245,8 +279,9 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard to populate
      */
-    public function getOrganizations($card)
+    public function getOrganizations(ContactCard $card)
     {
+        // Call parent first to handle standard ORG property
         parent::getOrganizations($card);
 
         $departments = $this->vCard->__get("X-DEPARTMENT");
@@ -254,22 +289,29 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             return;
         }
 
-        $organizations = $card->getOrganizations() ?: [];
-
-        // If there is no ORG yet, create it to add X-DEPARTMENT.
-        if (empty($organizations)) {
-            $org = new Organization();
-            $organizations['o1'] = $org;
+        // Get existing organizations or initialize
+        $jsContactOrganizationsProperty = $card->getOrganizations();
+        if (!is_array($jsContactOrganizationsProperty)) {
+            $jsContactOrganizationsProperty = array();
         }
 
-        $firstKey = array_key_first($organizations);
-        $firstOrg = $organizations[$firstKey];
+        // If there is no ORG yet, create it to add X-DEPARTMENT.
+        if (empty($jsContactOrganizationsProperty)) {
+            $org = new Organization();
+            $jsContactOrganizationsProperty['o1'] = $org;
+        }
+
+        $firstKey = array_key_first($jsContactOrganizationsProperty);
+        $firstOrg = $jsContactOrganizationsProperty[$firstKey];
 
         if (!($firstOrg instanceof Organization)) {
             return;
         }
 
-        $units = $firstOrg->getUnits() ?: [];
+        $units = $firstOrg->getUnits();
+        if (!is_array($units)) {
+            $units = array();
+        }
 
         foreach ($departments as $dept) {
             $value = trim((string)$dept);
@@ -283,8 +325,8 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             $firstOrg->setUnits($units);
         }
 
-        $organizations[$firstKey] = $firstOrg;
-        $card->setOrganizations($organizations);
+        $jsContactOrganizationsProperty[$firstKey] = $firstOrg;
+        $card->setOrganizations($jsContactOrganizationsProperty);
     }
 
     /**
@@ -293,7 +335,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard to populate
      */
-    public function getMaidenName($card)
+    public function getMaidenName(ContactCard $card)
     {
         $xMaidenName = $this->vCard->__get("X-MAIDENNAME");
         if (AdapterUtil::isSetAndNotNull($xMaidenName)) {
@@ -311,24 +353,28 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard containing anniversaries
      */
-    public function setAnniversaries($card)
+    public function setAnniversaries(ContactCard $card)
     {
+        // Call parent first to handle standard properties
         parent::setAnniversaries($card);
 
-        $anniversaries = $card->getAnniversaries();
-        if (!is_array($anniversaries) || empty($anniversaries)) {
+        $jsContactAnniversaries = $card->getAnniversaries();
+        if (!is_array($jsContactAnniversaries) || empty($jsContactAnniversaries)) {
             return;
         }
 
-        $writtenDates = [];
+        $writtenDates = array();
 
-        foreach ($anniversaries as $anniversary) {
-            if (!($anniversary instanceof Anniversary)) {
+        foreach ($jsContactAnniversaries as $id => $jsContactAnniversary) {
+            if (!($jsContactAnniversary instanceof Anniversary)) {
                 continue;
             }
 
-            $label = strtolower(trim((string) $anniversary->getLabel()));
-            $date  = trim((string) $anniversary->getDate());
+            $jsContactAnniversaryLabel = $jsContactAnniversary->getLabel();
+            $jsContactAnniversaryValue = $jsContactAnniversary->getDate();
+
+            $label = strtolower(trim((string) $jsContactAnniversaryLabel));
+            $date  = trim((string) $jsContactAnniversaryValue);
 
             if ($label !== 'x-anniversary' || $date === '') {
                 continue;
@@ -354,8 +400,9 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard containing online services
      */
-    public function setOnlineServices($card)
+    public function setOnlineServices(ContactCard $card)
     {
+        // Call parent first to handle standard properties
         parent::setOnlineServices($card);
 
         $services = $card->getOnlineServices();
@@ -363,7 +410,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             return;
         }
 
-        $serviceToXProperty = [
+        $serviceToXProperty = array(
             'aim'              => 'X-AIM',
             'x-aim'            => 'X-AIM',
             'icq'              => 'X-ICQ',
@@ -377,17 +424,19 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             'skype'            => 'X-SKYPE-USERNAME',
             'x-skype'          => 'X-SKYPE-USERNAME',
             'x-skype-username' => 'X-SKYPE-USERNAME',
-        ];
+        );
 
-        foreach ($services as $service) {
+        foreach ($services as $id => $service) {
             if (!($service instanceof OnlineService)) {
                 continue;
             }
 
             $xProperty = null;
 
-            $label = strtoupper((string)$service->getLabel());
-            $roundcubeProps = ['X-AIM', 'X-ICQ', 'X-MSN', 'X-YAHOO', 'X-JABBER', 'X-SKYPE-USERNAME'];
+            $resourceObjectLabel = $service->getLabel();
+            $label = strtoupper((string)$resourceObjectLabel);
+            $roundcubeProps = array('X-AIM', 'X-ICQ', 'X-MSN', 'X-YAHOO', 'X-JABBER', 'X-SKYPE-USERNAME');
+
             if (in_array($label, $roundcubeProps, true)) {
                 $xProperty = $label;
             } elseif ($service->getService()) {
@@ -398,7 +447,11 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             }
 
             if ($xProperty) {
-                $value = $service->getUri() ?: $service->getUser();
+                $value = $service->getUri();
+                if (!$value) {
+                    $value = $service->getUser();
+                }
+
                 if ($value) {
                     $this->vCard->add($xProperty, $value);
                 }
@@ -412,24 +465,25 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard containing speakToAs information
      */
-    public function setGramGender($card)
+    public function setGramGender(ContactCard $card)
     {
-        $speakToAs = $card->getSpeakToAs();
-        if (!$speakToAs) {
+        $jsContactSpeakToAs = $card->getSpeakToAs();
+        if (!$jsContactSpeakToAs) {
             return;
         }
 
-        $grammaticalGender = $speakToAs->getGrammaticalGender();
-        if (!$grammaticalGender) {
+        $jsContactSpeakToAsGrammaticalGender = $jsContactSpeakToAs->getGrammaticalGender();
+        if (!$jsContactSpeakToAsGrammaticalGender) {
             parent::setGramGender($card);
             return;
         }
 
-        if ($grammaticalGender === "male" || $grammaticalGender === "female") {
-            $this->vCard->add("X-GENDER", $grammaticalGender);
+        if ($jsContactSpeakToAsGrammaticalGender === "male" || $jsContactSpeakToAsGrammaticalGender === "female") {
+            $this->vCard->add("X-GENDER", $jsContactSpeakToAsGrammaticalGender);
             return;
         }
 
+        // Fall back to parent implementation for other values
         parent::setGramGender($card);
     }
 
@@ -439,33 +493,34 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard containing relations
      */
-    public function setRelatedTo($card)
+    public function setRelatedTo(ContactCard $card)
     {
+        // Call parent first to handle standard RELATED property
         parent::setRelatedTo($card);
 
-        $relations = $card->getRelatedTo();
-        if (!is_array($relations)) {
+        $jsContactRelatedTo = $card->getRelatedTo();
+        if (!is_array($jsContactRelatedTo)) {
             return;
         }
 
-        foreach ($relations as $uid => $relation) {
-            if (!($relation instanceof Relation)) {
+        foreach ($jsContactRelatedTo as $relatedUid => $jsContactRelation) {
+            if (!($jsContactRelation instanceof Relation)) {
                 continue;
             }
 
-            $types = $relation->getRelation();
-            if (!is_array($types)) {
+            $jsContactRelationValues = $jsContactRelation->getRelation();
+            if (!is_array($jsContactRelationValues)) {
                 continue;
             }
 
-            if (!empty($types["manager"])) {
-                $this->vCard->add("X-MANAGER", $uid);
+            if (!empty($jsContactRelationValues["manager"])) {
+                $this->vCard->add("X-MANAGER", $relatedUid);
             }
-            if (!empty($types["assistant"])) {
-                $this->vCard->add("X-ASSISTANT", $uid);
+            if (!empty($jsContactRelationValues["assistant"])) {
+                $this->vCard->add("X-ASSISTANT", $relatedUid);
             }
-            if (!empty($types["spouse"])) {
-                $this->vCard->add("X-SPOUSE", $uid);
+            if (!empty($jsContactRelationValues["spouse"])) {
+                $this->vCard->add("X-SPOUSE", $relatedUid);
             }
         }
     }
@@ -479,37 +534,37 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      */
     public function setOrganizations(ContactCard $card)
     {
-        $orgs = $card->getOrganizations();
-        if (!is_array($orgs) || empty($orgs)) {
+        $jsContactOrganizations = $card->getOrganizations();
+        if (!is_array($jsContactOrganizations) || empty($jsContactOrganizations)) {
             return;
         }
 
-        foreach ($orgs as $id => $org) {
-            if (!($org instanceof Organization)) {
+        foreach ($jsContactOrganizations as $id => $jsContactOrganization) {
+            if (!($jsContactOrganization instanceof Organization)) {
                 continue;
             }
 
-            $name  = $org->getName();
-            $units = array();
+            $jsContactOrganizationName  = $jsContactOrganization->getName();
+            $jsContactOrganizationUnits = array();
 
-            $u = $org->getUnits();
+            $u = $jsContactOrganization->getUnits();
             if (is_array($u)) {
                 foreach ($u as $unitObj) {
                     if (is_object($unitObj)) {
                         $unitName = $unitObj->getName();
                         if (is_string($unitName) && $unitName !== '') {
-                            $units[] = $unitName;
+                            $jsContactOrganizationUnits[] = $unitName;
                         }
                     } elseif (is_string($unitObj) && $unitObj !== '') {
-                        $units[] = $unitObj;
+                        $jsContactOrganizationUnits[] = $unitObj;
                     }
                 }
             }
 
-            $parts = array_merge(array($name), $units);
+            $parts = array_merge(array($jsContactOrganizationName), $jsContactOrganizationUnits);
 
             $params = array();
-            $types = Util::contextsToVcardTypeParam($org);
+            $types = Util::contextsToVcardTypeParam($jsContactOrganization);
             if (!empty($types)) {
                 $params['TYPE'] = $types;
             }
@@ -518,7 +573,8 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 
             $this->vCard->add('ORG', $parts, $params);
 
-            foreach ($units as $unit) {
+            // Write each unit as a separate X-DEPARTMENT property
+            foreach ($jsContactOrganizationUnits as $unit) {
                 $this->vCard->add('X-DEPARTMENT', $unit);
             }
         }
@@ -529,12 +585,12 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard containing maiden name
      */
-    public function setMaidenName($card)
+    public function setMaidenName(ContactCard $card)
     {
-        $maidenName = $card->getProperty("audriga.eu/roundcube:maidenName");
+        $jsContactMaidenName = $card->getProperty("audriga.eu/roundcube:maidenName");
 
-        if ($maidenName !== null && $maidenName !== "") {
-            $value = is_string($maidenName) ? $maidenName : (string)$maidenName;
+        if ($jsContactMaidenName !== null && $jsContactMaidenName !== "") {
+            $value = is_string($jsContactMaidenName) ? $jsContactMaidenName : (string)$jsContactMaidenName;
             if (trim($value) !== "") {
                 $this->addSingleProperty("X-MAIDENNAME", trim($value));
             }

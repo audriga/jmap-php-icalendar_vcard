@@ -20,78 +20,103 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * Overrides getOnlineServices from parent
      */
-    public function getOnlineServices($card)
+    public function getOnlineServices(ContactCard $card)
     {
+        // First call parent to get standard properties
         parent::getOnlineServices($card);
 
-        $services = $card->getOnlineServices() ?: array();
-        $index = count($services) + 1;
+        // Get existing services or initialize empty array
+        $jsContactOnlineProperty = $card->getOnlineServices();
+        if (!is_array($jsContactOnlineProperty)) {
+            $jsContactOnlineProperty = array();
+        }
 
-        $xSocialProfiles = $this->vCard->__get('X-SOCIALPROFILE');
-        if (!AdapterUtil::isSetAndNotNull($xSocialProfiles) || empty($xSocialProfiles)) {
+        // Check if X-SOCIALPROFILE exists
+        $socialProps = array();
+        if (is_null($this->vCard->__get("X-SOCIALPROFILE"))) {
             return;
         }
 
-        // This is basically the same as "SOCIALPROFILE" in parent but for X-SOCIALPROFILE.
-        foreach ($xSocialProfiles as $prop) {
-            $value = trim((string) $prop);
-            if ($value === '') {
-                continue;
+        foreach ($this->vCard->__get("X-SOCIALPROFILE") as $vCardProp) {
+            if (isset($vCardProp)) {
+                array_push($socialProps, $vCardProp);
             }
-
-            $service = new OnlineService();
-
-            // Set the user/uri value
-            if (
-                isset($prop['VALUE'])
-                && strtolower(trim((string) $prop['VALUE'])) === 'text'
-            ) {
-                $service->setUser($value);
-            } else {
-                // Check if it's a URL or just username
-                if (filter_var($value, FILTER_VALIDATE_URL)) {
-                    $service->setUri($value);
-                } else {
-                    $service->setUser($value);
-                }
-            }
-
-            // Extract service type from TYPE parameter (e.g., TYPE=twitter)
-            $serviceType = null;
-            if (isset($prop['TYPE'])) {
-                $types = $prop['TYPE']->getParts();
-                if (is_array($types) && !empty($types)) {
-                    $serviceType = strtolower(trim($types[0]));
-                }
-            }
-
-            // Also check SERVICE-TYPE parameter as fallback
-            if (empty($serviceType) && isset($prop['SERVICE-TYPE'])) {
-                $serviceType = strtolower(trim((string) $prop['SERVICE-TYPE']));
-            }
-
-            if (!empty($serviceType)) {
-                $service->setService($serviceType);
-            }
-
-            $contexts = Util::vCardTypeParamToContexts($prop);
-            if (!empty($contexts)) {
-                $service->setContexts($contexts);
-            }
-
-            $pref = Util::vCardPrefParamToInt($prop);
-            if ($pref !== null) {
-                $service->setPref($pref);
-            }
-
-            $service->setLabel('X-SOCIALPROFILE');
-
-            $key = Util::getMapKeyFromPropValue($prop, $value, 'os', $index, $services);
-            $services[$key] = $service;
         }
 
-        if (!empty($services)) {
-            $card->setOnlineServices($services);
+        // Calculate starting index for new services
+        $index = count($jsContactOnlineProperty) + 1;
+
+        // This is basically the same as "SOCIALPROFILE" in parent but for X-SOCIALPROFILE.
+        foreach ($socialProps as $vCardSocialProperty) {
+            $vCardSocialPropertyValue = $vCardSocialProperty->getValue();
+
+            if (isset($vCardSocialPropertyValue) && !empty($vCardSocialPropertyValue)) {
+                $jsContactSocialEntry = new OnlineService();
+
+                // Determine if it's username or uri based on VALUE parameter
+                if (
+                    isset($vCardSocialProperty['VALUE']) &&
+                    !empty($vCardSocialProperty['VALUE']) &&
+                    $vCardSocialProperty['VALUE'] == "text"
+                ) {
+                    $jsContactSocialEntry->setUser($vCardSocialPropertyValue);
+                } else {
+                    // Check if it's a URL or just username
+                    if (filter_var($vCardSocialPropertyValue, FILTER_VALIDATE_URL)) {
+                        $jsContactSocialEntry->setUri($vCardSocialPropertyValue);
+                    } else {
+                        $jsContactSocialEntry->setUser($vCardSocialPropertyValue);
+                    }
+                }
+
+                // Set preference if present
+                if (isset($vCardSocialProperty['PREF']) && !empty($vCardSocialProperty['PREF'])) {
+                    $jsContactSocialEntry->setPref($vCardSocialProperty['PREF']);
+                }
+
+                // Set service type if present
+                if (isset($vCardSocialProperty['SERVICE-TYPE']) && !empty($vCardSocialProperty['SERVICE-TYPE'])) {
+                    $jsContactSocialEntry->setService($vCardSocialProperty['SERVICE-TYPE']);
+                }
+
+                // Extract service type from TYPE parameter as well (e.g., TYPE=twitter)
+                if (empty($jsContactSocialEntry->getService()) && isset($vCardSocialProperty['TYPE'])) {
+                    $types = $vCardSocialProperty['TYPE']->getParts();
+                    if (is_array($types) && !empty($types)) {
+                        $serviceType = strtolower(trim($types[0]));
+                        // Only set if it looks like a service name (not work/home)
+                        if (!in_array($serviceType, array('work', 'home', 'other'))) {
+                            $jsContactSocialEntry->setService($serviceType);
+                        }
+                    }
+                }
+
+                // Convert contexts from TYPE parameter
+                $contexts = Util::vCardTypeParamToContexts($vCardSocialProperty);
+                if (!empty($contexts)) {
+                    $jsContactSocialEntry->setContexts($contexts);
+                }
+
+                // Set label to indicate this came from X-SOCIALPROFILE
+                $jsContactSocialEntry->setLabel('X-SOCIALPROFILE');
+
+                // Since "online" is a map and key creation for the map keys is not specified, we use
+                // the getMapKeyFromPropValue utility or MD5 hash fallback
+                $key = Util::getMapKeyFromPropValue(
+                    $vCardSocialProperty,
+                    $vCardSocialPropertyValue,
+                    'os',
+                    $index,
+                    $jsContactOnlineProperty
+                );
+                $jsContactOnlineProperty[$key] = $jsContactSocialEntry;
+                $index++;
+            }
+        }
+
+        // Update the card with all online services
+        if (!empty($jsContactOnlineProperty)) {
+            $card->setOnlineServices($jsContactOnlineProperty);
         }
     }
 
@@ -101,8 +126,9 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
      *
      * @param ContactCard $card The ContactCard containing online services
      */
-    public function setOnlineServices($card)
+    public function setOnlineServices(ContactCard $card)
     {
+        // First call parent to handle standard properties
         parent::setOnlineServices($card);
 
         $services = $card->getOnlineServices();
@@ -115,8 +141,8 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                 continue;
             }
 
-            $label = strtoupper(trim((string) $service->getLabel()));
-            if ($label !== 'X-SOCIALPROFILE') {
+            $label = $service->getLabel();
+            if (!is_string($label) || strtoupper(trim($label)) !== 'X-SOCIALPROFILE') {
                 continue;
             }
 
@@ -125,7 +151,7 @@ class NextcloudJSContactVCardAdapter extends JSContactVCardAdapter
                 continue;
             }
 
-            $params = [];
+            $params = array();
 
             $serviceType = $service->getService();
             if (is_string($serviceType) && $serviceType !== '') {

@@ -479,6 +479,7 @@ class JSCalendarICalendarAdapterUtil
 
         return $iCalUntil;
     }
+
     public static function convertFromICalCUTypeToJmapKind($cutype)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($cutype)) {
@@ -750,6 +751,7 @@ class JSCalendarICalendarAdapterUtil
 
         return $normalizedLinks;
     }
+
     public static function extractMediaTypeFromDataUrlMetaDataString($metaData)
     {
         // Data URLs use a "/" to show the [type]/[subtype] of their data.

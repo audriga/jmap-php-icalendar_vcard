@@ -396,6 +396,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         // Create a pattern to return the duration in the correct format.
         $outputFormat = 'P';
+        // Use total days to handle years/months properly
         if ($interval->format('%d') != 0) {
             $outputFormat .= '%dD';
         }
@@ -420,6 +421,15 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         return $interval->format($outputFormat);
     }
 
+    /**
+     * Set the duration of the event from a JSCalendar duration string.
+     *
+     * Note: DURATION is mutually exclusive with DTEND in iCalendar.
+     * If DTEND is already set, this method does nothing.
+     *
+     * @param string $duration ISO 8601 duration string (e.g., "PT1H30M", "P1D")
+     * @return void
+     */
     public function setDuration($duration)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($duration)) {
@@ -466,7 +476,9 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         // them is converted into the "updated" jmap property.
         $lastModified = $this->iCalEvent->VEVENT->{'LAST-MODIFIED'};
         $dTStamp = $this->iCalEvent->VEVENT->DTSTAMP;
-        $method = $this->iCalEvent->METHOD;
+        $method = $this->iCalEvent->METHOD; // Check if this is a scheduling message
+        //or a regular calendar object
+
         $dateUpdated = null;
 
         // Per RFC 8984: For scheduling messages (METHOD property present), use DTSTAMP.
@@ -688,6 +700,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $jmapKeyWords = [];
 
         foreach ($categories as $cat) {
+        // Parse comma-separated values from each CATEGORIES property
             foreach ($cat->getParts() as $value) {
                 $value = trim($value);
                 if (AdapterUtil::isSetNotNullAndNotEmpty($value)) {
@@ -716,7 +729,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         if (count($categories) == 0) {
             return;
         }
-
+        // VObject handles comma-separation automatically when given an array
         $this->iCalEvent->VEVENT->add("CATEGORIES", $categories);
     }
 
@@ -1023,6 +1036,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $alert->setAction("email");
             }
 
+            // Map ACKNOWLEDGED property (RFC 9074) to JSCalendar acknowledged timestamp
             $acknowledged = $alarm->ACKNOWLEDGED;
             if (AdapterUtil::isSetNotNullAndNotEmpty($acknowledged)) {
                 $acknowledgedDateTime = $acknowledged->getDateTime();
@@ -1048,23 +1062,22 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         foreach ($alerts as $id => $alert) {
             if (is_array($alert)) {
-                $alert = Alert::fromJson($alert);
+                $alert = Alert::fromJson($alert); // Convert array to Alert object if needed
             }
 
             if (!($alert instanceof Alert)) {
-                continue;
+                continue; // Skip if not a valid Alert object
             }
 
             $this->iCalEvent->VEVENT->add("VALARM", []);
 
             $jsCalAction = $alert->getAction();
 
-            // Set the ACTION property. "EMAIL" and "DISPLAY" are the only ones relevant for mapping.
+           // Set the ACTION property. "EMAIL" and "DISPLAY" are the only ones relevant for mapping.
             if (strcmp($jsCalAction, "email") === 0) {
-                $iCalAction = "EMAIL";
-            } elseif (strcmp($jsCalAction, "display") === 0 || is_null($jsCalAction)) {
-                $iCalAction = "DISPLAY";
+                    $iCalAction = "EMAIL";
             } else {
+                // Default to DISPLAY for "display", null, or any other action
                 $iCalAction = "DISPLAY";
             }
 
@@ -1072,7 +1085,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $jsCalTrigger = $alert->getTrigger();
 
-            if (is_null($jsCalTrigger)) {
+            if (is_null($jsCalTrigger)) { // Trigger is mandatory, skip if missing
                 $alarmIndex++;
                 continue;
             }
@@ -1098,21 +1111,21 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue);
                 }
             } elseif (strcmp($triggerType, "AbsoluteTrigger") === 0) {
-                $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->getWhen());
+                 $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->getWhen());
 
                 // If the date time is false, it was probably not in UTC, which is the standard for both formats.
-                // Log and skip to the next alert.
                 if (!$triggerValue) {
                     $this->logger->error(
                         "Unable to create date time for absolute trigger from value: "
                         . $jsCalTrigger->getWhen()
                     );
 
+                    // Preserve the invalid trigger data in a custom extension property
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add(
-                        "X-JSCALENDAR-TRIGGER-WHEN",
+                        "X-INVALID-TRIGGER-WHEN",
                         $jsCalTrigger->getWhen()
                     );
-
+                    // Set a safe default trigger so the alarm structure is valid
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add(
                         "TRIGGER",
                         "-PT15M"
@@ -1121,7 +1134,6 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     $alarmIndex++;
                     continue;
                 }
-
                 $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue, ["VALUE" => "DATE-TIME"]);
             } else {
                 // The trigger type is not one of the two known ones.
@@ -1130,9 +1142,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 continue;
             }
 
+            // Map acknowledged timestamp from JSCalendar to iCalendar ACKNOWLEDGED property
             $acknowledged = $alert->getAcknowledged();
 
             if (AdapterUtil::isSetNotNullAndNotEmpty($acknowledged)) {
+                // Convert UTC timestamp to DateTime for ACKNOWLEDGED property
                 $acknowledgedDateTime = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $acknowledged);
                 if ($acknowledgedDateTime) {
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("ACKNOWLEDGED", $acknowledgedDateTime);
@@ -1512,8 +1526,10 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $excludedRecurrenceIds = [];
 
-        foreach ($exDates as $exDateProperty) {
-            foreach ($exDateProperty->getDateTimes() as $dateTime) {
+        // Go through each EXDATE property (there can be multiple)
+        foreach ($exDates as $exDate) {
+            // Parse comma-separated datetime values from each property
+            foreach ($exDate->getDateTimes() as $dateTime) {
                 $excludedRecurrenceIds[] = $dateTime->format("Y-m-d\TH:i:s");
             }
         }
@@ -1674,7 +1690,6 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $this->iCalEvent->VEVENT->RDATE = $setRDates;
     }
-
     public function getParticipants()
     {
         $organizer = $this->iCalEvent->VEVENT->ORGANIZER;
@@ -1684,13 +1699,31 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             !AdapterUtil::isSetNotNullAndNotEmpty($organizer)
             && !AdapterUtil::isSetNotNullAndNotEmpty($attendees)
         ) {
-                return null;
+            return null;
         }
 
         $jmapParticipants = [];
 
         if (AdapterUtil::isSetNotNullAndNotEmpty($attendees)) {
+            // Sort attendees: process groups (CUTYPE=GROUP) before individuals
+            // This ensures memberOf references are valid when processing MEMBER parameters
+            $groupAttendees = [];
+            $individualAttendees = [];
+
             foreach ($attendees as $attendee) {
+                $cutype = isset($attendee['CUTYPE']) ? $attendee['CUTYPE']->getValue() : null;
+
+                if ($cutype === 'GROUP') {
+                    $groupAttendees[] = $attendee;
+                } else {
+                    $individualAttendees[] = $attendee;
+                }
+            }
+
+            // Process groups first, then individuals
+            $sortedAttendees = array_merge($groupAttendees, $individualAttendees);
+
+            foreach ($sortedAttendees as $attendee) {
                 $attendeeValue = $attendee->getValue();
 
                 if (is_null($attendeeValue)) {
@@ -1844,6 +1877,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 case "MEMBER":
                     // MEMBER parameter indicates group membership
                     // Maps to JSCalendar "memberOf" property
+                    // Groups are now processed first in getParticipants() to ensure valid conversion
                     $memberOf = $participant->getMemberOf();
                     if (is_null($memberOf)) {
                         $memberOf = [];
@@ -2481,14 +2515,17 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 }
             }
 
+            // Use LABEL (RFC 7986 standard)
             if (AdapterUtil::isSetNotNullAndNotEmpty($link->getTitle())) {
                 $data["parameters"]["LABEL"] = $link->getTitle();
             }
 
+            // Convert numeric size to string for SIZE parameter (RFC 8607)
             if (AdapterUtil::isSetNotNullAndNotEmpty($link->getSize())) {
                 $data["parameters"]["SIZE"] = (string) $link->getSize();
             }
 
+            // VObject handles empty parameters array automatically
             $this->iCalEvent->VEVENT->add(
                 "ATTACH",
                 $data["value"],
@@ -2513,6 +2550,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $virtualLocations = [];
         $key = 1;
 
+        // Convert each CONFERENCE property to a VirtualLocation object
         foreach ($conferences as $conference) {
             $virtualLocation = new VirtualLocation();
             $virtualLocation->setType("VirtualLocation");
@@ -2522,12 +2560,12 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $virtualLocation->setUri($uri);
             }
 
-            if (isset($conference['LABEL'])) {
+            if (isset($conference['LABEL'])) {  // Map LABEL parameter to name
                 $virtualLocation->setName($conference['LABEL']->getValue());
             }
 
             if (isset($conference['FEATURE'])) {
-                $features = [];
+                $features = []; // Map FEATURE parameter to features (audio, video, chat, etc.)
                 foreach ($conference['FEATURE']->getParts() as $feature) {
                     $features[strtolower($feature)] = true;
                 }
