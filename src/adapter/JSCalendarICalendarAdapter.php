@@ -700,7 +700,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $jmapKeyWords = [];
 
         foreach ($categories as $cat) {
-        // Parse comma-separated values from each CATEGORIES property
+            // Parse comma-separated values from each CATEGORIES property
             foreach ($cat->getParts() as $value) {
                 $value = trim($value);
                 if (AdapterUtil::isSetNotNullAndNotEmpty($value)) {
@@ -1073,9 +1073,9 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             $jsCalAction = $alert->getAction();
 
-           // Set the ACTION property. "EMAIL" and "DISPLAY" are the only ones relevant for mapping.
+            // Set the ACTION property. "EMAIL" and "DISPLAY" are the only ones relevant for mapping.
             if (strcmp($jsCalAction, "email") === 0) {
-                    $iCalAction = "EMAIL";
+                $iCalAction = "EMAIL";
             } else {
                 // Default to DISPLAY for "display", null, or any other action
                 $iCalAction = "DISPLAY";
@@ -1111,7 +1111,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue);
                 }
             } elseif (strcmp($triggerType, "AbsoluteTrigger") === 0) {
-                 $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->getWhen());
+                $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->getWhen());
 
                 // If the date time is false, it was probably not in UTC, which is the standard for both formats.
                 if (!$triggerValue) {
@@ -1690,6 +1690,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $this->iCalEvent->VEVENT->RDATE = $setRDates;
     }
+
     public function getParticipants()
     {
         $organizer = $this->iCalEvent->VEVENT->ORGANIZER;

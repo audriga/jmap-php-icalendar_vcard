@@ -70,7 +70,9 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
                 $adapter->resetICalEvent();
 
+                // Map the properties of the recurrenceOverride to its corresponding VEVENT.
                 $this->mapAllJmapPropertiesToICal($recurrenceOverride, $adapter, $jsCalendarEvent);
+
 
                 $adapter->setRecurrenceId(
                     $recurrenceId,
@@ -94,7 +96,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
     protected function mapAllJmapPropertiesToICal($jsEvent, $adapter, $masterEvent = null)
     {
         if (is_null($jsEvent) || is_null($adapter)) {
-            // TODO: consider logging an error.
+            $logger = \OpenXPort\Util\Logger::getInstance();
+            $logger->error("Cannot map iCal properties to JMAP: jmapEvent or adapter is null");
             return;
         }
 
@@ -119,6 +122,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         ) {
             $jsEvent->setShowWithoutTime($masterEvent->getShowWithoutTime());
         }
+
 
         // Map any properites that can be set in events and their recurrence overrides.
         $adapter->setSummary($jsEvent->getTitle());
@@ -177,6 +181,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $adapter->setReplyTo($jsEvent->getReplyTo());
 
         $adapter->setRequestStatus($jsEvent->getRequestStatus());
+
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
             $adapter->setUid($jsEvent->getUid());
@@ -204,6 +209,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         return $masterEvent;
     }
+
     /**
      * Add an RDATE property to the master event for an included recurrence instance.
      *
@@ -313,7 +319,6 @@ class JSCalendarICalendarMapper extends AbstractMapper
                         $jmapModifiedException->setTimeZone(null);
                     }
 
-
                     //Add the new modified occurrence to the ones already set in the JSCal event.
                     $recurrenceIdValueDate = $modEx["modifiedExceptions"]->VEVENT->{'RECURRENCE-ID'}->getDateTime();
 
@@ -407,6 +412,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $jmapLinks = array_combine($jmapLinkIndices, $jmapLinks);
 
+
         // Attachments are mapped for both master events and recurrence overrides via the
         // generic links <-> ATTACH conversion path.
         $jmapEvent->setLinks($jmapLinks);
@@ -445,6 +451,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             }
         }
     }
+
     /**
      * Check if a recurrence override is empty.
      *

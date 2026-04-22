@@ -13,19 +13,20 @@ use OpenXPort\Jmap\JSContact\EmailAddress;
 use OpenXPort\Jmap\JSContact\Phone;
 use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Jmap\JSContact\Address;
+use OpenXPort\Jmap\JSContact\AddressComponent;
 use OpenXPort\Jmap\JSContact\Anniversary;
 use OpenXPort\Jmap\JSContact\Relation;
 use OpenXPort\Jmap\JSContact\LanguagePref;
 use OpenXPort\Jmap\JSContact\PersonalInformation;
 use OpenXPort\Jmap\JSContact\SpeakToAs;
+use OpenXPort\Jmap\JSContact\Pronouns;
 use OpenXPort\Jmap\JSContact\Directory;
 use OpenXPort\Jmap\JSContact\Link;
+use OpenXPort\Jmap\JSContact\Media;
 use OpenXPort\Jmap\JSContact\SchedulingAddress;
 use OpenXPort\Jmap\JSContact\CryptoKey;
 use OpenXPort\Jmap\JSContact\Calendar;
 use OpenXPort\Jmap\JSContact\Author;
-use OpenXPort\Jmap\JSContact\Pronouns;
-use OpenXPort\Jmap\JSContact\AddressComponent;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\JSContactVCardAdapterUtil as Util;
 use OpenXPort\Util\Logger;
@@ -345,7 +346,6 @@ class JSContactVCardAdapter extends AbstractAdapter
         $value = trim((string) $prop);
         return $value === '' ? null : $value;
     }
-
 
     /**
      * Writes the five standard name components to the vCard N property.
@@ -724,13 +724,13 @@ class JSContactVCardAdapter extends AbstractAdapter
             return;
         }
 
-        $kindMap = [
+        $kindMap = array(
             'surname' => null,
             'given' => null,
             'given2' => null,
             'title' => null,
             'credential' => null
-        ];
+        );
 
         foreach ($components as $component) {
             $kind = $component->getKind();
@@ -785,7 +785,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             return null;
         }
 
-        $parts = [];
+        $parts = array();
         foreach ($components as $component) {
             $kind = $component->getKind();
             $value = $component->getValue();
@@ -798,7 +798,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads the vCard N and FN properties and builds the ContactCard name with all its components.
+     * This function maps the vCard "N" property to the JSContact "name" property
      *
      * @param ContactCard $card
      */
@@ -865,7 +865,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes each ContactCard nickname as a separate vCard NICKNAME property.
+     * This function maps the JSContact "nicknames" property to the vCard NICKNAME property
      *
      * @param ContactCard $card
      */
@@ -892,7 +892,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads all vCard NICKNAME properties and stores them on the ContactCard.
+     * This function maps the vCard "NICKNAME" property to the JSContact "nicknames" property
      *
      * @param ContactCard $card
      */
@@ -1094,7 +1094,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes each ContactCard organization as a vCard ORG property, including any department units.
+     * This function maps the JSContact "organizations" property to the vCard ORG property
      *
      * @param ContactCard $card
      */
@@ -1142,8 +1142,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard ORG properties and stores them on the ContactCard.
-     * The first component is the org name; anything after that becomes units.
+     * This function maps the vCard "ORG" property to the JSContact "organizations" property
      *
      * @param ContactCard $card
      */
@@ -1198,7 +1197,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard titles to the vCard as TITLE or ROLE depending on their kind.
+     * This function maps the JSContact "titles" property to the vCard TITLE or ROLE property
      *
      * @param ContactCard $card
      */
@@ -1235,8 +1234,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard TITLE and ROLE properties and stores them on the ContactCard.
-     * TITLE gets kind "title", ROLE gets kind "role".
+     * This function maps the vCard "TITLE" and "ROLE" properties to the JSContact "titles" property
      *
      * @param ContactCard $card
      */
@@ -1283,7 +1281,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes each ContactCard note as a vCard NOTE property, including author and timestamp if present.
+     * This function maps the JSContact "notes" property to the vCard NOTE property
      *
      * @param ContactCard $card
      */
@@ -1327,7 +1325,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard NOTE properties and stores them on the ContactCard, keeping author and timestamp.
+     * This function maps the vCard "NOTE" property to the JSContact "notes" property
      *
      * @param ContactCard $card
      */
@@ -1387,7 +1385,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard email addresses as vCard EMAIL.
+     * This function maps the JSContact "emails" property to the vCard EMAIL property
      *
      * @param ContactCard $card
      */
@@ -1429,7 +1427,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard EMAIL properties and stores them on the ContactCard.
+     * This function maps the vCard "EMAIL" property to the JSContact "emails" property
      *
      * @param ContactCard $card
      */
@@ -1464,8 +1462,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard phone numbers as vCard TEL properties.
-     * Handles Roundcube-specific labels like home2, work2, homefax, and workfax.
+     * This function maps the JSContact "phones" property to the vCard TEL property
      *
      * @param ContactCard $card
      */
@@ -1487,16 +1484,16 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             $label = strtolower((string)$phone->getLabel());
-            $roundcubeTypes = ['home2', 'work2', 'homefax', 'workfax'];
+            $roundcubeTypes = array('home2', 'work2', 'homefax', 'workfax');
 
-            $params = [];
+            $params = array();
             $pref = Util::prefToVcardParam($phone);
             if ($pref !== null) {
                 $params['PREF'] = $pref;
             }
 
             if (in_array($label, $roundcubeTypes, true)) {
-                $params['TYPE'] = [$label];
+                $params['TYPE'] = array($label);
             } else {
                 $types = Util::contextsToVcardTypeParam($phone);
                 $features = $phone->getFeatures();
@@ -1517,8 +1514,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard TEL properties and stores them on the ContactCard.
-     * TYPE values are mapped to contexts (home/work) and phone features (mobile, fax, etc.).
+     * This function maps the vCard "TEL" property to the JSContact "phones" property
      *
      * @param ContactCard $card
      */
@@ -1595,8 +1591,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard online services to the vCard as IMPP, SOCIALPROFILE, or URL
-     * depending on the URI scheme and service name.
+     * This function maps the JSContact "onlineServices" property to the vCard IMPP, SOCIALPROFILE, and URL properties
      *
      * @param ContactCard $card
      */
@@ -1650,7 +1645,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard IMPP, SOCIALPROFILE, and URL properties and stores them as online services on the ContactCard.
+     * This function maps the vCard "IMPP", "SOCIALPROFILE" and "URL" properties to the JSContact "onlineServices" property
      *
      * @param ContactCard $card
      */
@@ -1705,7 +1700,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard LANG properties and stores them as preferred languages on the ContactCard.
+     * This function maps the vCard "LANG" property to the JSContact "preferredLanguages" property
      *
      * @param ContactCard $card
      */
@@ -1740,7 +1735,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard preferred languages as vCard LANG properties.
+     * This function maps the JSContact "preferredLanguages" property to the vCard LANG property
      *
      * @param ContactCard $card
      */
@@ -1804,7 +1799,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard PHOTO, LOGO, and SOUND properties and stores them as media on the ContactCard.
+     * This function maps the vCard "PHOTO", "LOGO" and "SOUND" properties to the JSContact "media" property
      *
      * @param ContactCard $card
      */
@@ -1845,7 +1840,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard media entries as vCard PHOTO, LOGO, or SOUND properties.
+     * This function maps the JSContact "media" property to the vCard PHOTO, LOGO, or SOUND properties
      *
      * @param ContactCard $card
      */
@@ -1886,7 +1881,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard SOURCE and ORG-DIRECTORY properties and stores them as directories on the ContactCard.
+     * This function maps the vCard "SOURCE" and "ORG-DIRECTORY" properties to the JSContact "directories" property
      *
      * @param ContactCard $card
      */
@@ -1941,7 +1936,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard directories as vCard SOURCE or ORG-DIRECTORY properties.
+     * This function maps the JSContact "directories" property to the vCard SOURCE or ORG-DIRECTORY properties
      *
      * @param ContactCard $card
      */
@@ -1990,7 +1985,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard URL and CONTACT-URI properties and stores them as links on the ContactCard.
+     * This function maps the vCard "URL" and "CONTACT-URI" properties to the JSContact "links" property
      *
      * @param ContactCard $card
      */
@@ -2048,7 +2043,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard links as vCard URL or CONTACT-URI properties.
+     * This function maps the JSContact "links" property to the vCard URL or CONTACT-URI properties
      *
      * @param ContactCard $card
      */
@@ -2079,7 +2074,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard KEY properties and stores them as crypto keys on the ContactCard.
+     * This function maps the vCard "KEY" property to the JSContact "cryptoKeys" property
      *
      * @param ContactCard $card
      */
@@ -2117,7 +2112,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard crypto keys as vCard KEY properties.
+     * This function maps the JSContact "cryptoKeys" property to the vCard KEY property
      *
      * @param ContactCard $card
      */
@@ -2145,9 +2140,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard CALADRURI property and stores it as scheduling address on the ContactCard.
-     *
-     * CALADRURI entries have no kind (calendar invitation address).
+     * This function maps the vCard "CALADRURI" property to the JSContact "schedulingAddresses" property
      *
      * @param ContactCard $card
      */
@@ -2187,7 +2180,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard scheduling addresses as vCard CALADRURI properties.
+     * This function maps the JSContact "schedulingAddresses" property to the vCard CALADRURI property
      *
      * @param ContactCard $card
      */
@@ -2227,10 +2220,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard CALURI and FBURL properties and stores them as calendars on the ContactCard.
-     *
-     * CALURI entries get kind 'calendar'.
-     * FBURL entries get kind 'freeBusy'.
+     * This function maps the vCard "CALURI" and "FBURL" properties to the JSContact "calendars" property
      *
      * @param ContactCard $card
      */
@@ -2283,7 +2273,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard calendars as vCard CALURI or FBURL properties.
+     * This function maps the JSContact "calendars" property to the vCard CALURI or FBURL properties
      *
      * @param ContactCard $card
      */
@@ -2400,7 +2390,8 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard addresses as vCard ADR properties.
+     * This function maps the JSContact "addresses" property to the vCard ADR property
+     *
      * @param ContactCard $card
      */
     public function setAddresses(ContactCard $card)
@@ -2494,7 +2485,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard ADR properties and stores them as addresses on the ContactCard.
+     * This function maps the vCard "ADR" property to the JSContact "addresses" property
      *
      * @param ContactCard $card
      */
@@ -2809,8 +2800,8 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard anniversaries to the vCard as BDAY, BIRTHPLACE, DEATHDATE, DEATHPLACE, and ANNIVERSARY.
-     * Only explicitly recognized anniversary kinds are exported.
+     * This function maps the JSContact "anniversaries" property to the vCard BDAY, BIRTHPLACE,
+     * DEATHDATE, DEATHPLACE, and ANNIVERSARY properties
      *
      * @param ContactCard $card
      */
@@ -2871,7 +2862,8 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard BDAY, BIRTHPLACE, DEATHDATE, DEATHPLACE, and ANNIVERSARY and stores them on the ContactCard.
+     * This function maps the vCard "BDAY", "BIRTHPLACE", "DEATHDATE", "DEATHPLACE" and "ANNIVERSARY" properties
+     * to the JSContact "anniversaries" property
      *
      * @param ContactCard $card
      */
@@ -2930,7 +2922,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard relations as vCard RELATED properties, with relation types as TYPE parameters.
+     * This function maps the JSContact "relatedTo" property to the vCard RELATED property
      *
      * @param ContactCard $card
      */
@@ -2971,8 +2963,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard RELATED properties and stores them as relations on the ContactCard.
-     * TYPE parameters become the relation type keys.
+     * This function maps the vCard "RELATED" property to the JSContact "relatedTo" property
      *
      * @param ContactCard $card
      */
@@ -3014,7 +3005,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard group members as vCard MEMBER properties and sets KIND to "group".
+     * This function maps the JSContact "members" property to the vCard MEMBER property and sets KIND to "group"
      *
      * @param ContactCard $card
      */
@@ -3041,7 +3032,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard MEMBER properties and stores them on the ContactCard.
+     * This function maps the vCard "MEMBER" property to the JSContact "members" property
      *
      * @param ContactCard $card
      */
@@ -3070,7 +3061,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard CATEGORIES properties and stores them as keywords on the ContactCard.
+     * This function maps the vCard "CATEGORIES" property to the JSContact "keywords" property
      *
      * @param ContactCard $card
      */
@@ -3110,7 +3101,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard keywords as a single vCard CATEGORIES property with all values combined.
+     * This function maps the JSContact "keywords" property to the vCard CATEGORIES property
      *
      * @param ContactCard $card
      */
@@ -3134,8 +3125,8 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Reads vCard EXPERTISE, HOBBY, and INTEREST properties and stores them on the ContactCard.
-     * LEVEL values are mapped: beginner -> low, average/medium -> medium, expert -> high.
+     * This function maps the vCard "EXPERTISE", "HOBBY" and "INTEREST" properties to
+     * the JSContact "personalInfo" property
      *
      * @param ContactCard $card
      */
@@ -3187,8 +3178,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * Writes ContactCard personal info entries as vCard EXPERTISE, HOBBY, or INTEREST properties.
-     * LEVEL values are mapped back: low -> beginner, medium -> average, high -> expert.
+     * This function maps the JSContact "personalInfo" property to the vCard EXPERTISE, HOBBY, or INTEREST properties
      *
      * @param ContactCard $card
      */

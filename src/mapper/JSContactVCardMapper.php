@@ -30,8 +30,13 @@ class JSContactVCardMapper extends AbstractMapper
                 // start with a clean vCard each time
                 $adapter->reset();
 
-                // Set addressBookId from the card
-                $addressBookIds = $jsContactCard->getAddressBookIds();
+                // Set addressBookId from the card (handle both stdClass and ContactCard)
+                $addressBookIds = null;
+                if ($jsContactCard instanceof \OpenXPort\Jmap\JSContact\ContactCard) {
+                    $addressBookIds = $jsContactCard->getAddressBookIds();
+                } elseif (is_object($jsContactCard) && property_exists($jsContactCard, 'addressBookIds')) {
+                    $addressBookIds = $jsContactCard->addressBookIds;
+                }
                 if (is_array($addressBookIds) && !empty($addressBookIds)) {
                     $adapter->setAddressBookId($addressBookIds[0]);
                 }
