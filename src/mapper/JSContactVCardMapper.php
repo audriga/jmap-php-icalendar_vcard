@@ -35,7 +35,7 @@ class JSContactVCardMapper extends AbstractMapper
                     }
                     $jsContactCard = $card;
                 }
-                    // start with a clean vCard each time
+                // start with a clean vCard each time
                 $adapter->reset();
 
                 // Set addressBookId from the card
