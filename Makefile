@@ -49,7 +49,7 @@ update: composer
 # Requires podman for linting based on https://github.com/dbfx/github-phplint
 .PHONY: php70_mode
 php70_mode: composer_lts
-    git checkout composer.json composer.lock
+	git checkout composer.json composer.lock
 	rm -f composer.lock
 	rm $(build_tools_directory)/composer.phar || true
 	ln $(build_tools_directory)/composer_lts.phar $(build_tools_directory)/composer.phar
