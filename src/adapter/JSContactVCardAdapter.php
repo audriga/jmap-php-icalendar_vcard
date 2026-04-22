@@ -1645,7 +1645,8 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
-     * This function maps the vCard "IMPP", "SOCIALPROFILE" and "URL" properties to the JSContact "onlineServices" property
+     * This function maps the vCard "IMPP", "SOCIALPROFILE" and "URL" properties
+     * to the JSContact "onlineServices" property
      *
      * @param ContactCard $card
      */
