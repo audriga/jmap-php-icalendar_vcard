@@ -2643,6 +2643,14 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function setBirthday($birthday)
     {
+        // Handle PartialDate object format from RFC 9553
+        if (is_array($birthday) || is_object($birthday)) {
+            $birthday = (array)$birthday;
+            if (isset($birthday['year']) && isset($birthday['month']) && isset($birthday['day'])) {
+                $birthday = sprintf('%04d-%02d-%02d', $birthday['year'], $birthday['month'], $birthday['day']);
+            }
+        }
+
         $vDate = Util::parseDateToVcardDate($birthday);
         if ($vDate !== null) {
             $this->addSingleProperty('BDAY', $vDate, array('VALUE' => 'date'));
@@ -2679,6 +2687,14 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function setAnniversary($anniversary)
     {
+        // Handle PartialDate object format from RFC 9553
+        if (is_array($anniversary) || is_object($anniversary)) {
+            $anniversary = (array)$anniversary;
+            if (isset($anniversary['year']) && isset($anniversary['month']) && isset($anniversary['day'])) {
+                $anniversary = sprintf('%04d-%02d-%02d', $anniversary['year'], $anniversary['month'], $anniversary['day']);
+            }
+        }
+
         $vDate = Util::parseDateToVcardDate($anniversary);
         if ($vDate !== null) {
             $this->addSingleProperty('ANNIVERSARY', $vDate, array('VALUE' => 'date'));
@@ -2729,6 +2745,14 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function setDeathDate($deathDate)
     {
+        // Handle PartialDate object format from RFC 9553
+        if (is_array($deathDate) || is_object($deathDate)) {
+            $deathDate = (array)$deathDate;
+            if (isset($deathDate['year']) && isset($deathDate['month']) && isset($deathDate['day'])) {
+                $deathDate = sprintf('%04d-%02d-%02d', $deathDate['year'], $deathDate['month'], $deathDate['day']);
+            }
+        }
+
         $vDate = Util::parseDateToVcardDate($deathDate);
         if ($vDate !== null) {
             $this->addSingleProperty('DEATHDATE', $vDate, array('VALUE' => 'date'));
