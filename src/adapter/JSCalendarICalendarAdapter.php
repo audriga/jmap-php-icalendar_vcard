@@ -677,7 +677,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        return $color;
+        return (string)$color;
     }
 
     public function setColor($color)
@@ -687,6 +687,23 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         $this->iCalEvent->VEVENT->add("COLOR", $color);
+    }
+
+    public function getLocale()
+    {
+        $locale = $this->iCalEvent->VEVENT->{'X-LOCALE'};
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($locale)) {
+            return null;
+        }
+        return (string)$locale;
+    }
+
+    public function setLocale($locale)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($locale)) {
+            return;
+        }
+        $this->iCalEvent->VEVENT->add("X-LOCALE", $locale);
     }
 
     public function getCategories()
