@@ -3,10 +3,10 @@
 namespace OpenXPort\Test\VCard;
 
 use OpenXPort\Adapter\NextcloudJSContactVCardAdapter;
-use OpenXPort\Jmap\JSContact\Audriga\Card;
-use OpenXPort\Jmap\JSContact\Phone;
+use OpenXPort\Jmap\JSContact\ContactCard;
+use OpenXPort\Jmap\JSContact\Name;
+use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Mapper\JSContactVCardMapper;
-use OpenXPort\Test\VCard\TestUtils;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Reader;
 
@@ -27,7 +27,7 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
     /** @var array */
     protected $vCardData = null;
 
-    /** @var \OpenXPort\Jmap\JSContact\Card */
+    /** @var \OpenXPort\Jmap\JSContact\ContactCard */
     protected $jsContactCard = null;
 
     public function setUp(): void
@@ -61,14 +61,103 @@ final class NextcloudJSContactVCardAdapterTest extends TestCase
     {
         $this->mapVCard();
 
-        $usernames = [];
+        $uris = [];
+        $labels = [];
+
         foreach ($this->jsContactCard->getOnlineServices() as $id => $service) {
-            array_push($usernames, $service->getUser());
+            $uri = $service->getUri();
+            $label = $service->getLabel();
+
+            array_push($uris, $uri);
+            array_push($labels, $label);
         }
+
         // Assert that for an empty IM in vCard we don't have anything mapped in JMAP
         $this->assertContains(
             "https://github.com/apache/james-project",
-            $usernames
+            $uris
         );
+
+        $this->assertContains('X-SOCIALPROFILE', $labels);
+    }
+
+    public function testNextcloudSocialProfileRoundtrip()
+    {
+        $vCardString = file_get_contents(__DIR__ . '/../resources/nextcloud_socialprofile.vcf');
+        $this->assertNotFalse($vCardString, 'Failed to read nextcloud_socialprofile.vcf');
+        $this->assertStringContainsString('BEGIN:VCARD', $vCardString);
+        $this->assertStringContainsString('END:VCARD', $vCardString);
+
+        $this->vCard = Reader::read($vCardString);
+        $this->vCardData = array("1" => array("vCard" => $this->vCard->serialize()));
+
+        // Convert vCard -> JSContact
+        $this->adapter->setVCard(reset($this->vCardData)["vCard"]);
+        $card = new ContactCard();
+        $this->adapter->getOnlineServices($card);
+
+        $onlineServices = $card->getOnlineServices();
+        $this->assertNotEmpty($onlineServices, "Online services should not be empty");
+
+        $twitterService = null;
+        foreach ($onlineServices as $service) {
+            if ($service->getService() === 'twitter') {
+                $twitterService = $service;
+                break;
+            }
+        }
+        $this->assertNotNull($twitterService, "Twitter service should exist");
+        $this->assertEquals('johndoe', $twitterService->getUser(), "Twitter username should be 'johndoe'");
+
+        // Convert JSContact -> vCard (roundtrip)
+        $this->adapter->reset();
+        $this->adapter->setOnlineServices($card);
+
+        $socialProfiles = $this->adapter->getVCard();
+        $this->assertStringContainsString('X-SOCIALPROFILE', $socialProfiles);
+        $this->assertStringContainsString('twitter', strtolower($socialProfiles));
+        $this->assertStringContainsString('johndoe', $socialProfiles);
+    }
+
+    /**
+     * Test JSContact to vCard conversion
+     * Read JSContact from JSON file and convert to vCard
+     */
+    public function testJSContactToNextcloudVCard()
+    {
+        $jsonString = file_get_contents(__DIR__ . '/../resources/jscontactcard_nc.json');
+        $this->assertNotFalse($jsonString, 'Failed to read jscontactcard_nc.json');
+
+        $jsonData = json_decode($jsonString, true);
+        $this->assertNotNull($jsonData, 'Failed to decode JSON');
+        $this->assertIsArray($jsonData, 'JSON should decode to array');
+
+        $card = new ContactCard();
+
+        $card->setUid($jsonData['uid']);
+
+        $name = new Name();
+        $name->setFull($jsonData['name']['full']);
+        $card->setName($name);
+
+        $services = array();
+        foreach ($jsonData['onlineServices'] as $key => $serviceData) {
+            $service = new OnlineService();
+            $service->setService($serviceData['service']);
+            $service->setUser($serviceData['user']);
+            $service->setLabel($serviceData['label']);
+            $services[$key] = $service;
+        }
+        $card->setOnlineServices($services);
+
+        // JSContact -> vCard
+        $this->adapter->reset();
+        $this->adapter->setOnlineServices($card);
+
+        $vCardResult = $this->adapter->getVCard();
+        $this->assertNotEmpty($vCardResult, "vCard should not be empty");
+        $this->assertStringContainsString('X-SOCIALPROFILE', $vCardResult);
+        $this->assertStringContainsString('twitter', strtolower($vCardResult));
+        $this->assertStringContainsString('janesmith', $vCardResult);
     }
 }

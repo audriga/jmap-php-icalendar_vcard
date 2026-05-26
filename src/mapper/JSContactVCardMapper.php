@@ -3,91 +3,89 @@
 namespace OpenXPort\Mapper;
 
 use InvalidArgumentException;
-use OpenXPort\Jmap\JSContact\Card;
+use OpenXPort\Adapter\JSContactVCardAdapter;
+use OpenXPort\Jmap\JSContact\ContactCard;
 use OpenXPort\Util\Logger;
 
 class JSContactVCardMapper extends AbstractMapper
 {
     protected $logger;
 
+    /**
+     * Map from JMAP ContactCard objects (RFC 9553)
+     * to vCard data.
+     * https://datatracker.ietf.org/doc/rfc9555/
+     *
+     * @param array<string,ContactCard> $jmapData
+     * @param JSContactVCardAdapter     $adapter
+     *
+     * @return array<int,array<string,mixed>>
+     */
     public function mapFromJmap($jmapData, $adapter)
     {
         $map = [];
 
         foreach ($jmapData as $creationId => $jsContactCard) {
             try {
+                if (!($jsContactCard instanceof ContactCard)) {
+                    $card = new ContactCard();
+                    foreach (get_object_vars($jsContactCard) as $key => $value) {
+                        $setter = 'set' . ucfirst($key);
+                            $card->$setter($value);
+                    }
+                    $jsContactCard = $card;
+                }
+                // start with a clean vCard each time
                 $adapter->reset();
 
-                $adapter->setAddressBookId($jsContactCard->addressBookId);
-
-                // online deprecated
-                // TODO only onlineServices conversion implemented for newest spec
-                if (!empty($jsContactCard->online)) {
-                    $adapter->setSource($jsContactCard->online);
-                    $adapter->setImpp($jsContactCard->online);
-                    $adapter->setLogo($jsContactCard->online);
-                    $adapter->setContactUri($jsContactCard->online);
-                    $adapter->setOrgDirectory($jsContactCard->online);
-                    $adapter->setSound($jsContactCard->online);
-                    $adapter->setUrl($jsContactCard->online);
-                    $adapter->setKey($jsContactCard->online);
-                    $adapter->setFbUrl($jsContactCard->online);
-                    $adapter->setCalAdrUri($jsContactCard->online);
-                    $adapter->setCalUri($jsContactCard->online);
+                // Set addressBookId from the card
+                $addressBookIds = $jsContactCard->getAddressBookIds();
+                if (is_array($addressBookIds) && !empty($addressBookIds)) {
+                    $adapter->setAddressBookId($addressBookIds[0]);
                 }
 
-                // onlineServices
-                if (!empty($jsContactCard->onlineServices)) {
-                    $adapter->setImppFromServices($jsContactCard->onlineServices);
-                    $adapter->setSocialFromServices($jsContactCard->onlineServices);
+                // Map all properties from JSContact to vCard
+                $adapter->setUid($jsContactCard);
+                $adapter->setKind($jsContactCard);
+                $adapter->setFn($jsContactCard);
+                $adapter->setName($jsContactCard);
+                $adapter->setNickname($jsContactCard);
+                $adapter->setMedia($jsContactCard);
+                $adapter->setAnniversaries($jsContactCard);
+                $adapter->setGramGender($jsContactCard);
+                $adapter->setPronouns($jsContactCard);
+                $adapter->setAddresses($jsContactCard);
+                $adapter->setPhones($jsContactCard);
+                $adapter->setEmails($jsContactCard);
+                $adapter->setPreferredLanguages($jsContactCard);
+                $adapter->setTitles($jsContactCard);
+                $adapter->setOrganizations($jsContactCard);
+                $adapter->setRelatedTo($jsContactCard);
+                $adapter->setPersonalInfo($jsContactCard);
+                $adapter->setKeywords($jsContactCard);
+                $adapter->setNotes($jsContactCard);
+                $adapter->setProdId($jsContactCard);
+                $adapter->setUpdated($jsContactCard);
+                $adapter->setCreated($jsContactCard);
+                $adapter->setLanguage($jsContactCard);
+                $adapter->setOnlineServices($jsContactCard);
+                $adapter->setDirectories($jsContactCard);
+                $adapter->setLinks($jsContactCard);
+                $adapter->setCryptoKeys($jsContactCard);
+                $adapter->setSchedulingAddresses($jsContactCard);
+                $adapter->setCalendars($jsContactCard);
+                $adapter->setMembers($jsContactCard);
+
+                // Get the serialized vCard and build result
+                $backendContact = $adapter->getVCard();
+                $result = array("vCard" => $backendContact);
+
+                // Add addressBookId to oxpProperties
+                if (is_array($addressBookIds) && !empty($addressBookIds)) {
+                    $result["oxpProperties"]["addressBookId"] = $addressBookIds[0];
                 }
 
-                $adapter->setKind($jsContactCard->kind);
-
-                $adapter->setFN($jsContactCard->fullName);
-                $adapter->setN($jsContactCard->name);
-                $adapter->setNickname($jsContactCard->nickNames);
-
-                $adapter->setPhoto($jsContactCard->photos);
-
-                $adapter->setBDay($jsContactCard->anniversaries);
-                $adapter->setBirthPlace($jsContactCard->anniversaries);
-                $adapter->setDeathDate($jsContactCard->anniversaries);
-                $adapter->setDeathPlace($jsContactCard->anniversaries);
-                $adapter->setAnniversary($jsContactCard->anniversaries);
-
-                $adapter->setGender($jsContactCard->speakToAs);
-
-                $adapter->setADR($jsContactCard->addresses);
-                $adapter->setTZ($jsContactCard->addresses);
-
-                $adapter->setTel($jsContactCard->phones);
-
-                $adapter->setEmail($jsContactCard->emails);
-
-                $adapter->setLang($jsContactCard->preferredContactLanguages);
-
-                $adapter->setTitle($jsContactCard->titles);
-
-                $adapter->setOrg($jsContactCard->organizations);
-
-                $adapter->setRelated($jsContactCard->relatedTo);
-
-                $adapter->setExpertise($jsContactCard->personalInfo);
-                $adapter->setHobby($jsContactCard->personalInfo);
-                $adapter->setInterest($jsContactCard->personalInfo);
-
-                $adapter->setCategories($jsContactCard->categories);
-
-                $adapter->setNote($jsContactCard->notes);
-
-                $adapter->setProdId($jsContactCard->prodId);
-
-                $adapter->setRev($jsContactCard->updated);
-
-                $adapter->deriveFN($jsContactCard->name);
-
-                array_push($map, array($creationId => $adapter->getAsHash()));
+                array_push($map, array($creationId => $result));
             } catch (InvalidArgumentException $e) {
                 $this->logger = Logger::getInstance();
                 $this->logger->error($e->getMessage());
@@ -101,52 +99,71 @@ class JSContactVCardMapper extends AbstractMapper
         return $map;
     }
 
+    /**
+     * Map from vCard data to JMAP ContactCard objects (RFC 9553).
+     *
+     * @param array<string,mixed>       $data
+     * @param JSContactVCardAdapter     $adapter
+     *
+     * @return ContactCard[]
+     */
     public function mapToJmap($data, $adapter)
     {
         $list = [];
 
         foreach ($data as $contactId => $cHash) {
             $adapter->reset();
-            $adapter->setFromHash($cHash);
 
-            $jsContactCard = new Card();
+            // Handle vCard payload - either in array or direct
+            $vCardPayload = is_array($cHash) && array_key_exists("vCard", $cHash)
+                ? $cHash["vCard"]
+                : $cHash;
+            $adapter->setVCard($vCardPayload);
 
+            $jsContactCard = new ContactCard();
+
+            // Handle oxpProperties if present
             if (
+                is_array($cHash) &&
                 array_key_exists("oxpProperties", $cHash) &&
                 array_key_exists("addressBookId", $cHash["oxpProperties"])
             ) {
-                $jsContactCard->setAddressBookId($cHash["oxpProperties"]["addressBookId"]);
+                $jsContactCard->setAddressBookIds([$cHash["oxpProperties"]["addressBookId"]]);
             }
 
             $jsContactCard->setAtType("Card");
-            $jsContactCard->setId($contactId);
-            $jsContactCard->setOnline($adapter->getOnline());
-            $jsContactCard->setOnlineServices($adapter->getOnlineServices());
-            $jsContactCard->setKind($adapter->getKind());
-            $jsContactCard->setFullName($adapter->getFullName());
-            $jsContactCard->setName($adapter->getName());
-            $jsContactCard->setNickNames($adapter->getNickNames());
-            $jsContactCard->setPhotos($adapter->getPhotos());
-            $jsContactCard->setAnniversaries($adapter->getAnniversaries());
-            $jsContactCard->setSpeakToAs($adapter->getSpeakToAs());
-            $jsContactCard->setAddresses($adapter->getAddresses());
-            $jsContactCard->setPhones($adapter->getPhones());
-            $jsContactCard->setEmails($adapter->getEmails());
-            $jsContactCard->setPreferredContactLanguages($adapter->getPreferredContactLanguages());
-            $jsContactCard->setTitles($adapter->getTitles());
-            $jsContactCard->setOrganizations($adapter->getOrganizations());
-            $jsContactCard->setRelatedTo($adapter->getRelatedTo());
-            $jsContactCard->setPersonalInfo($adapter->getPersonalInfo());
-            $jsContactCard->setCategories($adapter->getCategories());
-            $jsContactCard->setNotes($adapter->getNotes());
-            $jsContactCard->setProdId($adapter->getProdId());
-            $jsContactCard->setUpdated($adapter->getUpdated());
-
-            // Currently assume uid = id in OXP Core
-            // WARNING: This will disregard UID from vCards
-            // replace with the following to support UIDs:
-            // $jsContactCard->setUid($adapter->getUid());
             $jsContactCard->setUid($contactId);
+
+            // Map all properties from vCard to JSContact
+            $adapter->getUid($jsContactCard);
+            $adapter->getKind($jsContactCard);
+            $adapter->getName($jsContactCard);
+            $adapter->getNickname($jsContactCard);
+            $adapter->getMedia($jsContactCard);
+            $adapter->getAnniversaries($jsContactCard);
+            $adapter->getGramGender($jsContactCard);
+            $adapter->getPronouns($jsContactCard);
+            $adapter->getAddresses($jsContactCard);
+            $adapter->getPhones($jsContactCard);
+            $adapter->getEmails($jsContactCard);
+            $adapter->getPreferredLanguages($jsContactCard);
+            $adapter->getTitles($jsContactCard);
+            $adapter->getOrganizations($jsContactCard);
+            $adapter->getRelatedTo($jsContactCard);
+            $adapter->getPersonalInfo($jsContactCard);
+            $adapter->getKeywords($jsContactCard);
+            $adapter->getNotes($jsContactCard);
+            $adapter->getProdId($jsContactCard);
+            $adapter->getUpdated($jsContactCard);
+            $adapter->getCreated($jsContactCard);
+            $adapter->getLanguage($jsContactCard);
+            $adapter->getOnlineServices($jsContactCard);
+            $adapter->getDirectories($jsContactCard);
+            $adapter->getLinks($jsContactCard);
+            $adapter->getCryptoKeys($jsContactCard);
+            $adapter->getSchedulingAddresses($jsContactCard);
+            $adapter->getCalendars($jsContactCard);
+            $adapter->getMembers($jsContactCard);
 
             array_push($list, $jsContactCard);
         }

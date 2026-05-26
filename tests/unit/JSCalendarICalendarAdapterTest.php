@@ -543,7 +543,7 @@ final class JSCalendarICalendarAdapterTest extends TestCase
 
         $this->assertEquals($this->jsCalendarBefore->getStart(), $this->jsCalendarAfter[0]->getStart());
 
-        $this->assertEquals($this->jsCalendarBefore->getTimeZone(), $this->jsCalendarAfter[0]->getTimezone());
+        $this->assertEquals($this->jsCalendarBefore->getTimeZone(), $this->jsCalendarAfter[0]->getTimeZone());
 
         $this->assertEquals($this->jsCalendarBefore->getUid(), $this->jsCalendarAfter[0]->getUid());
 
@@ -596,14 +596,15 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertNull($this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-03T00:00:00"]->getShowWithoutTime());
     }
 
-    public function testMapICalendarAttachBinary() {
+    public function testMapICalendarAttachBinary()
+    {
         $this->mapICalendar('/../resources/icalendar_with_attach_binary.ics');
 
         $this->assertCount(1, $this->jsCalendarAfter->getLinks());
         $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()["1"]->getRel());
         $this->assertEquals("text/plain", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
         $this->assertEquals("test.txt", $this->jsCalendarAfter->getLinks()["1"]->getTitle());
-        $this->assertEquals("data:text/plain;base64,U0ZMb2dObwlTRkxvYWR" . 
+        $this->assertEquals("data:text/plain;base64,U0ZMb2dObwlTRkxvYWR" .
         "lZERhdGUNCjkxNzY3NC8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjIwNS8xCTI3LzExLzIwMTIgM" .
         "Tg6MzANCjkxMjI0Ni8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjI1Mi8xCTI3LzExLzIwMTIgMTg" .
         "6MzANCjkxMjQyMS8xCTI3LzExLzIwMTIgMTg6MzANCjkxMjQyMi8xCTI3LzExLzIwMTIgMTg6M" .
@@ -622,7 +623,8 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         "zIwMTIgMTg6MzANCg==", $this->jsCalendarAfter->getLinks()["1"]->getHref());
     }
 
-    public function testMapICalendarAttachUri() {
+    public function testMapICalendarAttachUri()
+    {
         $this->mapICalendar('/../resources/icalendar_with_attach_uri.ics');
 
         $this->assertCount(1, $this->jsCalendarAfter->getLinks());
@@ -631,7 +633,8 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals("/test/nextcloud26/index.php/f/1116", $this->jsCalendarAfter->getLinks()["1"]->getHref());
     }
 
-    public function testAttachmentsBinaryRoundtrip() {
+    public function testAttachmentsBinaryRoundtrip()
+    {
         $this->mapJSCalendar(__DIR__ . '/../resources/jscalendar_with_attachment_binary.json');
 
         $this->assertInstanceOf(CalendarEvent::class, $this->jsCalendarAfter);
@@ -645,5 +648,443 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarBefore->getLinks()["someid"]->getTitle(), $this->jsCalendarAfter->getLinks()["1"]->getTitle());
     }
 
-    // TODO: Add roundtrip testing for Attachments in recurrence overrides.
+    /**
+     * Test whether an empty recurrence override is mapped to RDATE.
+     */
+    public function testRDateFromEmptyRecurrenceOverride()
+    {
+        $this->jsCalendarBefore = new CalendarEvent();
+        $this->jsCalendarBefore->setType("Event");
+        $this->jsCalendarBefore->setUid("test-rdate@example.com");
+        $this->jsCalendarBefore->setTitle("Test event");
+        $this->jsCalendarBefore->setStart("2023-05-20T10:00:00");
+        $this->jsCalendarBefore->setDuration("PT1H");
+        $this->jsCalendarBefore->setTimeZone("Etc/UTC");
+
+        $recurrenceRule = new \OpenXPort\Jmap\Calendar\RecurrenceRule();
+        $recurrenceRule->setType("RecurrenceRule");
+        $recurrenceRule->setFrequency("daily");
+        $this->jsCalendarBefore->setRecurrenceRules([$recurrenceRule]);
+
+        $emptyOverride = new \OpenXPort\Jmap\Calendar\PatchObject();
+
+        $this->jsCalendarBefore->setRecurrenceOverrides([
+            "2023-05-22T10:00:00" => $emptyOverride,
+        ]);
+
+        $this->iCalendarData = $this->mapper->mapFromJmap(
+            array("c1" => $this->jsCalendarBefore),
+            $this->adapter
+        );
+
+        $this->iCalendar = Reader::read($this->iCalendarData[0]["c1"]["iCalendar"]);
+
+        $this->assertStringContainsString(
+            "RDATE:20230522T100000Z",
+            $this->iCalendarData[0]["c1"]["iCalendar"]
+        );
+    }
+
+    /**
+     * Test whether ATTACH parameters LABEL and SIZE are mapped correctly from a file.
+     */
+    public function testMapICalendarAttachLabelAndSizeFromFile()
+    {
+        $this->mapICalendar('/../resources/icalendar_with_attach_label_and_size.ics');
+
+        $this->assertCount(1, $this->jsCalendarAfter->getLinks());
+        $this->assertEquals("enclosure", $this->jsCalendarAfter->getLinks()["1"]->getRel());
+        $this->assertEquals("application/pdf", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
+        $this->assertEquals("Agenda", $this->jsCalendarAfter->getLinks()["1"]->getTitle());
+        $this->assertEquals(12345, $this->jsCalendarAfter->getLinks()["1"]->getSize());
+        $this->assertEquals("https://example.com/agenda.pdf", $this->jsCalendarAfter->getLinks()["1"]->getHref());
+    }
+
+    /**
+     * Test whether Link title and size are mapped to ATTACH LABEL and SIZE in roundtrip.
+     */
+    public function testAttachmentsLabelAndSizeRoundtripFromFile()
+    {
+        $this->mapJSCalendar(__DIR__ . '/../resources/jscalendar_with_attachment_label_and_size.json');
+
+        $this->assertStringContainsString(
+            "ATTACH;FMTTYPE=application/pdf;LABEL=Agenda;SIZE=12345:https://example.com/agenda.pdf",
+            str_replace("\r\n ", "", $this->iCalendarData[0]["c1"]["iCalendar"])
+        );
+
+        $this->assertCount(1, $this->jsCalendarAfter->getLinks());
+        $this->assertEquals("Agenda", $this->jsCalendarAfter->getLinks()["1"]->getTitle());
+        $this->assertEquals(12345, $this->jsCalendarAfter->getLinks()["1"]->getSize());
+        $this->assertEquals("application/pdf", $this->jsCalendarAfter->getLinks()["1"]->getContentType());
+    }
+
+    /**
+     * Test whether attachments in recurrence overrides are mapped correctly.
+     */
+    public function testAttachmentsInRecurrenceOverrideRoundtrip()
+    {
+        $this->mapJSCalendar(__DIR__ . '/../resources/jscalendar_with_attachment_in_recurrence_override.json');
+
+        $this->assertCount(2, $this->iCalendar->VEVENT);
+
+        $this->assertEquals(
+            "RECURRENCE-ID:20230522T100000Z",
+            str_replace("\r\n", "", $this->iCalendar->VEVENT[1]->{"RECURRENCE-ID"}->serialize())
+        );
+
+        $this->assertStringContainsString(
+            "ATTACH",
+            $this->iCalendar->VEVENT[1]->serialize()
+        );
+
+        $this->assertStringContainsString(
+            "ATTACH;FMTTYPE=application/pdf;LABEL=Override Agenda;SIZE=12345:https://example.com/override.pdf",
+            str_replace("\r\n ", "", $this->iCalendar->VEVENT[1]->serialize())
+        );
+
+        $this->assertNotEmpty($this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks());
+        $this->assertEquals(
+            "https://example.com/override.pdf",
+            $this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks()["1"]->getHref()
+        );
+        $this->assertEquals(
+            "application/pdf",
+            $this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks()["1"]->getContentType()
+        );
+        $this->assertEquals(
+            "Override Agenda",
+            $this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks()["1"]->getTitle()
+        );
+        $this->assertEquals(
+            12345,
+            $this->jsCalendarAfter->getRecurrenceOverrides()["2023-05-22T10:00:00"]->getLinks()["1"]->getSize()
+        );
+    }
+
+    /**
+     * Test whether ACTION:AUDIO is correctly mapped to display.
+     */
+    public function testMapICalendarAudioAlertFromFile()
+    {
+        $this->mapICalendar('/../resources/icalendar_with_audio_alarm.ics');
+
+        $this->assertCount(1, $this->jsCalendarAfter->getAlerts());
+        $this->assertNull($this->jsCalendarAfter->getAlerts()["1"]->getAction());
+        $this->assertEquals("-PT5M", $this->jsCalendarAfter->getAlerts()["1"]->getTrigger()->getOffset());
+        $this->assertEquals("OffsetTrigger", $this->jsCalendarAfter->getAlerts()["1"]->getTrigger()->getType());
+    }
+
+    public function testComprehensiveEventRoundtrip()
+    {
+        $this->mapJSCalendar(__DIR__ . '/../resources/JSCalendarComprehensive.json');
+
+        $icalString = $this->iCalendar->serialize();
+        $icalStringUnwrapped = str_replace(["\r\n ", "\n "], '', $icalString);
+
+        $this->assertEquals("geo:52.520008,13.404954", $this->jsCalendarBefore->getCoordinates());
+        $this->assertStringContainsString("GEO:52.520008;13.404954", $icalString);
+        $this->assertEquals("geo:52.520008,13.404954", $this->jsCalendarAfter->getCoordinates());
+
+        $this->assertNotEmpty($this->jsCalendarBefore->getVLocations());
+        $this->assertEquals("Berlin Office", $this->jsCalendarBefore->getVLocations()["1"]->getName());
+        $this->assertEquals("geo:52.520008,13.404954", $this->jsCalendarBefore->getVLocations()["1"]->getCoordinates());
+        $this->assertStringContainsString("BEGIN:VLOCATION", $icalString);
+        $this->assertStringContainsString("NAME:Berlin Office", $icalString);
+        $this->assertStringContainsString("GEO:", $icalString);
+        $this->assertNotEmpty($this->jsCalendarAfter->getVLocations());
+        $this->assertEquals("Berlin Office", $this->jsCalendarAfter->getVLocations()["1"]->getName());
+        $this->assertEquals("geo:52.520008,13.404954", $this->jsCalendarAfter->getVLocations()["1"]->getCoordinates());
+
+        $this->assertNotEmpty($this->jsCalendarBefore->getVirtualLocations());
+        $this->assertEquals("Zoom Meeting", $this->jsCalendarBefore->getVirtualLocations()["1"]->getName());
+        $this->assertEquals("https://zoom.us/j/123456789", $this->jsCalendarBefore->getVirtualLocations()["1"]->getUri());
+        $this->assertStringContainsString("CONFERENCE;", $icalStringUnwrapped);
+        $this->assertStringContainsString("https://zoom.us/j/123456789", $icalStringUnwrapped);
+        $this->assertStringContainsString("LABEL=Zoom Meeting", $icalString);
+        $this->assertStringContainsString("FEATURE=", $icalString);
+        $this->assertNotEmpty($this->jsCalendarAfter->getVirtualLocations());
+        $this->assertEquals("https://zoom.us/j/123456789", $this->jsCalendarAfter->getVirtualLocations()["1"]->getUri());
+        $this->assertEquals("Zoom Meeting", $this->jsCalendarAfter->getVirtualLocations()["1"]->getName());
+
+        $this->assertEquals("https://example.com/events/test", $this->jsCalendarBefore->getUrl());
+        $this->assertStringContainsString("URL;", $icalStringUnwrapped);
+        $this->assertStringContainsString("https://example.com/events/test", $icalStringUnwrapped);
+        $this->assertEquals("https://example.com/events/test", $this->jsCalendarAfter->getUrl());
+
+        $this->assertTrue($this->jsCalendarBefore->getShowWithoutTime());
+        $this->assertTrue($this->jsCalendarAfter->getShowWithoutTime());
+        if (!str_contains($icalString, 'VALUE=DATE')) {
+            $this->assertStringContainsString("SHOW-WITHOUT-TIME", $icalString);
+        }
+
+        $this->assertNotEmpty($this->jsCalendarBefore->getRelatedTo());
+        $this->assertArrayHasKey("parent-event-uid@example.com", $this->jsCalendarBefore->getRelatedTo());
+        $this->assertStringContainsString("RELATED-TO:parent-event-uid@example.com", $icalString);
+        $this->assertNotEmpty($this->jsCalendarAfter->getRelatedTo());
+        $this->assertArrayHasKey("parent-event-uid@example.com", $this->jsCalendarAfter->getRelatedTo());
+
+        $participantsBefore = $this->jsCalendarBefore->getParticipants();
+        $this->assertNotEmpty($participantsBefore);
+        $hasDir = false;
+        foreach ($participantsBefore as $participant) {
+            $links = $participant->getLinks();
+            if ($links && isset($links["dir1"])) {
+                $hasDir = true;
+                $this->assertEquals("https://contacts.example.com/external", $links["dir1"]->getHref());
+            }
+        }
+        $this->assertTrue($hasDir);
+        $this->assertStringContainsString("DIR=", $icalString);
+
+        $participantsAfter = $this->jsCalendarAfter->getParticipants();
+        $hasDirAfter = false;
+        foreach ($participantsAfter as $participant) {
+            $links = $participant->getLinks();
+            if ($links) {
+                foreach ($links as $link) {
+                    if ($link->getRel() === "describedby") {
+                        $hasDirAfter = true;
+                        $this->assertEquals("https://contacts.example.com/external", $link->getHref());
+                    }
+                }
+            }
+        }
+        $this->assertTrue($hasDirAfter);
+
+        $hasMember = false;
+        foreach ($participantsBefore as $participant) {
+            $memberOf = $participant->getMemberOf();
+            if ($memberOf) {
+                $hasMember = true;
+                $this->assertContains("mailto:alice@example.com", $memberOf);
+            }
+        }
+        $this->assertTrue($hasMember);
+        $this->assertStringContainsString("MEMBER=", $icalString);
+
+        $hasMemberAfter = false;
+        foreach ($participantsAfter as $participant) {
+            $memberOf = $participant->getMemberOf();
+            if ($memberOf) {
+                $hasMemberAfter = true;
+                $this->assertIsArray($memberOf);
+                $this->assertNotEmpty($memberOf);
+            }
+        }
+        $this->assertTrue($hasMemberAfter);
+
+        $this->assertEquals("request", $this->jsCalendarBefore->getMethod());
+        $this->assertStringContainsString("METHOD:REQUEST", $icalString);
+        $this->assertEquals("request", $this->jsCalendarAfter->getMethod());
+
+        $this->assertNotEmpty($this->jsCalendarBefore->getReplyTo());
+        $this->assertEquals("mailto:rsvp@example.com", $this->jsCalendarBefore->getReplyTo()["imip"]);
+        $this->assertStringContainsString("REPLY-URL:mailto:rsvp@example.com", $icalString);
+        $this->assertNotEmpty($this->jsCalendarAfter->getReplyTo());
+        $this->assertEquals("mailto:rsvp@example.com", $this->jsCalendarAfter->getReplyTo()["imip"]);
+
+        $this->assertNotEmpty($this->jsCalendarBefore->getRequestStatus());
+        $this->assertContains("2.0;Success", $this->jsCalendarBefore->getRequestStatus());
+        $this->assertStringContainsString("REQUEST-STATUS:2.0\\;Success", $icalString);
+        $this->assertNotEmpty($this->jsCalendarAfter->getRequestStatus());
+        $this->assertContains("2.0;Success", $this->jsCalendarAfter->getRequestStatus());
+    }
+
+    public function testComprehensiveICSRoundtrip()
+    {
+        $this->mapICalendar('/../resources/comprehensive_test.ics');
+
+        $icsString = $this->iCalendar->serialize();
+        $icsStringUnwrapped = str_replace(["\r\n ", "\n "], '', $icsString);
+
+        // Test METHOD property (calendar-level)
+        $this->assertEquals("request", $this->jsCalendarAfter->getMethod());
+        $this->assertStringContainsString("METHOD:REQUEST", $icsString);
+
+        // Test basic properties
+        $this->assertEquals("comprehensive-test@example.com", $this->jsCalendarAfter->getUid());
+        $this->assertStringContainsString("UID:comprehensive-test@example.com", $icsString);
+
+        $this->assertEquals("Comprehensive Test Event", $this->jsCalendarAfter->getTitle());
+        $this->assertStringContainsString("SUMMARY:Comprehensive Test Event", $icsString);
+
+        $this->assertEquals("Event testing all newly implemented properties", $this->jsCalendarAfter->getDescription());
+        $this->assertStringContainsString("DESCRIPTION:Event testing all newly implemented properties", $icsString);
+
+        // Test status, priority, color
+        $this->assertEquals("confirmed", $this->jsCalendarAfter->getStatus());
+        $this->assertStringContainsString("STATUS:CONFIRMED", $icsString);
+
+        $this->assertEquals("public", $this->jsCalendarAfter->getPrivacy());
+        $this->assertStringContainsString("CLASS:PUBLIC", $icsString);
+
+        $this->assertEquals(5, $this->jsCalendarAfter->getPriority());
+        $this->assertStringContainsString("PRIORITY:5", $icsString);
+
+        $this->assertEquals("blue", $this->jsCalendarAfter->getColor());
+        $this->assertStringContainsString("COLOR:blue", $icsString);
+
+        // Test keywords
+        $keywords = $this->jsCalendarAfter->getKeywords();
+        $this->assertNotEmpty($keywords);
+        $this->assertArrayHasKey("meeting", $keywords);
+        $this->assertArrayHasKey("important", $keywords);
+        $this->assertStringContainsString("CATEGORIES:meeting,important", $icsString);
+
+        // Test location
+        $locations = $this->jsCalendarAfter->getLocations();
+        $this->assertNotEmpty($locations);
+        $this->assertEquals("Conference Room A", $locations["1"]->getName());
+        $this->assertStringContainsString("LOCATION:Conference Room A", $icsString);
+
+        // Test GEO coordinates
+        $this->assertEquals("geo:52.520008,13.404954", $this->jsCalendarAfter->getCoordinates());
+        $this->assertStringContainsString("GEO:52.520008;13.404954", $icsString);
+
+        // Test URL property
+        $this->assertEquals("https://example.com/events/test", $this->jsCalendarAfter->getUrl());
+        $this->assertStringContainsString("URL", $icsStringUnwrapped);
+        $this->assertStringContainsString("https://example.com/events/test", $icsStringUnwrapped);
+
+        // Test RELATED-TO
+        $relatedTo = $this->jsCalendarAfter->getRelatedTo();
+        $this->assertNotEmpty($relatedTo);
+        $this->assertArrayHasKey("parent-event-uid@example.com", $relatedTo);
+        $this->assertStringContainsString("RELATED-TO:parent-event-uid@example.com", $icsString);
+
+        // Test REPLY-URL (replyTo)
+        $replyTo = $this->jsCalendarAfter->getReplyTo();
+        $this->assertNotEmpty($replyTo);
+        $this->assertEquals("mailto:rsvp@example.com", $replyTo["imip"]);
+        $this->assertStringContainsString("REPLY-URL:mailto:rsvp@example.com", $icsString);
+
+        // Test REQUEST-STATUS
+        $requestStatus = $this->jsCalendarAfter->getRequestStatus();
+        $this->assertNotEmpty($requestStatus);
+        $this->assertContains("2.0;Success", $requestStatus);
+        $this->assertStringContainsString("REQUEST-STATUS:2.0\\;Success", $icsString);
+
+        // Test recurrence rules
+        $recurrenceRules = $this->jsCalendarAfter->getRecurrenceRules();
+        $this->assertNotEmpty($recurrenceRules);
+        $this->assertEquals("weekly", $recurrenceRules[0]->getFrequency());
+        $this->assertEquals(2, $recurrenceRules[0]->getInterval());
+        $this->assertEquals(10, $recurrenceRules[0]->getCount());
+        $this->assertStringContainsString("RRULE:FREQ=WEEKLY;INTERVAL=2", $icsString);
+        $this->assertStringContainsString("BYDAY=TU,TH", $icsString);
+        $this->assertStringContainsString("COUNT=10", $icsString);
+
+        // Test virtual locations (CONFERENCE)
+        $virtualLocations = $this->jsCalendarAfter->getVirtualLocations();
+        $this->assertNotEmpty($virtualLocations);
+        $this->assertEquals("Zoom Meeting", $virtualLocations["1"]->getName());
+        $this->assertEquals("https://zoom.us/j/123456789", $virtualLocations["1"]->getUri());
+        $this->assertStringContainsString("CONFERENCE;", $icsStringUnwrapped);
+        $this->assertStringContainsString("https://zoom.us/j/123456789", $icsStringUnwrapped);
+        $this->assertStringContainsString("LABEL=Zoom Meeting", $icsString);
+        $this->assertStringContainsString("FEATURE=AUDIO,VIDEO,CHAT", $icsString);
+
+        // Test VLOCATION
+        $vLocations = $this->jsCalendarAfter->getVLocations();
+        $this->assertNotEmpty($vLocations);
+        $this->assertEquals("Berlin Office", $vLocations["1"]->getName());
+        $this->assertEquals("geo:52.520008,13.404954", $vLocations["1"]->getCoordinates());
+        $this->assertStringContainsString("BEGIN:VLOCATION", $icsString);
+        $this->assertStringContainsString("NAME:Berlin Office", $icsString);
+        $this->assertStringContainsString("END:VLOCATION", $icsString);
+
+        // Test participants
+        $participants = $this->jsCalendarAfter->getParticipants();
+        $this->assertNotEmpty($participants);
+
+        // Test organizer
+        $hasOrganizer = false;
+        foreach ($participants as $participant) {
+            $roles = $participant->getRoles();
+            if ($roles && isset($roles["owner"]) && $roles["owner"]) {
+                $hasOrganizer = true;
+                $this->assertEquals("John Organizer", $participant->getName());
+                $sendTo = $participant->getSendTo();
+                $this->assertEquals("mailto:john@example.com", $sendTo["imip"]);
+            }
+        }
+        $this->assertTrue($hasOrganizer);
+        $this->assertStringContainsString("ORGANIZER;CN=John Organizer:mailto:john@example.com", $icsString);
+
+        // Test attendee with accepted status
+        $hasAcceptedAttendee = false;
+        foreach ($participants as $participant) {
+            if ($participant->getName() === "Alice Attendee") {
+                $hasAcceptedAttendee = true;
+                $this->assertEquals("accepted", $participant->getParticipationStatus());
+                $this->assertTrue($participant->getExpectReply());
+                $sendTo = $participant->getSendTo();
+                $this->assertEquals("mailto:alice@example.com", $sendTo["imip"]);
+            }
+        }
+        $this->assertTrue($hasAcceptedAttendee);
+        $this->assertStringContainsString("ATTENDEE;CN=Alice Attendee;PARTSTAT=ACCEPTED;RSVP=TRUE", $icsString);
+
+        // Test group attendee with MEMBER parameter
+        $hasGroupMember = false;
+        foreach ($participants as $participant) {
+            if ($participant->getName() === "Project Team") {
+                $hasGroupMember = true;
+                $this->assertEquals("group", $participant->getKind());
+                $memberOf = $participant->getMemberOf();
+                $this->assertNotEmpty($memberOf);
+                $this->assertIsArray($memberOf);
+            }
+        }
+        $this->assertTrue($hasGroupMember);
+        $this->assertStringContainsString("MEMBER=", $icsString);
+
+        // Test attendee with DIR parameter
+        $hasDirLink = false;
+        foreach ($participants as $participant) {
+            if ($participant->getName() === "External Contact") {
+                $links = $participant->getLinks();
+                if ($links) {
+                    foreach ($links as $link) {
+                        if ($link->getRel() === "describedby") {
+                            $hasDirLink = true;
+                            $this->assertEquals("https://contacts.example.com/external", $link->getHref());
+                        }
+                    }
+                }
+            }
+        }
+        $this->assertTrue($hasDirLink);
+        $this->assertStringContainsString("DIR=", $icsString);
+
+        // Test attachments
+        $links = $this->jsCalendarAfter->getLinks();
+        $this->assertNotEmpty($links);
+        $hasAttachment = false;
+        foreach ($links as $link) {
+            if ($link->getRel() === "enclosure") {
+                $hasAttachment = true;
+                $this->assertEquals("https://example.com/agenda.pdf", $link->getHref());
+                $this->assertEquals("application/pdf", $link->getContentType());
+                $this->assertEquals("Meeting Agenda", $link->getTitle());
+                $this->assertEquals(52480, $link->getSize());
+            }
+        }
+        $this->assertTrue($hasAttachment);
+        $this->assertStringContainsString("ATTACH;FMTTYPE=application/pdf;LABEL=Meeting Agenda;SIZE=52480", $icsString);
+
+        // Test alerts
+        $alerts = $this->jsCalendarAfter->getAlerts();
+        $this->assertNotEmpty($alerts);
+        $alert = array_values($alerts)[0];
+        $this->assertEquals("display", $alert->getAction());
+        $trigger = $alert->getTrigger();
+        $this->assertEquals("OffsetTrigger", $trigger->getType());
+        $this->assertEquals("-PT15M", $trigger->getOffset());
+        $this->assertEquals("start", $trigger->getRelativeTo());
+        $this->assertStringContainsString("BEGIN:VALARM", $icsString);
+        $this->assertStringContainsString("ACTION:DISPLAY", $icsString);
+        $this->assertStringContainsString("TRIGGER;RELATED=START:-PT15M", $icsString);
+        $this->assertStringContainsString("END:VALARM", $icsString);
+    }
 }

@@ -1,0 +1,18 @@
+{
+  "@type": "Event",
+  "uid": "test-attach-label-size@example.com",
+  "title": "Attachment test",
+  "start": "2023-05-20T10:00:00",
+  "duration": "PT1H",
+  "timeZone": "Etc/UTC",
+  "links": {
+    "1": {
+      "@type": "Link",
+      "href": "https://example.com/agenda.pdf",
+      "rel": "enclosure",
+      "contentType": "application/pdf",
+      "title": "Agenda",
+      "size": 12345
+    }
+  }
+}

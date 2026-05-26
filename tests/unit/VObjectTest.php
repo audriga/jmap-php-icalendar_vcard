@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
  */
 final class VObjectTest extends TestCase
 {
-    public function testReadVcard(): void
+    public function testReadVcard()
     {
         // Read the vCard from the file test_vcard.vcf
         $vcard = VObject\Reader::read(
@@ -31,7 +31,7 @@ final class VObjectTest extends TestCase
         $this->assertEquals('Just a Test', $icalendar->VEVENT->SUMMARY);
     }
 
-    public function testReadHordeVcard(): void
+    public function testReadHordeVcard()
     {
         // Read the vCard from the file horde.vcf
         $hordeVcard = VObject\Reader::read(

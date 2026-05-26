@@ -2,20 +2,20 @@
 
 namespace OpenXPort\Test\Core;
 
-use PHPUnit\Framework\Testcase;
+use PHPUnit\Framework\TestCase;
 use OpenXPort\Jmap\Calendar\CalendarEvent;
+use OpenXPort\Jmap\Calendar\PatchObject;
 
 /**
  * Deserealization of JSCalendar events from JSON files.
  */
-final class OpenXPortCoreTest extends Testcase
+final class OpenXPortCoreTest extends TestCase
 {
     /** @var \OpenXPort\Jmap\Calendar\CalendarEvent */
     protected $jsCalendar = null;
 
     public function setUp(): void
     {
-
     }
 
     public function tearDown(): void
@@ -87,7 +87,7 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("Biggest conference room in the upper level of the main building", $currentLocation->getDescription());
         $this->assertEquals("Europe/Amsterdam", $currentLocation->getTimeZone());
         $this->assertEquals("geo:49.00937,8.40444", $currentLocation->getCoordinates());
-        
+
         // Check the parsing of the second location.
         $curentLocation = next($locations);
         $this->assertEquals("Location", $curentLocation->getType());
@@ -161,7 +161,7 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("NDay", $recurrenceRule->getByDay()[0]->getType());
         $this->assertEquals("su", $recurrenceRule->getByDay()[0]->getDay());
         $this->assertEquals("1", $recurrenceRule->getCount());
-        
+
         // Check the recurrence overrides.
         $this->assertEquals(
             array_keys($this->jsCalendar->getRecurrenceOverrides()),
@@ -172,19 +172,25 @@ final class OpenXPortCoreTest extends Testcase
 
         $recurrenceOverride = current($recurrenceOverrides);
 
-        $this->assertTrue($recurrenceOverride instanceof CalendarEvent);
-        $this->assertEquals("2023-01-23T15:00:00", $recurrenceOverride->getStart());
-        $this->assertEquals("PT2H", $recurrenceOverride->getDuration());
-        $this->assertEquals("Some Exam", $recurrenceOverride->getTitle());
-        $this->assertEquals("Bring your own paper!", $recurrenceOverride->getDescription());
+        $this->assertTrue($recurrenceOverride instanceof PatchObject);
+
+        // Access properties through getProperties() array
+        $properties = $recurrenceOverride->getProperties();
+
+        $this->assertEquals("2023-01-23T15:00:00", $properties['start']);
+        $this->assertEquals("PT2H", $properties['duration']);
+        $this->assertEquals("Some Exam", $properties['title']);
+        $this->assertEquals("Bring your own paper!", $properties['description']);
 
         $recurrenceOverride = next($recurrenceOverrides);
+        $properties = $recurrenceOverride->getProperties();
 
-        $this->assertEquals("Register for exam!", $recurrenceOverride->getDescription());
+        $this->assertEquals("Register for exam!", $properties['description']);
 
         $recurrenceOverride = end($recurrenceOverrides);
+        $properties = $recurrenceOverride->getProperties();
 
-        $this->assertTrue($recurrenceOverride->getExcluded());
+        $this->assertTrue($properties['excluded']);
     }
 
     public function testParseEventWithVirtualLocations()
@@ -196,7 +202,7 @@ final class OpenXPortCoreTest extends Testcase
         $virtualLocations = $this->jsCalendar->getVirtualLocations();
 
         $virtualLocation = current($virtualLocations);
-        
+
         $this->assertEquals("VirtualLocation", $virtualLocation->getType());
         $this->assertEquals("Video Call", $virtualLocation->getName());
         $this->assertEquals("Internal video call", $virtualLocation->getDescription());
@@ -207,7 +213,7 @@ final class OpenXPortCoreTest extends Testcase
         );
 
         $virtualLocation = next($virtualLocations);
-        
+
         $this->assertEquals("VirtualLocation", $virtualLocation->getType());
         $this->assertEquals("Feature Keynote", $virtualLocation->getName());
         $this->assertEquals("Keynote of our new Feature to be made public directly afterwards.", $virtualLocation->getDescription());
@@ -278,23 +284,31 @@ final class OpenXPortCoreTest extends Testcase
         $this->assertEquals("none", $participant->getScheduleAgent());
         $this->assertEquals("2022-12-30T12:00:00Z", $participant->getScheduleUpdated());
     }
-    
+
     public function testParseEventWithRelations()
     {
-        $this->jsCalendar = CalendarEvent::fromJson(
-            file_get_contents(__DIR__ . "/../resources/jscalendar_with_relations.json")
+        $jsonData = json_decode(
+            file_get_contents(__DIR__ . "/../resources/jscalendar_with_relations.json"),
+            true
         );
 
-        $this->assertEquals("1234-relation-parent-OpenXPort-TestFiles", $this->jsCalendar[0]->getUid());
-        $this->assertEquals("Relation", current($this->jsCalendar[0]->getRelatedTo())->getType());
-        $this->assertEquals(array("parent" => true), current($this->jsCalendar[0]->getRelatedTo())->getRelation());
+        $event1 = CalendarEvent::fromJson(json_decode(json_encode($jsonData[0])));
+        $event2 = CalendarEvent::fromJson(json_decode(json_encode($jsonData[1])));
 
+        $this->assertEquals("1234-relation-parent-OpenXPort-TestFiles", $event1->getUid());
 
-        $this->assertEquals("1234-relation-child-OpenXPort-TestFiles", $this->jsCalendar[1]->getUid());
-        $this->assertEquals("Relation", current($this->jsCalendar[0]->getRelatedTo())->getType());
-        $this->assertEquals(array("parent" => true), current($this->jsCalendar[0]->getRelatedTo())->getRelation());
+        $relatedTo1 = $event1->getRelatedTo();
+        $firstRelation1 = array_values($relatedTo1)[0];
+        $this->assertEquals("Relation", $firstRelation1->getType());
+        $this->assertEquals(array("parent" => true), $firstRelation1->getRelation());
+
+        $this->assertEquals("1234-relation-child-OpenXPort-TestFiles", $event2->getUid());
+
+        $relatedTo2 = $event2->getRelatedTo();
+        $firstRelation2 = array_values($relatedTo2)[0];
+        $this->assertEquals("Relation", $firstRelation2->getType());
+        $this->assertEquals(array("child" => true), $firstRelation2->getRelation());
     }
-
     public function testParseEventWithCustomProperties()
     {
         $this->jsCalendar = CalendarEvent::fromJson(
@@ -303,7 +317,7 @@ final class OpenXPortCoreTest extends Testcase
 
         // Check that properties are read correctly.
         $customProperties = $this->jsCalendar->getCustomProperties();
-        
+
         $this->assertEquals("Bar", $customProperties["foo"]);
         $this->assertEquals("SomeObject", $customProperties["someObjects"]->{"abc-123"}->{"@type"});
         $this->assertEquals("1234-someObject-OpenXPort-TestFiles", $customProperties["someObjects"]->{"abc-123"}->{"uid"});
@@ -316,7 +330,7 @@ final class OpenXPortCoreTest extends Testcase
 
         $link = $this->jsCalendar->getLinks()["2j3j5d-6ygpgd-aljx-xup8"];
         $this->assertEquals("2023-01-01T00:00:00Z", $link->getCustomProperties()["until"]);
-        
+
         $relation = $this->jsCalendar->getRelatedTo()["1234-someTask-OpenXPort-TestFiles"];
         $this->assertEquals(true, $relation->getCustomProperties()["requiredFinished"]);
 

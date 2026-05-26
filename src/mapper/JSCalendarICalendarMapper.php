@@ -5,11 +5,23 @@ namespace OpenXPort\Mapper;
 use Exception;
 use Sabre\VObject;
 use OpenXPort\Jmap\Calendar\CalendarEvent;
+use OpenXPort\Jmap\Calendar\PatchObject;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\JSCalendarICalendarAdapterUtil;
+use OpenXPort\Adapter\JSCalendarICalendarAdapter;
 
 class JSCalendarICalendarMapper extends AbstractMapper
 {
+    /**
+     * Map from JMAP CalendarEvent objects (RFC 8984)
+     * to iCal data.
+     * https://datatracker.ietf.org/doc/draft-ietf-calext-jscalendar-icalendar/
+     *
+     * @param array<string,CalendarEvent> $jmapData
+     * @param JSCalendarICalendarAdapter     $adapter
+     *
+     * @return array<int,array<string,mixed>>
+     */
     public function mapFromJmap($jmapData, $adapter)
     {
         $map = [];
@@ -17,7 +29,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $adapter->resetICalEvent();
 
         foreach ($jmapData as $creationId => $jsCalendarEvent) {
-            $adapter->setCalendarId($jsCalendarEvent->getCalendarId());
+            $adapter->setCalendarId($jsCalendarEvent->getCalendarIds());
+            $adapter->setMethod($jsCalendarEvent->getMethod());
 
             // Map any properties of the event using the helper fucntion.
             $this->mapAllJmapPropertiesToICal($jsCalendarEvent, $adapter);
@@ -50,6 +63,11 @@ class JSCalendarICalendarMapper extends AbstractMapper
                     continue;
                 }
 
+                if ($this->isEmptyRecurrenceOverride($recurrenceOverride)) {
+                    $masterEvent = $this->mapIncludedToRDate($adapter, $masterEvent, $recurrenceId);
+                    continue;
+                }
+
                 $adapter->resetICalEvent();
 
                 // Map the properties of the recurrenceOverride to its corresponding VEVENT.
@@ -78,7 +96,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
     protected function mapAllJmapPropertiesToICal($jsEvent, $adapter, $masterEvent = null)
     {
         if (is_null($jsEvent) || is_null($adapter)) {
-            // TODO: consider logging an error.
+            $logger = \OpenXPort\Util\Logger::getInstance();
+            $logger->error("Cannot map iCal properties to JMAP: jmapEvent or adapter is null");
             return;
         }
 
@@ -90,7 +109,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             !is_null($masterEvent) &&
             !is_null($masterEvent->getTimeZone())
         ) {
-                $jsEvent->setTimeZone($masterEvent->getTimeZone());
+            $jsEvent->setTimeZone($masterEvent->getTimeZone());
         }
 
         // Similarly, to make sure that the override's DateTime values have the same format as
@@ -101,7 +120,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
             !is_null($masterEvent) &&
             !is_null($masterEvent->getShowWithoutTime())
         ) {
-                $jsEvent->setShowWithoutTime($masterEvent->getShowWithoutTime());
+            $jsEvent->setShowWithoutTime($masterEvent->getShowWithoutTime());
         }
 
 
@@ -125,32 +144,47 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $adapter->setFreeBusy($jsEvent->getFreeBusyStatus());
         $adapter->setStatus($jsEvent->getStatus());
         $adapter->setColor($jsEvent->getColor());
+        $adapter->setLocale($jsEvent->getLocale());
         $adapter->setPriority($jsEvent->getPriority());
 
         $adapter->setAlerts($jsEvent->getAlerts());
+        $adapter->setVLocations($jsEvent->getVLocations());
+        $adapter->setVirtualLocations($jsEvent->getVirtualLocations());
 
         $adapter->setParticipants($jsEvent->getParticipants());
+        $adapter->setShowWithoutTime($jsEvent->getShowWithoutTime());
+
+        $adapter->setDuration($jsEvent->getDuration());
+        $adapter->setGeo($jsEvent->getCoordinates());
+        $adapter->setRelatedTo($jsEvent->getRelatedTo());
 
         // Map any property which is stored as a link object in jsCal. Currently only attachment is supported.
         $splitLinkMap = JSCalendarICalendarAdapterUtil::splitJmapLinkMapIntoICalProperties(
             $jsEvent->getLinks()
         );
 
-        $adapter->setAttachments($splitLinkMap["attachments"]);
+        $adapter->setAttachments(
+            is_array($splitLinkMap) && array_key_exists("attachments", $splitLinkMap)
+                ? $splitLinkMap["attachments"]
+                : null
+        );
 
+        if (!is_null($splitLinkMap) && array_key_exists("urls", $splitLinkMap)) {
+            $urls = $splitLinkMap["urls"];
+            if (!empty($urls)) {
+                $adapter->setUrl($urls[0]->getHref());
+            }
+        }
+        $url = $jsEvent->getUrl();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($url)) {
+            $adapter->setUrl($url);
+        }
+        $adapter->setReplyTo($jsEvent->getReplyTo());
+
+        $adapter->setRequestStatus($jsEvent->getRequestStatus());
 
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
-            // This mapper uses the updated recurrenceRules property, see:
-            // https://www.rfc-editor.org/rfc/rfc8984.html#name-recurrencerules
-            // If the given JSCalendar event only contains the recurrenceRule property,
-            // it will not be mapped.
-            if (!is_null($jsEvent->getRecurrenceRule()) && is_null($jsEvent->getRecurrenceRules())) {
-                throw new Exception(
-                    "JSCalendar contains outdated 'RecurrenceRule' property which is not supported in this mapper."
-                );
-            }
-
             $adapter->setUid($jsEvent->getUid());
             $adapter->setProdId($jsEvent->getProdId());
 
@@ -171,6 +205,25 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $adapter->setICalEvent($masterEvent->serialize());
 
         $adapter->setExDate($recurrenceId);
+
+        $masterEvent = clone($adapter->getICalEvent());
+
+        return $masterEvent;
+    }
+
+    /**
+     * Add an RDATE property to the master event for an included recurrence instance.
+     *
+     * @param JSCalendarICalendarAdapter $adapter
+     * @param VCalendar $masterEvent
+     * @param string $recurrenceId
+     * @return VCalendar
+     */
+    protected function mapIncludedToRDate($adapter, $masterEvent, $recurrenceId)
+    {
+        $adapter->setICalEvent($masterEvent->serialize());
+
+        $adapter->setRDate($recurrenceId);
 
         $masterEvent = clone($adapter->getICalEvent());
 
@@ -221,6 +274,11 @@ class JSCalendarICalendarMapper extends AbstractMapper
             // Set the @type property here in order for the event to be recognised as a master event.
             $jsEvent->setType("Event");
 
+            $methodProperty = $masterEvent["masterEvents"]["iCalendar"]->METHOD;
+            if (AdapterUtil::isSetNotNullAndNotEmpty($methodProperty)) {
+                $jsEvent->setMethod(strtolower($methodProperty->getValue()));
+            }
+
             $this->mapAllICalPropertiesToJmap($jsEvent, $adapter);
 
             if (
@@ -228,7 +286,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 is_array($masterEvent["masterEvents"]["oxpProperties"]) &&
                 array_key_exists("calendarId", $masterEvent["masterEvents"]["oxpProperties"])
             ) {
-                $jsEvent->setCalendarId($masterEvent["masterEvents"]["oxpProperties"]["calendarId"]);
+                $jsEvent->setCalendarIds($masterEvent["masterEvents"]["oxpProperties"]["calendarId"]);
             }
             $jsEvent->setId($masterEvent["eventId"]);
 
@@ -245,7 +303,7 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 if (strcmp($modifiedExceptionUid, $masterEventUid) === 0) {
                     $adapter->setICalEvent($modEx["modifiedExceptions"]->serialize());
 
-                    $jmapModifiedException = new CalendarEvent();
+                    $jmapModifiedException = new PatchObject();
 
                     // Modiified exceptions are are event that exclude the '@type',
                     // 'excludeRecurrenceRules', 'method', 'privacy', 'prodId', 'recurrenceId',
@@ -265,6 +323,13 @@ class JSCalendarICalendarMapper extends AbstractMapper
                     //Add the new modified occurrence to the ones already set in the JSCal event.
                     $recurrenceIdValueDate = $modEx["modifiedExceptions"]->VEVENT->{'RECURRENCE-ID'}->getDateTime();
 
+                    // If showWithoutTime matches the master event, remove it from the override
+                    if (
+                        $jsEvent->getShowWithoutTime() === $jmapModifiedException->getShowWithoutTime() ||
+                        (empty($jsEvent->getShowWithoutTime()) && empty($jmapModifiedException->getShowWithoutTime()))
+                    ) {
+                        $jmapModifiedException->setShowWithoutTime(null);
+                    }
                     $recurrenceIdOfModifiedException = date_format($recurrenceIdValueDate, "Y-m-d\TH:i:s");
 
                     $recurrenceOverrides[$recurrenceIdOfModifiedException] = $jmapModifiedException;
@@ -296,14 +361,20 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $jmapEvent->setStart($adapter->getDTStart());
         $jmapEvent->setDuration($adapter->getDuration());
-        $jmapEvent->setTimezone($adapter->getTimezone());
+        $jmapEvent->setTimeZone($adapter->getTimeZone());
+        $jmapEvent->setShowWithoutTime($adapter->getShowWithoutTime());
 
         $jmapEvent->setKeywords($adapter->getCategories());
         $jmapEvent->setLocations($adapter->getLocation());
+        $jmapEvent->setVLocations($adapter->getVLocations());
+        $jmapEvent->setCoordinates($adapter->getGeo());
+        $jmapEvent->setVirtualLocations($adapter->getVirtualLocations());
 
         $jmapEvent->setFreeBusyStatus($adapter->getFreeBusy());
+
         $jmapEvent->setStatus($adapter->getStatus());
         $jmapEvent->setColor($adapter->getColor());
+        $jmapEvent->setLocale($adapter->getLocale());
         $jmapEvent->setPriority($adapter->getPriority());
 
         $jmapEvent->setAlerts($adapter->getAlerts());
@@ -320,6 +391,18 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $attachments = $adapter->getAttachments();
         $jmapLinks = array_merge($jmapLinks, $attachments ? $attachments : []);
 
+        $url = $adapter->getUrl();
+        if (!is_null($url)) {
+            $urlLink = new \OpenXPort\Jmap\Calendar\Link();
+            $urlLink->setType("Link");
+            $urlLink->setHref($url);
+            array_push($jmapLinks, $urlLink);
+
+            $jmapEvent->setUrl($url);
+        }
+        $jmapEvent->setReplyTo($adapter->getReplyTo());
+        $jmapEvent->setRequestStatus($adapter->getRequestStatus());
+
         // Create indices for the JMAP link map. Otherwise, the objects would be
         // stored in an array.
         $jmapLinkIndices = array_map(
@@ -332,32 +415,61 @@ class JSCalendarICalendarMapper extends AbstractMapper
         $jmapLinks = array_combine($jmapLinkIndices, $jmapLinks);
 
 
-        // TODO: Add handling of attachments in recurrence overrides.
-        // See: https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-recurring-event-with-attach
+        // Attachments are mapped for both master events and recurrence overrides via the
+        // generic links <-> ATTACH conversion path.
         $jmapEvent->setLinks($jmapLinks);
 
         // Map the properties that are strictly set in master event.
-        if (strcmp($jmapEvent->getType(), "Event") === 0) {
-            $jmapEvent->setShowWithoutTime($adapter->getShowWithoutTime());
+        if ($jmapEvent instanceof CalendarEvent) {
             $jmapEvent->setUid($adapter->getUid());
             $jmapEvent->setProdId($adapter->getProdId());
 
             $jmapEvent->setPrivacy($adapter->getClass());
 
             $jmapEvent->setRecurrenceRules($adapter->getRRule());
+            $jmapEvent->setRelatedTo($adapter->getRelatedTo());
+
+            $recurrenceOverrides = [];
 
             if (!is_null($adapter->getExDates())) {
-                $excludedOverrides = [];
-
                 foreach ($adapter->getExDates() as $exDate) {
-                    $excludedOverride = new CalendarEvent();
+                    $excludedOverride = new PatchObject();
                     $excludedOverride->setExcluded(true);
 
-                    $excludedOverrides[$exDate] = $excludedOverride;
+                    $recurrenceOverrides[$exDate] = $excludedOverride;
                 }
+            }
 
-                $jmapEvent->setRecurrenceOverrides($excludedOverrides);
+            if (!is_null($adapter->getRDates())) {
+                foreach ($adapter->getRDates() as $rDate) {
+                    if (!array_key_exists($rDate, $recurrenceOverrides)) {
+                        $recurrenceOverrides[$rDate] = new PatchObject();
+                    }
+                }
+            }
+
+            if (!empty($recurrenceOverrides)) {
+                $jmapEvent->setRecurrenceOverrides($recurrenceOverrides);
             }
         }
+    }
+
+    /**
+     * Check if a recurrence override is empty.
+     *
+     * @param PatchObject|array|null $recurrenceOverride
+     * @return bool True if empty
+     */
+    protected function isEmptyRecurrenceOverride($recurrenceOverride)
+    {
+        if (is_null($recurrenceOverride)) {
+            return true;
+        }
+
+        if ($recurrenceOverride instanceof PatchObject) {
+            return $recurrenceOverride->isEmpty();
+        }
+
+        return empty((array) $recurrenceOverride);
     }
 }

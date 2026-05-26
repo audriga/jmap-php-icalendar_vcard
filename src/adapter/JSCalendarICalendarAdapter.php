@@ -14,6 +14,7 @@ use OpenXPort\Jmap\Calendar\Alert;
 use OpenXPort\Jmap\Calendar\Link;
 use OpenXPort\Jmap\Calendar\RecurrenceRule;
 use OpenXPort\Jmap\Calendar\Participant;
+use OpenXPort\Jmap\Calendar\VirtualLocation;
 use OpenXPort\Mapper\JSCalendarICalendarMapper;
 use OpenXPort\Util\AdapterUtil;
 use OpenXPort\Util\JSCalendarICalendarAdapterUtil;
@@ -161,10 +162,13 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        return $description->getValue();
+        $value = $description->getValue();
 
-        // TODO: implement the unescaping mentioned in the ietf conversion standards.
-        // https://www.ietf.org/archive/id/draft-ietf-calext-jscalendar-icalendar-07.html#name-description.
+        // Unescape iCalendar text values according to RFC 5545 Section 3.3.11
+        $value = str_replace(['\\n', '\\N'], "\n", $value);
+        $value = str_replace(['\\\\', '\\;', '\\,'], ['\\', ';', ','], $value);
+
+        return $value;
     }
 
     public function setDescription($description)
@@ -281,11 +285,56 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart["VALUE"])) {
-            return null;
+        // DATE values convert to showWithoutTime=true
+        if (isset($dtStart['VALUE']) && strtoupper((string) $dtStart['VALUE']) === 'DATE') {
+            return true;
         }
 
-        return $dtStart["VALUE"]->getValue() == "DATE" ? true : null;
+        // Check for SHOW-WITHOUT-TIME property on timed events
+        $showWithoutTime = $this->iCalEvent->VEVENT->{'SHOW-WITHOUT-TIME'};
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($showWithoutTime)) {
+            return false; // Default is false for timed events without the property
+        }
+
+        $value = strtoupper(trim((string) $showWithoutTime));
+
+        if ($value === 'TRUE') {
+            return true;
+        } elseif ($value === 'FALSE') {
+            return false;
+        }
+
+        $this->logger->warning("Invalid SHOW-WITHOUT-TIME value: " . $value);
+        return false;
+    }
+
+    public function setShowWithoutTime($showWithoutTime)
+    {
+        if ($showWithoutTime !== true) {
+            return;
+        }
+
+        $dtStart = $this->iCalEvent->VEVENT->DTSTART;
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart)) {
+            return;
+        }
+
+        // If DTSTART already has VALUE=DATE, don't add SHOW-WITHOUT-TIME
+        if (isset($dtStart['VALUE']) && strtoupper((string) $dtStart['VALUE']) === 'DATE') {
+            return;
+        }
+
+        // Remove existing SHOW-WITHOUT-TIME property if present
+        $existing = $this->iCalEvent->VEVENT->{'SHOW-WITHOUT-TIME'};
+        if ($existing) {
+            $this->iCalEvent->VEVENT->remove($existing);
+        }
+
+        // Add SHOW-WITHOUT-TIME property
+        $this->iCalEvent->VEVENT->add('SHOW-WITHOUT-TIME', 'TRUE');
+
+        // Set the VALUE=BOOLEAN parameter
+        $this->iCalEvent->VEVENT->{'SHOW-WITHOUT-TIME'}['VALUE'] = 'BOOLEAN';
     }
 
     public function setDTEnd($start, $duration, $timeZone, $showWithoutTime = null)
@@ -347,7 +396,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         // Create a pattern to return the duration in the correct format.
         $outputFormat = 'P';
-        //TODO: Check whether months/years need to be added.
+        // Use total days to handle years/months properly
         if ($interval->format('%d') != 0) {
             $outputFormat .= '%dD';
         }
@@ -370,6 +419,30 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         return $interval->format($outputFormat);
+    }
+
+    /**
+     * Set the duration of the event from a JSCalendar duration string.
+     *
+     * Note: DURATION is mutually exclusive with DTEND in iCalendar.
+     * If DTEND is already set, this method does nothing.
+     *
+     * @param string $duration ISO 8601 duration string (e.g., "PT1H30M", "P1D")
+     * @return void
+     */
+    public function setDuration($duration)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($duration)) {
+            return;
+        }
+
+        // Don't set DURATION if DTEND is already set
+        if (AdapterUtil::isSetNotNullAndNotEmpty($this->iCalEvent->VEVENT->DTEND)) {
+            return;
+        }
+
+        // DURATION is mutually exclusive with DTEND
+        $this->iCalEvent->VEVENT->add('DURATION', $duration);
     }
 
     public function getTimeZone()
@@ -397,24 +470,38 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         return $timeZone->getName();
     }
 
-    //TODO: this might need to be revamped to accomodate for scheduling and non-scheduling properties
     public function getUpdated()
     {
         // Get both the "LAST-MODIFIED" and "DTSTAMP" properties, as only one of
         // them is converted into the "updated" jmap property.
         $lastModified = $this->iCalEvent->VEVENT->{'LAST-MODIFIED'};
         $dTStamp = $this->iCalEvent->VEVENT->DTSTAMP;
+        $method = $this->iCalEvent->METHOD; // Check if this is a scheduling message
+        //or a regular calendar object
+
         $dateUpdated = null;
 
-        // As per IETF standard: Use the latest of the ones that is present,
-        // if they are no scheduling entity.
-        if (AdapterUtil::isSetNotNullAndNotEmpty($lastModified)) {
-            $dateUpdated = $lastModified->getDateTime();
-        }
+        // Per RFC 8984: For scheduling messages (METHOD property present), use DTSTAMP.
+        // For non-scheduling entities, use the latest of LAST-MODIFIED and DTSTAMP.
+        if (AdapterUtil::isSetNotNullAndNotEmpty($method)) {
+            // Scheduling entity: use DTSTAMP only
+            if (AdapterUtil::isSetNotNullAndNotEmpty($dTStamp)) {
+                $dateUpdated = $dTStamp->getDateTime();
+            }
+        } else {
+            // Non-scheduling entity: use latest of LAST-MODIFIED or DTSTAMP
+            // As per IETF standard: Use the latest of the ones that is present,
+            // if they are no scheduling entity.
+            if (AdapterUtil::isSetNotNullAndNotEmpty($lastModified)) {
+                $dateUpdated = $lastModified->getDateTime();
+            }
 
-        if (AdapterUtil::isSetNotNullAndNotEmpty($dTStamp)) {
-            $dTStampDateTime = $dTStamp->getDateTime();
-            $dateUpdated = $dateUpdated < $dTStampDateTime ? $dTStampDateTime : $dateUpdated;
+            if (AdapterUtil::isSetNotNullAndNotEmpty($dTStamp)) {
+                $dTStampDateTime = $dTStamp->getDateTime();
+                if (is_null($dateUpdated) || $dateUpdated < $dTStampDateTime) {
+                    $dateUpdated = $dTStampDateTime;
+                }
+            }
         }
 
         // This is only the case if neither property is set in the iCal Event.
@@ -440,10 +527,22 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $iCalendarUpdatedDateTime = \DateTime::createFromFormat($iCalFormat, $iCalendarUpdated);
 
+        if (!$iCalendarUpdatedDateTime) {
+            return;
+        }
+
+        // DTSTAMP
         if (isset($this->iCalEvent->VEVENT->DTSTAMP)) {
             $this->iCalEvent->VEVENT->DTSTAMP = $iCalendarUpdatedDateTime;
         } else {
             $this->iCalEvent->VEVENT->add('DTSTAMP', $iCalendarUpdatedDateTime);
+        }
+
+        // LAST-MODIFIED
+        if (isset($this->iCalEvent->VEVENT->{'LAST-MODIFIED'})) {
+            $this->iCalEvent->VEVENT->{'LAST-MODIFIED'} = $iCalendarUpdatedDateTime;
+        } else {
+            $this->iCalEvent->VEVENT->add('LAST-MODIFIED', $iCalendarUpdatedDateTime);
         }
     }
 
@@ -578,7 +677,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return null;
         }
 
-        return $color;
+        return (string)$color;
     }
 
     public function setColor($color)
@@ -588,6 +687,23 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         $this->iCalEvent->VEVENT->add("COLOR", $color);
+    }
+
+    public function getLocale()
+    {
+        $locale = $this->iCalEvent->VEVENT->{'X-LOCALE'};
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($locale)) {
+            return null;
+        }
+        return (string)$locale;
+    }
+
+    public function setLocale($locale)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($locale)) {
+            return;
+        }
+        $this->iCalEvent->VEVENT->add("X-LOCALE", $locale);
     }
 
     public function getCategories()
@@ -600,10 +716,14 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $jmapKeyWords = [];
 
-        $categoryValues = explode(",", $categories);
-
-        foreach ($categoryValues as $cat) {
-            $jmapKeyWords[$cat] = true;
+        foreach ($categories as $cat) {
+            // Parse comma-separated values from each CATEGORIES property
+            foreach ($cat->getParts() as $value) {
+                $value = trim($value);
+                if (AdapterUtil::isSetNotNullAndNotEmpty($value)) {
+                    $jmapKeyWords[$value] = true;
+                }
+            }
         }
 
         return $jmapKeyWords;
@@ -626,10 +746,8 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         if (count($categories) == 0) {
             return;
         }
-
-        $iCalCategories = implode(",", $categories);
-
-        $this->iCalEvent->VEVENT->add("CATEGORIES", $iCalCategories);
+        // VObject handles comma-separation automatically when given an array
+        $this->iCalEvent->VEVENT->add("CATEGORIES", $categories);
     }
 
 
@@ -675,6 +793,155 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->add("LOCATION", $locationICalEscaped);
     }
 
+    /**
+     * Get VLOCATION components and convert them to JSCalendar locations.
+     *
+     * @return array|null Array of Location objects indexed by numeric keys, or null if none exist
+     */
+    public function getVLocations()
+    {
+        $vLocations = $this->iCalEvent->VEVENT->VLOCATION;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($vLocations)) {
+            return null;
+        }
+
+        $jmapLocations = [];
+        $key = 1;
+
+        foreach ($vLocations as $vLocation) {
+            $jmapLocation = new Location();
+            $jmapLocation->setType("Location");
+
+            // NAME property
+            $name = $vLocation->NAME;
+            if (AdapterUtil::isSetNotNullAndNotEmpty($name)) {
+                $nameValue = addcslashes(stripslashes($name->getValue()), '["\]');
+                $jmapLocation->setName($nameValue);
+            }
+
+            // GEO property: convert to coordinates
+            $geo = $vLocation->GEO;
+            if (AdapterUtil::isSetNotNullAndNotEmpty($geo)) {
+                $geoParts = $geo->getParts();
+                if (count($geoParts) >= 2) {
+                    $coordinates = sprintf("geo:%s,%s", $geoParts[0], $geoParts[1]);
+                    $jmapLocation->setCoordinates($coordinates);
+                }
+            }
+
+            $jmapLocations[$key] = $jmapLocation;
+            $key++;
+        }
+
+        return $jmapLocations;
+    }
+
+    /**
+     * Set VLOCATION components from JSCalendar locations.
+     *
+     * @param array $locations Array of Location objects to convert
+     *
+     * @return void
+     */
+    public function setVLocations($locations)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($locations)) {
+            return;
+        }
+
+        foreach ($locations as $location) {
+            // Only create VLOCATION if we have coordinates
+            if (!AdapterUtil::isSetNotNullAndNotEmpty($location->getCoordinates())) {
+                continue;
+            }
+
+            // Create a new VLOCATION component using the VEvent class
+            // (Sabre uses VEvent for most component types)
+            $vLocationComponent = new \Sabre\VObject\Component\VEvent($this->iCalEvent, 'VLOCATION');
+
+            // UID (required)
+            $vLocationComponent->add('UID', uniqid("vloc-", true));
+
+            // NAME (required)
+            $name = $location->getName();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($name)) {
+                $nameICalEscaped = addcslashes(stripslashes($name), "[,;]");
+                $vLocationComponent->add('NAME', $nameICalEscaped);
+            } else {
+                $vLocationComponent->add('NAME', 'Location');
+            }
+
+            // GEO from coordinates
+            $coordinates = $location->getCoordinates();
+            if (strpos($coordinates, 'geo:') === 0) {
+                $coords = substr($coordinates, 4);
+                $parts = explode(',', $coords);
+
+                if (count($parts) >= 2) {
+                    $latitude = trim($parts[0]);
+                    $longitude = trim($parts[1]);
+                    $vLocationComponent->add('GEO', "$latitude;$longitude");
+                }
+            }
+
+            // Add the component to the VEVENT's children array
+            $this->iCalEvent->VEVENT->add($vLocationComponent);
+        }
+    }
+
+    /**
+     * Get geographic coordinates as JSCalendar geo URI format.
+     * Converts iCalendar GEO property (latitude;longitude) to geo: URI format.
+     *
+     * @return string|null Geo URI (e.g., "geo:37.386,-122.082"), or null if not set
+     */
+    public function getGeo()
+    {
+        $geo = $this->iCalEvent->VEVENT->GEO;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($geo)) {
+            return null;
+        }
+
+        $geoParts = $geo->getParts();
+        if (count($geoParts) >= 2) {
+            // Return as geo: URI format for JSCalendar
+            return sprintf("geo:%s,%s", $geoParts[0], $geoParts[1]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Set geographic coordinates from JSCalendar geo URI format.
+     * Converts geo: URI format to iCalendar GEO property (latitude;longitude).
+     *
+     * @param string $coordinates Geo URI in format "geo:latitude,longitude"
+     *
+     * @return void
+     */
+    public function setGeo($coordinates)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($coordinates)) {
+            return;
+        }
+
+        // Expect geo: URI format: "geo:latitude,longitude"
+        if (strpos($coordinates, 'geo:') === 0) {
+            $coords = substr($coordinates, 4);
+            $parts = explode(',', $coords);
+
+            if (count($parts) >= 2) {
+                $latitude = trim($parts[0]);
+                $longitude = trim($parts[1]);
+
+                // GEO format is "latitude;longitude"
+                $this->iCalEvent->VEVENT->add('GEO', [$latitude, $longitude]);
+            }
+        }
+    }
+
     public function getFreeBusy()
     {
         $freeBusy = $this->iCalEvent->VEVENT->TRANSP;
@@ -684,7 +951,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         // "free" is supposed to be the default value.
-        return $freeBusy->getValue() == 'OPAGUE' ? 'busy' : 'free';
+        return $freeBusy->getValue() == 'OPAQUE' ? 'busy' : 'free';
     }
 
     public function setFreeBusy($freeBusy)
@@ -694,7 +961,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         // "OPAGUE" is supposed to be the default value.
-        $iCalFreeBusy = $freeBusy == 'free' ? 'TRANSPARENT' : 'OPAGUE';
+        $iCalFreeBusy = $freeBusy == 'free' ? 'TRANSPARENT' : 'OPAQUE';
 
         $this->iCalEvent->VEVENT->add("TRANSP", $iCalFreeBusy);
     }
@@ -779,10 +1046,18 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             // "DISPLAY" and "AUDIO" are both converted to "display", as there is no direct
             // counterpart for "AUDIO" in JSCalendar.
-            if (strcmp($action, "DISPLAY") === 0 || strcmp($action, "AUDIO") === 0) {
+            // Only DISPLAY and EMAIL have direct JSCalendar action values.
+            if (strcmp($action, "DISPLAY") === 0) {
                 $alert->setAction("display");
             } elseif (strcmp($action, "EMAIL") === 0) {
                 $alert->setAction("email");
+            }
+
+            // Map ACKNOWLEDGED property (RFC 9074) to JSCalendar acknowledged timestamp
+            $acknowledged = $alarm->ACKNOWLEDGED;
+            if (AdapterUtil::isSetNotNullAndNotEmpty($acknowledged)) {
+                $acknowledgedDateTime = $acknowledged->getDateTime();
+                $alert->setAcknowledged(date_format($acknowledgedDateTime, "Y-m-d\TH:i:s\Z"));
             }
 
             $jmapAlerts[$key] = $alert;
@@ -803,6 +1078,14 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
 
         foreach ($alerts as $id => $alert) {
+            if (is_array($alert)) {
+                $alert = Alert::fromJson($alert); // Convert array to Alert object if needed
+            }
+
+            if (!($alert instanceof Alert)) {
+                continue; // Skip if not a valid Alert object
+            }
+
             $this->iCalEvent->VEVENT->add("VALARM", []);
 
             $jsCalAction = $alert->getAction();
@@ -811,12 +1094,19 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             if (strcmp($jsCalAction, "email") === 0) {
                 $iCalAction = "EMAIL";
             } else {
+                // Default to DISPLAY for "display", null, or any other action
                 $iCalAction = "DISPLAY";
             }
 
             $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("ACTION", $iCalAction);
 
             $jsCalTrigger = $alert->getTrigger();
+
+            if (is_null($jsCalTrigger)) { // Trigger is mandatory, skip if missing
+                $alarmIndex++;
+                continue;
+            }
+
             $triggerType = $jsCalTrigger->getType();
 
             // Set the TRIGGER property.
@@ -841,23 +1131,43 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 $triggerValue = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $jsCalTrigger->getWhen());
 
                 // If the date time is false, it was probably not in UTC, which is the standard for both formats.
-                // Log and skip to the next alert.
                 if (!$triggerValue) {
-                    // TODO: Add the alert to the event as some sort of custom alert if this happens.
                     $this->logger->error(
                         "Unable to create date time for absolute trigger from value: "
                         . $jsCalTrigger->getWhen()
                     );
 
+                    // Preserve the invalid trigger data in a custom extension property
+                    $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add(
+                        "X-INVALID-TRIGGER-WHEN",
+                        $jsCalTrigger->getWhen()
+                    );
+                    // Set a safe default trigger so the alarm structure is valid
+                    $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add(
+                        "TRIGGER",
+                        "-PT15M"
+                    );
+
+                    $alarmIndex++;
                     continue;
                 }
-
                 $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("TRIGGER", $triggerValue, ["VALUE" => "DATE-TIME"]);
             } else {
                 // The trigger type is not one of the two known ones.
                 $this->logger->error("Unable to created trigger value from trigger type: " . $jsCalTrigger->getType());
 
                 continue;
+            }
+
+            // Map acknowledged timestamp from JSCalendar to iCalendar ACKNOWLEDGED property
+            $acknowledged = $alert->getAcknowledged();
+
+            if (AdapterUtil::isSetNotNullAndNotEmpty($acknowledged)) {
+                // Convert UTC timestamp to DateTime for ACKNOWLEDGED property
+                $acknowledgedDateTime = DateTime::createFromFormat("Y-m-d\TH:i:s\Z", $acknowledged);
+                if ($acknowledgedDateTime) {
+                    $this->iCalEvent->VEVENT->VALARM[$alarmIndex]->add("ACKNOWLEDGED", $acknowledgedDateTime);
+                }
             }
 
             $alarmIndex++;
@@ -1017,8 +1327,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                         break;
 
                     case 'UNTIL':
-                        //TODO: add the timezone of the current event as another property so that if it is something
-                        // else than local (i.e. utc) the difference is added to the until value.
+                        // Timezone handling is now implemented in the converter utility
                         $jmapRecurrenceRule->setUntil(
                             JSCalendarICalendarAdapterUtil::convertFromICalUntilToJmapUntil($value)
                         );
@@ -1059,7 +1368,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             }
 
             $jsCalValue = $rec->getInterval();
-            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue) && $jsCalValue != 1) {
                 $iCalValue = JSCalendarICalendarAdapterUtil::
                     convertFromJmapIntervalToICalInterval($jsCalValue);
 
@@ -1067,7 +1376,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             }
 
             $jsCalValue = $rec->getRscale();
-            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue) && strtolower($jsCalValue) != 'gregorian') {
                 $iCalValue = JSCalendarICalendarAdapterUtil::
                     convertFromJmapRScaleToICalRScale($jsCalValue);
 
@@ -1075,7 +1384,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             }
 
             $jsCalValue = $rec->getSkip();
-            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue) && strtolower($jsCalValue) != 'omit') {
                 $iCalValue = JSCalendarICalendarAdapterUtil::
                     convertFromJmapSkipToICalSkip($jsCalValue);
 
@@ -1083,7 +1392,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             }
 
             $jsCalValue = $rec->getFirstDayOfWeek();
-            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue) && strtoupper($jsCalValue) != 'MO') {
                 $iCalValue = JSCalendarICalendarAdapterUtil::
                     convertFromJmapFirstDayOfWeekToICalWKST($jsCalValue);
 
@@ -1210,6 +1519,20 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
     }
 
+    public function getRecurrenceId()
+    {
+        $recurrenceId = $this->iCalEvent->VEVENT->{'RECURRENCE-ID'};
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId)) {
+            return null;
+        }
+
+        $recurrenceIdDateTime = $recurrenceId->getDateTime();
+
+        // Return in JSCalendar format (local time)
+        return $recurrenceIdDateTime->format("Y-m-d\TH:i:s");
+    }
+
     public function getExDates()
     {
         $exDates = $this->iCalEvent->VEVENT->EXDATE;
@@ -1220,19 +1543,17 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $excludedRecurrenceIds = [];
 
-        $exDateValues = explode(",", $exDates->getValue());
-
-        foreach ($exDateValues as $exDate) {
-            if (!AdapterUtil::isSetNotNullAndNotEmpty($exDate)) {
-                continue;
+        // Go through each EXDATE property (there can be multiple)
+        foreach ($exDates as $exDate) {
+            // Parse comma-separated datetime values from each property
+            foreach ($exDate->getDateTimes() as $dateTime) {
+                $excludedRecurrenceIds[] = $dateTime->format("Y-m-d\TH:i:s");
             }
-
-            $recurrenceOverrideDateTime = new \DateTime($exDate);
-            $excludedRecurrenceIds[] = date_format($recurrenceOverrideDateTime, "Y-m-d\TH:i:s");
         }
 
         return $excludedRecurrenceIds;
     }
+
     public function setExDate($recurrenceId)
     {
         if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId)) {
@@ -1250,7 +1571,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         $dtStartString = $dtStart->getValue();
 
-        if (strpos($dtStartString, "VALUE=DATE") !== false) {
+        if (isset($dtStart['VALUE']) && strtoupper((string) $dtStart['VALUE']) === 'DATE') {
             $exDateFormat = "Ymd";
         } elseif (strpos($dtStartString, "Z") !== false) {
             $exDateFormat = "Ymd\THis\Z";
@@ -1284,6 +1605,109 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         $this->iCalEvent->VEVENT->EXDATE = $setExDates;
     }
 
+    /**
+     * Get all RDATE values of the current VEVENT as JSCalendar recurrence override keys.
+     *
+     * An RDATE property with value type DATE or DATE-TIME converts to an empty PatchObject
+     * entry in "recurrenceOverrides". This method returns the converted recurrence ids.
+     *
+     * DATE values are returned in "Y-m-d" format.
+     * DATE-TIME values are returned in "Y-m-d\TH:i:s" format.
+     *
+     * @return array<int,string>|null
+     */
+    public function getRDates()
+    {
+        $rDates = $this->iCalEvent->VEVENT->RDATE;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($rDates)) {
+            return null;
+        }
+
+        $includedRecurrenceIds = [];
+
+        foreach ($rDates as $rDateProperty) {
+            $isDateValue = isset($rDateProperty['VALUE'])
+                && strtoupper((string) $rDateProperty['VALUE']) === 'DATE';
+
+            foreach ($rDateProperty->getDateTimes() as $dateTime) {
+                $includedRecurrenceIds[] = $isDateValue
+                    ? $dateTime->format("Y-m-d")
+                    : $dateTime->format("Y-m-d\TH:i:s");
+            }
+        }
+
+        return $includedRecurrenceIds;
+    }
+
+    /**
+     * Add a recurrence instance as an RDATE property to the current VEVENT.
+     *
+     * Per the RFC5545, an empty PatchObject in
+     * "recurrenceOverrides" converts to an RDATE property.
+     *
+     * @param string $recurrenceId
+     *
+     * @return void
+     */
+    public function setRDate($recurrenceId)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($recurrenceId)) {
+            return;
+        }
+
+        $dtStart = $this->iCalEvent->VEVENT->DTSTART;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($dtStart)) {
+            return;
+        }
+
+        $rDateFormat = null;
+        $inputFormat = null;
+        $timeZone = null;
+
+        $dtStartString = $dtStart->getValue();
+
+        if (isset($dtStart['VALUE']) && strtoupper((string) $dtStart['VALUE']) === 'DATE') {
+            $rDateFormat = "Ymd";
+            $inputFormat = "Y-m-d";
+        } elseif (strpos($dtStartString, "Z") !== false) {
+            $rDateFormat = "Ymd\THis\Z";
+            $inputFormat = "Y-m-d\TH:i:s";
+        } else {
+            $rDateFormat = "Ymd\THis";
+            $inputFormat = "Y-m-d\TH:i:s";
+
+            $timeZoneName = $this->getTimeZone();
+            if (!is_null($timeZoneName)) {
+                $timeZone = new \DateTimeZone($timeZoneName);
+            }
+        }
+
+        $rDateString = AdapterUtil::parseDateTime($recurrenceId, $inputFormat, $rDateFormat);
+        $rDate = new \DateTimeImmutable($rDateString, $timeZone);
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($this->iCalEvent->VEVENT->RDATE)) {
+            $this->iCalEvent->VEVENT->add("RDATE", $rDate);
+
+            if ($rDateFormat === "Ymd") {
+                $this->iCalEvent->VEVENT->RDATE["VALUE"] = "DATE";
+            }
+
+            return;
+        }
+
+        $setRDates = [];
+
+        foreach ($this->iCalEvent->VEVENT->RDATE->getDateTimes() as $setRDate) {
+            $setRDates[] = $setRDate;
+        }
+
+        $setRDates[] = $rDate;
+
+        $this->iCalEvent->VEVENT->RDATE = $setRDates;
+    }
+
     public function getParticipants()
     {
         $organizer = $this->iCalEvent->VEVENT->ORGANIZER;
@@ -1293,13 +1717,31 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             !AdapterUtil::isSetNotNullAndNotEmpty($organizer)
             && !AdapterUtil::isSetNotNullAndNotEmpty($attendees)
         ) {
-                return null;
+            return null;
         }
 
         $jmapParticipants = [];
 
         if (AdapterUtil::isSetNotNullAndNotEmpty($attendees)) {
+            // Sort attendees: process groups (CUTYPE=GROUP) before individuals
+            // This ensures memberOf references are valid when processing MEMBER parameters
+            $groupAttendees = [];
+            $individualAttendees = [];
+
             foreach ($attendees as $attendee) {
+                $cutype = isset($attendee['CUTYPE']) ? $attendee['CUTYPE']->getValue() : null;
+
+                if ($cutype === 'GROUP') {
+                    $groupAttendees[] = $attendee;
+                } else {
+                    $individualAttendees[] = $attendee;
+                }
+            }
+
+            // Process groups first, then individuals
+            $sortedAttendees = array_merge($groupAttendees, $individualAttendees);
+
+            foreach ($sortedAttendees as $attendee) {
                 $attendeeValue = $attendee->getValue();
 
                 if (is_null($attendeeValue)) {
@@ -1422,8 +1864,28 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     );
                     break;
 
+                case "DELEGATED-TO":
+                    $participant->setDelegatedTo(
+                        JSCalendarICalendarAdapterUtil::converFromICalDelegatedToToJmapDelegatedTo($param->getValue())
+                    );
+                    break;
+
                 case "DIR":
-                    // TODO: implement me
+                    // DIR parameter maps to JSCalendar "links" property with rel="describedby"
+                    $links = $participant->getLinks();
+                    if (is_null($links)) {
+                        $links = [];
+                    }
+
+                    $dirLink = new Link();
+                    $dirLink->setType("Link");
+                    $dirLink->setHref($param->getValue());
+                    $dirLink->setRel("describedby");
+
+                    $linkId = md5($param->getValue());
+                    $links[$linkId] = $dirLink;
+
+                    $participant->setLinks($links);
                     break;
 
                 case "LANGUAGE":
@@ -1431,8 +1893,23 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                     break;
 
                 case "MEMBER":
-                    // TODO: implement me. The conversion specs suggest to map participants that are groups first
-                    // so we would need to do some filtering/sorting ahead of the conversions.
+                    // MEMBER parameter indicates group membership
+                    // Maps to JSCalendar "memberOf" property
+                    // Groups are now processed first in getParticipants() to ensure valid conversion
+                    $memberOf = $participant->getMemberOf();
+                    if (is_null($memberOf)) {
+                        $memberOf = [];
+                    }
+
+                    // MEMBER can contain multiple comma-separated values
+                    $members = is_array($param->getValue()) ? $param->getValue() : [$param->getValue()];
+
+                    foreach ($members as $member) {
+                        // The member value is typically a mailto: URI or calendar user address
+                        $memberOf[] = $member;
+                    }
+
+                    $participant->setMemberOf($memberOf);
                     break;
 
                 case "PARTSTAT":
@@ -1615,7 +2092,22 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             $parameters["SENT-BY"] = $jsCalValue;
         }
 
-        //TODO: implement "memberOf" and "links".
+        // Handle memberOf (converts to MEMBER parameter)
+        $jsCalValue = $participant->getMemberOf();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            $parameters["MEMBER"] = $jsCalValue;
+        }
+
+        // Handle links (DIR parameter for rel="describedby" links)
+        $jsCalValue = $participant->getLinks();
+        if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            foreach ($jsCalValue as $linkId => $link) {
+                if ($link->getRel() === "describedby") {
+                    $parameters["DIR"] = $link->getHref();
+                    break;
+                }
+            }
+        }
 
         return $parameters;
     }
@@ -1638,6 +2130,228 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
         }
 
         $this->iCalEvent->VEVENT->add("PRIORITY", $priority);
+    }
+
+    /**
+     * Get the iCalendar METHOD property.
+     * Indicates the type of iTIP message (REQUEST, REPLY, CANCEL, etc.).
+     *
+     * @return string|null Method in lowercase (e.g., "request", "reply"), or null if not set
+     */
+    public function getMethod()
+    {
+        $method = $this->iCalEvent->METHOD;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($method)) {
+            return null;
+        }
+
+        return strtolower($method->getValue());
+    }
+
+    /**
+     * Set the iCalendar METHOD property.
+     * Required for calendar invitations and scheduling messages.
+     *
+     * @param string $method Method value (e.g., "request", "reply", "cancel", "publish")
+     * @return void
+     */
+    public function setMethod($method)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($method)) {
+            return;
+        }
+
+        $iCalMethod = strtoupper($method);
+
+        if (isset($this->iCalEvent->METHOD)) {
+            $this->iCalEvent->METHOD = $iCalMethod;
+        } else {
+            $this->iCalEvent->add('METHOD', $iCalMethod);
+        }
+    }
+
+    /**
+     * Get the reply-to address for scheduling responses.
+     * Maps iCalendar REPLY-URL to JSCalendar "replyTo" property.
+     *
+     * @return array|null Array with "imip" key containing mailto: URL, or null if not set
+     */
+    public function getReplyTo()
+    {
+        $replyUrl = $this->iCalEvent->VEVENT->{'REPLY-URL'};
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($replyUrl)) {
+            return null;
+        }
+
+        return ["imip" => $replyUrl->getValue()];
+    }
+
+    /**
+     * Set the reply-to address for scheduling responses.
+     * Maps JSCalendar "replyTo" to iCalendar REPLY-URL property.
+     *
+     * @param array $replyTo Array with "imip" key (e.g., ["imip" => "mailto:rsvp@example.com"])
+     * @return void
+     */
+    public function setReplyTo($replyTo)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($replyTo)) {
+            return;
+        }
+
+        if ($replyTo instanceof \stdClass) {
+            $replyTo = (array) $replyTo;
+        }
+
+        if (is_array($replyTo) && isset($replyTo["imip"])) {
+            $this->iCalEvent->VEVENT->add('REPLY-URL', $replyTo["imip"]);
+        }
+    }
+
+    /**
+     * Get the scheduling request status codes.
+     * Maps iCalendar REQUEST-STATUS to JSCalendar "requestStatus" property.
+     *
+     * @return array|null Array of status codes, or null if not set
+     */
+    public function getRequestStatus()
+    {
+        $requestStatus = $this->iCalEvent->VEVENT->{'REQUEST-STATUS'};
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($requestStatus)) {
+            return null;
+        }
+
+        $statuses = [];
+
+        foreach ($requestStatus as $status) {
+            $statuses[] = $status->getValue();
+        }
+
+        return $statuses;
+    }
+
+    /**
+     * Set scheduling request status codes.
+     * Maps JSCalendar "requestStatus" to iCalendar REQUEST-STATUS properties.
+     *
+     * @param array $statuses Array of status code strings (e.g., ["2.0;Success", "4.0;Event not found"])
+     * @return void
+     */
+    public function setRequestStatus($statuses)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($statuses)) {
+            return;
+        }
+
+        foreach ($statuses as $status) {
+            $this->iCalEvent->VEVENT->add('REQUEST-STATUS', $status);
+        }
+    }
+
+    public function getUrl()
+    {
+        $url = $this->iCalEvent->VEVENT->URL;
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($url)) {
+            return null;
+        }
+
+        return $url->getValue();
+    }
+
+    public function setUrl($url)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($url)) {
+            return;
+        }
+
+        $this->iCalEvent->VEVENT->add('URL', $url);
+    }
+
+    /**
+     * Get related events as JSCalendar relatedTo property.
+     * Maps iCalendar RELATED-TO properties with their relationship types.
+     *
+     * @return array|null Array of relation data indexed by UID, or null if none exist
+     */
+    public function getRelatedTo()
+    {
+        $relatedTo = $this->iCalEvent->VEVENT->{'RELATED-TO'};
+
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($relatedTo)) {
+            return null;
+        }
+
+        $jmapRelatedTo = [];
+
+        foreach ($relatedTo as $relation) {
+            $uid = $relation->getValue();
+
+            $relationData = [];
+
+            // Check for RELTYPE parameter
+            if (isset($relation['RELTYPE'])) {
+                $relType = strtolower($relation['RELTYPE']->getValue());
+                $relationData['relation'][$relType] = true;
+            } else {
+                // Default is PARENT
+                $relationData['relation']['parent'] = true;
+            }
+
+            $jmapRelatedTo[$uid] = $relationData;
+        }
+
+        return $jmapRelatedTo;
+    }
+
+    /**
+     * Set related events from JSCalendar relatedTo property.
+     * Creates iCalendar RELATED-TO properties with appropriate relationship types.
+     *
+     * @param array $relatedTo Array of relation data indexed by UID
+     *
+     * @return void
+     */
+    public function setRelatedTo($relatedTo)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($relatedTo)) {
+            return;
+        }
+
+        foreach ($relatedTo as $uid => $relationData) {
+            $parameters = [];
+
+            // Handle both Relation objects and array format
+            if ($relationData instanceof \OpenXPort\Jmap\Calendar\Relation) {
+                // It's a Relation object - get the relation data from it
+                $relations = $relationData->getRelation();
+            } elseif (isset($relationData['relation'])) {
+                // It's an array - use it directly
+                $relations = $relationData['relation'];
+            } else {
+                continue;
+            }
+
+            if (!empty($relations)) {
+                $relationTypes = array_keys(array_filter($relations));
+                if (!empty($relationTypes)) {
+                    // Use the first relation type
+                    $relType = strtoupper($relationTypes[0]);
+                    if ($relType !== 'PARENT') {
+                        $parameters['RELTYPE'] = $relType;
+                    }
+                }
+            }
+
+            if (empty($parameters)) {
+                $this->iCalEvent->VEVENT->add('RELATED-TO', $uid);
+            } else {
+                $this->iCalEvent->VEVENT->add('RELATED-TO', $uid, $parameters);
+            }
+        }
     }
 
     public function getAttachments()
@@ -1676,10 +2390,22 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             }
 
             if (
+                array_key_exists("LABEL", $attach->parameters) &&
+                AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["LABEL"])
+            ) {
+                $link->setTitle($attach->parameters["LABEL"]->getValue());
+            } elseif (
                 array_key_exists("FILENAME", $attach->parameters) &&
                 AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["FILENAME"])
             ) {
                 $link->setTitle($attach->parameters["FILENAME"]->getValue());
+            }
+
+            if (
+                array_key_exists("SIZE", $attach->parameters) &&
+                AdapterUtil::isSetNotNullAndNotEmpty($attach->parameters["SIZE"])
+            ) {
+                $link->setSize((int) $attach->parameters["SIZE"]->getValue());
             }
 
             array_push($links, $link);
@@ -1807,31 +2533,112 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 }
             }
 
+            // Use LABEL (RFC 7986 standard)
             if (AdapterUtil::isSetNotNullAndNotEmpty($link->getTitle())) {
-                $data["parameters"]["FILENAME"] = $link->getTitle();
+                $data["parameters"]["LABEL"] = $link->getTitle();
             }
 
+            // Convert numeric size to string for SIZE parameter (RFC 8607)
+            if (AdapterUtil::isSetNotNullAndNotEmpty($link->getSize())) {
+                $data["parameters"]["SIZE"] = (string) $link->getSize();
+            }
+
+            // VObject handles empty parameters array automatically
             $this->iCalEvent->VEVENT->add(
                 "ATTACH",
                 $data["value"],
                 $data["parameters"]
             );
+        }
+    }
 
-            /* TODO: check if necessary v v v
-            if (empty($data["parameters"])) {
-                $this->iCalEvent->VEVENT->add(
-                    "ATTACH",
-                    $data["value"]
-                );
+    /**
+     * Get virtual meeting locations from CONFERENCE properties.
+     * Converts iCalendar CONFERENCE properties to JSCalendar VirtualLocation objects.
+     *
+     */
+    public function getVirtualLocations()
+    {
+        $conferences = $this->iCalEvent->VEVENT->CONFERENCE;
 
-            } else {
-                $this->iCalEvent->VEVENT->add(
-                    "ATTACH",
-                    $data["value"],
-                    $data["parameters"]
-                );
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($conferences)) {
+            return null;
+        }
+
+        $virtualLocations = [];
+        $key = 1;
+
+        // Convert each CONFERENCE property to a VirtualLocation object
+        foreach ($conferences as $conference) {
+            $virtualLocation = new VirtualLocation();
+            $virtualLocation->setType("VirtualLocation");
+
+            $uri = $conference->getValue();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($uri)) {
+                $virtualLocation->setUri($uri);
             }
-            */
+
+            if (isset($conference['LABEL'])) {  // Map LABEL parameter to name
+                $virtualLocation->setName($conference['LABEL']->getValue());
+            }
+
+            if (isset($conference['FEATURE'])) {
+                $features = []; // Map FEATURE parameter to features (audio, video, chat, etc.)
+                foreach ($conference['FEATURE']->getParts() as $feature) {
+                    $features[strtolower($feature)] = true;
+                }
+                $virtualLocation->setFeatures($features);
+            }
+
+            $virtualLocations[$key] = $virtualLocation;
+            $key++;
+        }
+
+        return $virtualLocations;
+    }
+
+    /**
+     * Set virtual meeting locations as CONFERENCE properties.
+     * Converts JSCalendar VirtualLocation objects to iCalendar CONFERENCE properties.
+     *
+     * @param array $virtualLocations Array of VirtualLocation objects
+     *
+     * @return void
+     */
+    public function setVirtualLocations($virtualLocations)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($virtualLocations)) {
+            return;
+        }
+
+        foreach ($virtualLocations as $virtualLocation) {
+            $uri = $virtualLocation->getUri();
+
+            if (!AdapterUtil::isSetNotNullAndNotEmpty($uri)) {
+                continue;
+            }
+
+            $parameters = [];
+
+            $name = $virtualLocation->getName();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($name)) {
+                $parameters['LABEL'] = $name;
+            }
+
+            $features = $virtualLocation->getFeatures();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($features)) {
+                $featureList = [];
+                foreach ($features as $feature => $enabled) {
+                    if ($enabled) {
+                        $featureList[] = strtoupper($feature);
+                    }
+                }
+                if (!empty($featureList)) {
+                    $parameters['FEATURE'] = $featureList;
+                }
+            }
+
+            $this->iCalEvent->VEVENT->add('CONFERENCE', $uri, $parameters);
         }
     }
 }

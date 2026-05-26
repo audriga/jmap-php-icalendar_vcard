@@ -1,0 +1,7 @@
+BEGIN:VCARD
+VERSION:4.0
+FN:山田太郎
+N;JSCOMPS=";0;1":山田;太郎;;;
+ADR;JSCOMPS="s,, ;10;s, ;2;3";TYPE=work:;;54321 Oak St;Reston;VA;20190;USA;;;;54321;Oak St;;;;;;
+UID:test-001
+END:VCARD

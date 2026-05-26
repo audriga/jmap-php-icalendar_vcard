@@ -18,6 +18,7 @@ ifeq (, $(composer))
 	./get_composer.sh
 	mv composer.phar $(build_tools_directory)/composer_fresh.phar
 endif
+	@test -e $(build_tools_directory)/composer.phar || ln -s composer_fresh.phar $(build_tools_directory)/composer.phar
 
 # Installs composer LTS version from web if not already installed.
 # TODO Switch from pinning specific version to LTS pinning see
@@ -49,9 +50,10 @@ update: composer
 .PHONY: php70_mode
 php70_mode: composer_lts
 	git checkout composer.json composer.lock
+	rm -f composer.lock
 	rm $(build_tools_directory)/composer.phar || true
 	ln $(build_tools_directory)/composer_lts.phar $(build_tools_directory)/composer.phar
-	php $(build_tools_directory)/composer.phar require sabre/vobject:'<4.3' sabre/uri:'<2.2' sabre/xml:'<2.2' psr/log:'<2' phpunit/phpunit:'<10' phar-io/manifest:'<2' phpunit/php-code-coverage:'<6' phpunit/php-file-iterator:'<2' phpunit/php-timer:'<6' phpunit/php-text-template:'<2' phar-io/version:'<3'
+	php $(build_tools_directory)/composer.phar require sabre/vobject:'<4.3' sabre/uri:'<2.2' sabre/xml:'<2.2' psr/log:'<2' phpunit/phpunit:'<10' phar-io/manifest:'<2' phpunit/php-code-coverage:'<6' phpunit/php-file-iterator:'<2' phpunit/php-timer:'<6' phpunit/php-text-template:'<2' phar-io/version:'<3' squizlabs/php_codesniffer:'<3.6'
 
 	# Lint for PHP 7.0 . This will fail in case podman is not available
 	podman run --rm --name php70  -v "$(PWD)":"$(PWD)" -w "$(PWD)" docker.io/jetpulp/php70-cli sh -c "! (find . -type f -name \"*.php\" -not -path \"./tests/*\" $1 -exec php -l -n {} \; | grep -v \"No syntax errors detected\")" || true
@@ -69,16 +71,12 @@ php81_mode: composer
 
 # Linting with PHP-CS
 .PHONY: lint
-lint:
-	# Make sure devtools are available
+lint: composer
 	php $(build_tools_directory)/composer.phar install --prefer-dist
-
-	# Lint with CodeSniffer
 	vendor/bin/phpcs src/
 
-# Run Unit tests
 .PHONY: unit_test
-unit_test:
+unit_test: composer
 	php $(build_tools_directory)/composer.phar install --prefer-dist
 	vendor/bin/phpunit -c tests/phpunit.xml --testdox
 

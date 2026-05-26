@@ -1,0 +1,29 @@
+{
+  "@type": "Event",
+  "uid": "test-override-attach@example.com",
+  "title": "Recurring attachment test",
+  "start": "2023-05-20T10:00:00",
+  "duration": "PT1H",
+  "timeZone": "Etc/UTC",
+  "recurrenceRules": [
+    {
+      "@type": "RecurrenceRule",
+      "frequency": "daily"
+    }
+  ],
+  "recurrenceOverrides": {
+    "2023-05-22T10:00:00": {
+      "title": "Override with attachment",
+      "links": {
+        "1": {
+          "@type": "Link",
+          "rel": "enclosure",
+          "href": "https://example.com/override.pdf",
+          "contentType": "application/pdf",
+          "title": "Override Agenda",
+          "size": 12345
+        }
+      }
+    }
+  }
+}

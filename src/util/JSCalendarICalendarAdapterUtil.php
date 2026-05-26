@@ -424,7 +424,6 @@ class JSCalendarICalendarAdapterUtil
 
     public static function convertFromJmapUntilToICalUntil($until, $dtStart)
     {
-        //TODO: Figure out how to add the timezone difference to the value.
         if (!AdapterUtil::isSetNotNullAndNotEmpty($until)) {
             return null;
         }
@@ -441,6 +440,7 @@ class JSCalendarICalendarAdapterUtil
         * UNTIL rule part MUST be specified as a date with UTC time."
         */
         $iCalFormat = "Ymd\THis";
+        $needsUtcConversion = false;
 
         if (
             AdapterUtil::isSetNotNullAndNotEmpty($dtStart)
@@ -450,6 +450,7 @@ class JSCalendarICalendarAdapterUtil
             )
         ) {
                 $iCalFormat = "Ymd\THis\Z";
+                $needsUtcConversion = true;
         }
 
 
@@ -463,6 +464,15 @@ class JSCalendarICalendarAdapterUtil
             self::$logger->error("Unable to create date from JMAP until: $until");
 
             return null;
+        }
+
+        // Convert to UTC if DTSTART has timezone or is UTC
+        if ($needsUtcConversion && AdapterUtil::isSetNotNullAndNotEmpty($dtStart)) {
+            $dtStartTimeZone = $dtStart->getDateTime()->getTimeZone();
+            if (AdapterUtil::isSetNotNullAndNotEmpty($dtStartTimeZone)) {
+                $jmapUntilDate->setTimezone($dtStartTimeZone);
+            }
+            $jmapUntilDate->setTimezone(new \DateTimeZone('UTC'));
         }
 
         $iCalUntil = date_format($jmapUntilDate, $iCalFormat);
@@ -673,6 +683,8 @@ class JSCalendarICalendarAdapterUtil
 
     public static function splitJmapLinkMapIntoICalProperties($linkMap)
     {
+        $linkMap = self::normalizeJmapLinks($linkMap);
+
         if (
             !AdapterUtil::isSetNotNullAndNotEmpty($linkMap) ||
             !is_array($linkMap)
@@ -708,6 +720,36 @@ class JSCalendarICalendarAdapterUtil
         $splitLinkMap["urls"] = $urls;
 
         return $splitLinkMap;
+    }
+
+    /**
+     * Convert a JMAP link map so that all entries are Link objects.
+    */
+    public static function normalizeJmapLinks($linkMap)
+    {
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($linkMap)) {
+            return null;
+        }
+
+        if ($linkMap instanceof \stdClass) {
+            $linkMap = (array) $linkMap;
+        }
+
+        if (!is_array($linkMap)) {
+            return null;
+        }
+
+        $normalizedLinks = [];
+
+        foreach ($linkMap as $id => $link) {
+            $normalizedLink = \OpenXPort\Jmap\Calendar\Link::fromMixed($link);
+
+            if (!is_null($normalizedLink)) {
+                $normalizedLinks[$id] = $normalizedLink;
+            }
+        }
+
+        return $normalizedLinks;
     }
 
     public static function extractMediaTypeFromDataUrlMetaDataString($metaData)

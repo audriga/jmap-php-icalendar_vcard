@@ -3,8 +3,14 @@
 namespace OpenXPort\Test\VCard;
 
 use OpenXPort\Adapter\RoundcubeJSContactVCardAdapter;
-use OpenXPort\Jmap\JSContact\Audriga\Card;
+use OpenXPort\Jmap\JSContact\ContactCard;
 use OpenXPort\Jmap\JSContact\Phone;
+use OpenXPort\Jmap\JSContact\Organization;
+use OpenXPort\Jmap\JSContact\Anniversary;
+use OpenXPort\Jmap\JSContact\OnlineService;
+use OpenXPort\Jmap\JSContact\Address;
+use OpenXPort\Jmap\JSContact\Name;
+use OpenXPort\Jmap\JSContact\NameComponent;
 use OpenXPort\Mapper\RoundcubeJSContactVCardMapper;
 use OpenXPort\Test\VCard\TestUtils;
 use PHPUnit\Framework\TestCase;
@@ -28,7 +34,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
     /** @var array */
     protected $vCardData = null;
 
-    /** @var \OpenXPort\Jmap\JSContact\Card */
+    /** @var \OpenXPort\Jmap\JSContact\ContactCard */
     protected $jsContactCard = null;
 
     public function setUp(): void
@@ -55,22 +61,20 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
      */
     public function testCorrectRoundcubeRoundtripPhones()
     {
-        $this->jsContactCard = new Card();
+        $this->jsContactCard = new ContactCard();
         $pagerPhoneEntry = new Phone();
-        $pagerPhoneEntry->setAtType("Phone");
-        $pagerPhoneEntry->setPhone("123-pager");
+        $pagerPhoneEntry->setNumber("123-pager");
         $pagerPhoneEntry->setFeatures(["pager" => true]);
 
         $pagerOtherPhoneEntry = new Phone();
-        $pagerOtherPhoneEntry->setAtType("Phone");
-        $pagerOtherPhoneEntry->setPhone("123-other");
+        $pagerOtherPhoneEntry->setNumber("123-other");
 
         $this->jsContactCard->setPhones([
             "123-pager" => $pagerPhoneEntry,
             "123-other" => $pagerOtherPhoneEntry
         ]);
 
-        $jsContactData = array("c1" => json_decode(json_encode($this->jsContactCard)));
+        $jsContactData = array("c1" => $this->jsContactCard);
 
         $this->vCardData = $this->mapper->mapFromJmap($jsContactData, $this->adapter);
 
@@ -140,7 +144,560 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertNull($this->jsContactCard);
 
         $this->jsContactCard = $this->mapper->mapToJmap(array("c1" => $this->vCard), new RoundcubeJSContactVCardAdapter('ignoreInvalidCards'));
-        
+
         $this->assertNotNull($this->jsContactCard);
+    }
+
+    /**
+     * Check that a minimal Roundcube vCard file maps to a ContactCard with the expected uid, name, email and phone.
+     */
+    public function testMinimalRoundcubeVCardFromFileMapsToContactCard(): void
+    {
+        $vCard = file_get_contents(__DIR__ . '/../resources/rc_vcard_basic.vcf');
+        $this->assertNotFalse($vCard, 'Failed to read rc_vcard_basic.vcf');
+
+        $mapper = new RoundcubeJSContactVCardMapper();
+        $adapter = new RoundcubeJSContactVCardAdapter();
+
+        $result = $mapper->mapToJmap(
+            array('c1' => $vCard),
+            $adapter
+        );
+
+        $this->assertIsArray($result);
+        $this->assertCount(1, $result);
+        $this->assertInstanceOf(ContactCard::class, $result[0]);
+
+        $card = $result[0];
+
+        $this->assertEquals('c1', $card->getUid());
+
+        $name = $card->getName();
+        $this->assertNotNull($name);
+
+        $emails = $card->getEmails();
+        $this->assertIsArray($emails);
+        $this->assertNotEmpty($emails);
+
+        $firstEmail = reset($emails);
+        $this->assertNotFalse($firstEmail);
+        $this->assertEquals('jane.doe@example.com', $firstEmail->getAddress());
+
+        $phones = $card->getPhones();
+        $this->assertIsArray($phones);
+        $this->assertNotEmpty($phones);
+
+        $firstPhone = reset($phones);
+        $this->assertNotFalse($firstPhone);
+        $this->assertEquals('+49-170-555-0101', $firstPhone->getNumber());
+    }
+
+    /**
+     * Check that a complex Roundcube vCard file correctly roundtrips through JSContact and back to vCard,
+     * preserving all fields including UTF-8 characters, phones, addresses, online services and relations.
+     */
+    public function testComplexRoundcubeVCardRoundtripFromFile(): void
+    {
+        $vCard = file_get_contents(__DIR__ . '/../resources/rc_vcard_advanced.vcf');
+        $this->assertNotFalse($vCard, 'Failed to read rc_vcard_advanced.vcf');
+        $this->assertStringContainsString('BEGIN:VCARD', $vCard);
+        $this->assertStringContainsString('END:VCARD', $vCard);
+
+        // vCard -> JSContact
+        $cards = $this->mapper->mapToJmap(
+            array('rc-complex-001' => $vCard),
+            $this->adapter
+        );
+
+        $this->assertIsArray($cards);
+        $this->assertCount(1, $cards);
+        $this->assertInstanceOf(ContactCard::class, $cards[0]);
+
+        $card = $cards[0];
+
+        $this->assertEquals('rc-complex-001', $card->getUid());
+        $this->assertEquals(
+            '-//Roundcube Webmail//NONSGML Roundcube Contact//EN',
+            $card->getProdId()
+        );
+        $this->assertEquals('2026-03-16T12:00:00Z', $card->getUpdated());
+
+        // Maiden name
+        $this->assertEquals(
+            'Öster',
+            $card->getProperty('audriga.eu/roundcube:maidenName')
+        );
+
+        // Name
+        $name = $card->getName();
+        $this->assertNotNull($name);
+        $this->assertEquals('Dr. Jörg Åström', $name->getFull());
+
+        $components = $name->getComponents();
+        $this->assertCount(3, $components);
+        $this->assertEquals('title', $components[0]->getKind());
+        $this->assertEquals('Dr.', $components[0]->getValue());
+        $this->assertEquals('given', $components[1]->getKind());
+        $this->assertEquals('Jörg', $components[1]->getValue());
+        $this->assertEquals('surname', $components[2]->getKind());
+        $this->assertEquals('Åström', $components[2]->getValue());
+
+        // Nickname
+        $nicknames = $card->getNicknames();
+        $this->assertCount(1, $nicknames);
+        $nickname = reset($nicknames);
+        $this->assertNotFalse($nickname);
+        $this->assertEquals('Jörgi', $nickname->getName());
+
+        // Organization
+        $organizations = $card->getOrganizations();
+        $this->assertCount(1, $organizations);
+        $organization = reset($organizations);
+        $this->assertNotFalse($organization);
+        $this->assertEquals('Äcme GmbH', $organization->getName());
+        $this->assertEquals(
+            array('Forschung und Entwicklung', 'Forschung'),
+            $organization->getUnits()
+        );
+
+        // Title
+        $titles = $card->getTitles();
+        $this->assertCount(1, $titles);
+        $title = reset($titles);
+        $this->assertNotFalse($title);
+        $this->assertEquals('Leitender Entwickler', $title->getName());
+        $this->assertEquals('title', $title->getKind());
+
+        // SpeakToAs / gender
+        $speakToAs = $card->getSpeakToAs();
+        $this->assertNotNull($speakToAs);
+        $this->assertEquals('male', $speakToAs->getGrammaticalGender());
+
+        // Emails
+        $emails = $card->getEmails();
+        $this->assertCount(2, $emails);
+
+        $emailValues = array();
+        foreach ($emails as $email) {
+            $emailValues[] = $email->getAddress();
+        }
+        $this->assertContains('joerg.aestroem@example.com', $emailValues);
+        $this->assertContains('joerg.astrom@work.example', $emailValues);
+
+        // Phones
+        $phones = $card->getPhones();
+        $this->assertCount(3, $phones);
+
+        $phoneMap = array();
+        foreach ($phones as $phone) {
+            $phoneMap[$phone->getNumber()] = $phone;
+        }
+
+        $this->assertArrayHasKey('+49-170-555-0101', $phoneMap);
+        $this->assertArrayHasKey('+49-30-555-0102', $phoneMap);
+        $this->assertArrayHasKey('123-pager', $phoneMap);
+
+        $mobileFeatures = $phoneMap['+49-170-555-0101']->getFeatures();
+        $this->assertTrue($mobileFeatures['mobile']);
+        $this->assertTrue($mobileFeatures['voice']);
+
+        $homeContexts = $phoneMap['+49-30-555-0102']->getContexts();
+        $homeFeatures = $phoneMap['+49-30-555-0102']->getFeatures();
+        $this->assertTrue($homeContexts['private']);
+        $this->assertTrue($homeFeatures['voice']);
+
+        $pagerFeatures = $phoneMap['123-pager']->getFeatures();
+        $this->assertTrue($pagerFeatures['pager']);
+
+        // Address
+        $addresses = $card->getAddresses();
+        $this->assertCount(1, $addresses);
+
+        $address = reset($addresses);
+        $this->assertNotFalse($address);
+        $this->assertInstanceOf(Address::class, $address);
+
+        $addressComponents = $address->getComponents();
+        $this->assertCount(4, $addressComponents);
+
+        $this->assertEquals('name', $addressComponents[0]->getKind());
+        $this->assertEquals('Münzstraße 12', $addressComponents[0]->getValue());
+        $this->assertEquals('locality', $addressComponents[1]->getKind());
+        $this->assertEquals('Berlin', $addressComponents[1]->getValue());
+        $this->assertEquals('postcode', $addressComponents[2]->getKind());
+        $this->assertEquals('10178', $addressComponents[2]->getValue());
+        $this->assertEquals('country', $addressComponents[3]->getKind());
+        $this->assertEquals('Germany', $addressComponents[3]->getValue());
+
+        $addressContexts = $address->getContexts();
+        $this->assertTrue($addressContexts['private']);
+
+        // Notes
+        $notes = $card->getNoteObjects();
+        $this->assertCount(1, $notes);
+        $note = reset($notes);
+        $this->assertNotFalse($note);
+        $this->assertEquals(
+            'Roundcube test contact with UTF-8 characters: ä ö ü ß é Å.',
+            $note->getNote()
+        );
+
+        // Online services
+        $online = $card->getOnlineServices();
+        $this->assertCount(4, $online);
+
+        $onlineByLabelOrUri = array();
+        foreach ($online as $entry) {
+            $key = $entry->getLabel() ?: $entry->getUri();
+            $onlineByLabelOrUri[$key] = $entry;
+        }
+
+        $this->assertArrayHasKey('https://example.com/~joerg', $onlineByLabelOrUri);
+        $this->assertArrayHasKey('X-AIM', $onlineByLabelOrUri);
+        $this->assertArrayHasKey('X-JABBER', $onlineByLabelOrUri);
+        $this->assertArrayHasKey('X-SKYPE-USERNAME', $onlineByLabelOrUri);
+
+        $this->assertEquals('joergaim', $onlineByLabelOrUri['X-AIM']->getUri());
+        $this->assertEquals('aim', $onlineByLabelOrUri['X-AIM']->getService());
+        $this->assertEquals('joerg@jabber.example', $onlineByLabelOrUri['X-JABBER']->getUri());
+        $this->assertEquals('jabber', $onlineByLabelOrUri['X-JABBER']->getService());
+        $this->assertEquals('joerg.astrom.skype', $onlineByLabelOrUri['X-SKYPE-USERNAME']->getUser());
+        $this->assertEquals('skype', $onlineByLabelOrUri['X-SKYPE-USERNAME']->getService());
+
+        // Anniversaries
+        $anniversaries = $card->getAnniversaries();
+        $this->assertCount(1, $anniversaries);
+        $anniversary = reset($anniversaries);
+        $this->assertNotFalse($anniversary);
+        $this->assertEquals('birth', $anniversary->getKind());
+        $this->assertEquals('1988-04-12', $anniversary->getDate());
+
+        // Relations
+        $relatedTo = $card->getRelatedTo();
+        $this->assertCount(3, $relatedTo);
+        $this->assertArrayHasKey('Renée Manager', $relatedTo);
+        $this->assertArrayHasKey('Björk Assistant', $relatedTo);
+        $this->assertArrayHasKey('Zoë Åström', $relatedTo);
+        $this->assertTrue($relatedTo['Renée Manager']->getRelation()['manager']);
+        $this->assertTrue($relatedTo['Björk Assistant']->getRelation()['assistant']);
+        $this->assertTrue($relatedTo['Zoë Åström']->getRelation()['spouse']);
+
+        // JSContact -> vCard
+        $exported = $this->mapper->mapFromJmap(
+            array('rc-complex-001' => $card),
+            $this->adapter
+        );
+
+        $this->assertIsArray($exported);
+        $this->assertNotEmpty($exported);
+
+        $unwrapped = array();
+        foreach ($exported as $entry) {
+            foreach ($entry as $id => $payload) {
+                $unwrapped[$id] = is_array($payload) && array_key_exists('vCard', $payload)
+                    ? $payload['vCard']
+                    : $payload;
+            }
+        }
+
+        $this->assertArrayHasKey('rc-complex-001', $unwrapped);
+        $this->assertIsString($unwrapped['rc-complex-001']);
+
+        $exportedVCard = $unwrapped['rc-complex-001'];
+        $unfoldedVCard = preg_replace("/\r\n[ \t]/", '', $exportedVCard);
+        $this->assertNotNull($unfoldedVCard);
+
+        $this->assertStringContainsString('BEGIN:VCARD', $unfoldedVCard);
+        $this->assertStringContainsString('END:VCARD', $unfoldedVCard);
+        $this->assertStringContainsString('FN:Dr. Jörg Åström', $unfoldedVCard);
+        $this->assertStringContainsString('N:Åström;Jörg;;Dr.;', $unfoldedVCard);
+        $this->assertStringContainsString('NICKNAME:Jörgi', $unfoldedVCard);
+        $this->assertStringContainsString('joerg.aestroem@example.com', $unfoldedVCard);
+        $this->assertStringContainsString('joerg.astrom@work.example', $unfoldedVCard);
+        $this->assertStringContainsString('+49-170-555-0101', $unfoldedVCard);
+        $this->assertStringContainsString('+49-30-555-0102', $unfoldedVCard);
+        $this->assertStringContainsString('123-pager', $unfoldedVCard);
+        $this->assertStringContainsString('Äcme GmbH', $unfoldedVCard);
+        $this->assertStringContainsString('Leitender Entwickler', $unfoldedVCard);
+        $this->assertStringContainsString('https://example.com/~joerg', $unfoldedVCard);
+        $this->assertStringContainsString('X-MAIDENNAME:Öster', $unfoldedVCard);
+        $this->assertTrue(
+            str_contains($unfoldedVCard, '19880412') ||
+            str_contains($unfoldedVCard, '1988-04-12')
+        );
+        $this->assertStringContainsString('ADR;', $unfoldedVCard);
+        $this->assertStringContainsString('Münzstraße 12', $unfoldedVCard);
+        $this->assertStringContainsString('Berlin', $unfoldedVCard);
+        $this->assertStringContainsString('10178', $unfoldedVCard);
+        $this->assertStringContainsString('Germany', $unfoldedVCard);
+        $this->assertStringContainsString('X-GENDER:male', $unfoldedVCard);
+        $this->assertStringContainsString('X-AIM:joergaim', $unfoldedVCard);
+        $this->assertStringContainsString('X-JABBER:joerg@jabber.example', $unfoldedVCard);
+        $this->assertStringContainsString('X-SKYPE-USERNAME:joerg.astrom.skype', $unfoldedVCard);
+        $this->assertStringContainsString('X-MANAGER:Renée Manager', $unfoldedVCard);
+        $this->assertStringContainsString('X-ASSISTANT:Björk Assistant', $unfoldedVCard);
+        $this->assertStringContainsString('X-SPOUSE:Zoë Åström', $unfoldedVCard);
+        $this->assertStringContainsString('X-DEPARTMENT:', $unfoldedVCard);
+
+        $roundtripped = $this->mapper->mapToJmap($unwrapped, $this->adapter);
+
+        $this->assertIsArray($roundtripped);
+        $this->assertCount(1, $roundtripped);
+        $this->assertInstanceOf(ContactCard::class, $roundtripped[0]);
+
+        $rtCard = $roundtripped[0];
+
+        $this->assertEquals('rc-complex-001', $rtCard->getUid());
+        $this->assertEquals($card->getProdId(), $rtCard->getProdId());
+        $this->assertEquals($card->getUpdated(), $rtCard->getUpdated());
+        $this->assertEquals(
+            'Öster',
+            $rtCard->getProperty('audriga.eu/roundcube:maidenName')
+        );
+
+        // Roundtrip checks
+        $rtEmails = $rtCard->getEmails();
+        $this->assertCount(2, $rtEmails);
+
+        $rtEmailValues = array();
+        foreach ($rtEmails as $email) {
+            $rtEmailValues[] = $email->getAddress();
+        }
+        $this->assertContains('joerg.aestroem@example.com', $rtEmailValues);
+        $this->assertContains('joerg.astrom@work.example', $rtEmailValues);
+
+        $rtPhones = $rtCard->getPhones();
+        $this->assertCount(3, $rtPhones);
+
+        $rtPhoneValues = array();
+        foreach ($rtPhones as $phone) {
+            $rtPhoneValues[] = $phone->getNumber();
+        }
+        $this->assertContains('+49-170-555-0101', $rtPhoneValues);
+        $this->assertContains('+49-30-555-0102', $rtPhoneValues);
+        $this->assertContains('123-pager', $rtPhoneValues);
+
+        $rtPagerPhone = null;
+        foreach ($rtPhones as $phone) {
+            if ($phone->getNumber() === '123-pager') {
+                $rtPagerPhone = $phone;
+                break;
+            }
+        }
+        $this->assertNotNull($rtPagerPhone);
+        $rtFeatures = $rtPagerPhone->getFeatures();
+        $this->assertTrue($rtFeatures['pager']);
+
+        $rtAddresses = $rtCard->getAddresses();
+        $this->assertCount(1, $rtAddresses);
+
+        $rtOrganizations = $rtCard->getOrganizations();
+        $this->assertNotEmpty($rtOrganizations);
+
+        $rtTitles = $rtCard->getTitles();
+        $this->assertNotEmpty($rtTitles);
+
+        $rtNotes = $rtCard->getNoteObjects();
+        $this->assertCount(1, $rtNotes);
+        $rtNote = reset($rtNotes);
+        $this->assertNotFalse($rtNote);
+        $this->assertEquals(
+            'Roundcube test contact with UTF-8 characters: ä ö ü ß é Å.',
+            $rtNote->getNote()
+        );
+
+        $rtOnline = $rtCard->getOnlineServices();
+        $this->assertNotEmpty($rtOnline);
+
+        $rtAnniversaries = $rtCard->getAnniversaries();
+        $this->assertNotEmpty($rtAnniversaries);
+
+        $rtRelatedTo = $rtCard->getRelatedTo();
+        $this->assertNotEmpty($rtRelatedTo);
+
+        $this->assertEquals(
+            array_values($card->getEmails()),
+            array_values($rtCard->getEmails())
+        );
+        $this->assertEquals(
+            array_values($card->getPhones()),
+            array_values($rtCard->getPhones())
+        );
+        $this->assertEquals(
+            array_values($card->getOrganizations()),
+            array_values($rtCard->getOrganizations())
+        );
+        $this->assertEquals(
+            array_values($card->getTitles()),
+            array_values($rtCard->getTitles())
+        );
+        $this->assertEquals(
+            array_values($card->getAnniversaries()),
+            array_values($rtCard->getAnniversaries())
+        );
+        $this->assertEquals(
+            array_values($card->getNoteObjects()),
+            array_values($rtCard->getNoteObjects())
+        );
+        $this->assertEquals(
+            array_values($card->getRelatedTo()),
+            array_values($rtCard->getRelatedTo())
+        );
+    }
+
+    /**
+     * Check that a JSContact JSON file correctly roundtrips to a Roundcube vCard and back,
+     * preserving name, organization, anniversary and online service fields.
+     */
+    public function testJsContactJsonFileRoundtripToRoundcubeVCard(): void
+    {
+        $json = file_get_contents(__DIR__ . '/../resources/jscontactcard_advanced.json');
+        $this->assertNotFalse($json, 'Failed to read jscontactcard_advanced.json');
+
+        $data = json_decode($json, true);
+        $this->assertIsArray($data, 'Failed to decode jscontactcard_advanced.json');
+
+        $card = new ContactCard();
+
+        // uid / updated
+        $card->setUid($data['uid']);
+        $card->setUpdated($data['updated']);
+
+        // Name
+        $name = new Name();
+        $components = array();
+
+        foreach ($data['name']['components'] as $componentData) {
+            $component = new NameComponent();
+
+            $type = $componentData['type'];
+            $value = $componentData['value'];
+
+            $kindMap = array(
+                'prefix'  => 'title',
+                'given'   => 'given',
+                'surname' => 'surname',
+                'middle'  => 'given2',
+                'suffix'  => 'credential',
+            );
+
+            $component->setKind($kindMap[$type]);
+            $component->setValue($value);
+
+            $components[] = $component;
+        }
+
+        $name->setComponents($components);
+        $name->setIsOrdered(true);
+        $name->setFull('Mr. John Quinlan Public Esq.');
+        $card->setName($name);
+
+        // Online services
+        $services = array();
+        foreach ($data['onlineServices'] as $id => $serviceData) {
+            $service = new OnlineService();
+            $service->setService(strtolower((string) $serviceData['service']));
+
+            if ($serviceData['type'] === 'impp') {
+                $service->setUri((string) $serviceData['user']);
+            } else {
+                $service->setUser((string) $serviceData['user']);
+            }
+
+            $service->setPref((int) $serviceData['pref']);
+            $services[$id] = $service;
+        }
+        $card->setOnlineServices($services);
+
+        // Organizations
+        $organizations = array();
+        foreach ($data['organizations'] as $id => $orgData) {
+            $organization = new Organization();
+            $organization->setName($orgData['name']);
+            $organization->setUnits($orgData['units']);
+            $organizations[$id] = $organization;
+        }
+        $card->setOrganizations($organizations);
+
+        // Anniversaries
+        $anniversaries = array();
+        foreach ($data['anniversaries'] as $id => $annData) {
+            $anniversary = new Anniversary();
+            $anniversary->setKind('wedding');
+            $anniversary->setLabel('anniversary');
+            $anniversary->setDate($annData['date']);
+            $anniversaries[] = $anniversary;
+        }
+        $card->setAnniversaries($anniversaries);
+
+        // JSContact -> Roundcube vCard
+        $exported = $this->mapper->mapFromJmap(
+            array('c1' => $card),
+            $this->adapter
+        );
+
+        $this->assertIsArray($exported);
+        $this->assertNotEmpty($exported);
+
+        $unwrapped = array();
+        foreach ($exported as $entry) {
+            foreach ($entry as $id => $payload) {
+                $unwrapped[$id] = is_array($payload) && array_key_exists('vCard', $payload)
+                    ? $payload['vCard']
+                    : $payload;
+            }
+        }
+
+        $this->assertArrayHasKey('c1', $unwrapped);
+        $this->assertIsString($unwrapped['c1']);
+
+        $exportedVCard = $unwrapped['c1'];
+        $unfoldedVCard = preg_replace("/\r\n[ \t]/", '', $exportedVCard);
+        $this->assertNotNull($unfoldedVCard);
+
+        $this->assertStringContainsString('BEGIN:VCARD', $unfoldedVCard);
+        $this->assertStringContainsString('END:VCARD', $unfoldedVCard);
+        $this->assertStringContainsString('UID:1', $unfoldedVCard);
+        $this->assertStringContainsString('REV:20080424T195243Z', $unfoldedVCard);
+        $this->assertStringContainsString('FN:Mr. John Quinlan Public Esq.', $unfoldedVCard);
+        $this->assertStringContainsString('Public;John;Quinlan;Mr.;Esq.', $unfoldedVCard);
+        $this->assertStringContainsString('ORG:Bubba Gump Shrimp Co.', $unfoldedVCard);
+        $this->assertStringContainsString('X-DEPARTMENT:Cleaning department', $unfoldedVCard);
+        $this->assertTrue(
+            str_contains($unfoldedVCard, 'ANNIVERSARY;VALUE=date:20230228')
+            || str_contains($unfoldedVCard, 'ANNIVERSARY:20230228')
+        );
+
+        $this->assertStringContainsString('alice@example.com', $unfoldedVCard);
+        $this->assertStringContainsString('PupkinV', $unfoldedVCard);
+
+        // vCard -> JSContact
+        $roundtripped = $this->mapper->mapToJmap($unwrapped, $this->adapter);
+
+        $this->assertIsArray($roundtripped);
+        $this->assertCount(1, $roundtripped);
+        $this->assertInstanceOf(ContactCard::class, $roundtripped[0]);
+
+        $rtCard = $roundtripped[0];
+
+        $this->assertEquals('1', $rtCard->getUid());
+        $this->assertEquals('2008-04-24T19:52:43Z', $rtCard->getUpdated());
+
+        $rtName = $rtCard->getName();
+        $this->assertNotNull($rtName);
+        $this->assertEquals('Mr. John Quinlan Public Esq.', $rtName->getFull());
+
+        $rtOrganizations = $rtCard->getOrganizations() ?: array();
+        $this->assertCount(1, $rtOrganizations);
+        $rtOrg = reset($rtOrganizations);
+        $this->assertNotFalse($rtOrg);
+        $this->assertEquals('Bubba Gump Shrimp Co.', $rtOrg->getName());
+        $this->assertEquals(array('Cleaning department'), $rtOrg->getUnits());
+
+        $rtAnniversaries = $rtCard->getAnniversaries() ?: array();
+        $this->assertNotEmpty($rtAnniversaries);
+
+        $rtOnline = $rtCard->getOnlineServices() ?: array();
+        $this->assertNotEmpty($rtOnline);
     }
 }

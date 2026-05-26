@@ -1,0 +1,42 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp//CalDAV Client//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:comprehensive-test@example.com
+DTSTAMP:20260415T120000Z
+DTSTART;VALUE=DATE:20260515
+DTEND;VALUE=DATE:20260515
+SUMMARY:Comprehensive Test Event
+DESCRIPTION:Event testing all newly implemented properties
+STATUS:CONFIRMED
+CLASS:PUBLIC
+TRANSP:OPAQUE
+PRIORITY:5
+COLOR:blue
+CATEGORIES:meeting,important
+LOCATION:Conference Room A
+GEO:52.520008;13.404954
+URL:https://example.com/events/test
+RELATED-TO:parent-event-uid@example.com
+REPLY-URL:mailto:rsvp@example.com
+REQUEST-STATUS:2.0\;Success
+RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH;COUNT=10
+CONFERENCE;LABEL=Zoom Meeting;FEATURE=AUDIO,VIDEO,CHAT:https://zoom.us/j/123456789
+ATTENDEE;CN=Alice Attendee;PARTSTAT=ACCEPTED;RSVP=TRUE;ROLE=REQ-PARTICIPANT:mailto:alice@example.com
+ATTENDEE;CN=Project Team;CUTYPE=GROUP;MEMBER="mailto:alice@example.com","mailto:bob@example.com";ROLE=REQ-PARTICIPANT:mailto:team@example.com
+ATTENDEE;CN=External Contact;DIR="https://contacts.example.com/external";ROLE=REQ-PARTICIPANT:mailto:external@partner.com
+ORGANIZER;CN=John Organizer:mailto:john@example.com
+ATTACH;FMTTYPE=application/pdf;LABEL=Meeting Agenda;SIZE=52480:https://example.com/agenda.pdf
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER;RELATED=START:-PT15M
+END:VALARM
+BEGIN:VLOCATION
+UID:vloc-berlin-office
+NAME:Berlin Office
+GEO:52.520008;13.404954
+END:VLOCATION
+END:VEVENT
+END:VCALENDAR

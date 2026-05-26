@@ -1,0 +1,24 @@
+{
+  "@type": "Card",
+  "uid": "urn:uuid:12345678-1234-1234-1234-123456789abc",
+  "name": {
+    "full": "Jane Smith"
+  },
+  "onlineServices": {
+    "os1": {
+      "service": "twitter",
+      "user": "janesmith",
+      "label": "X-SOCIALPROFILE"
+    },
+    "os2": {
+      "service": "github",
+      "uri": "https://github.com/janesmith",
+      "label": "X-SOCIALPROFILE"
+    },
+    "os3": {
+      "service": "linkedin",
+      "user": "jane-smith-123",
+      "label": "X-SOCIALPROFILE"
+    }
+  }
+}
