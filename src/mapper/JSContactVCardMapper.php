@@ -128,7 +128,8 @@ class JSContactVCardMapper extends AbstractMapper
                 array_key_exists("oxpProperties", $cHash) &&
                 array_key_exists("addressBookId", $cHash["oxpProperties"])
             ) {
-                $jsContactCard->setAddressBookIds([$cHash["oxpProperties"]["addressBookId"]]);
+                $addressBookId = (string)$cHash["oxpProperties"]["addressBookId"];
+                $jsContactCard->setAddressBookIds([$addressBookId => true]);
             }
 
             $jsContactCard->setAtType("Card");
