@@ -2934,7 +2934,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                     $a->setPlace($addr);
                 }
             }
-            $anns[] = $a;
+            $anns["ann" . (count($anns) + 1)] = $a;
         }
 
         $ddate  = $this->getDeathDate();
@@ -2951,7 +2951,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                     $a->setPlace($addr);
                 }
             }
-            $anns[] = $a;
+            $anns["ann" . (count($anns) + 1)] = $a;
         }
 
         if ($this->mapVcardAnniversaryToWedding) {
@@ -2961,7 +2961,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $a->setKind('wedding');
                 $a->setLabel('anniversary');
                 $a->setDate($anniv);
-                $anns[] = $a;
+                $anns["ann" . (count($anns) + 1)] = $a;
             }
         }
 

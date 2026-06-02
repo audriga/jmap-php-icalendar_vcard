@@ -450,7 +450,7 @@ final class JSContactVCardAdapterTest extends TestCase
         $jsContactDataAfter = $this->mapper->mapToJmap($vCardDataReset, $this->adapter)[0];
 
         $this->assertInstanceOf(ContactCard::class, $jsContactDataAfter);
-        $this->assertEquals(['i-am-jmap-specific'], $jsContactDataAfter->getAddressBookIds());
+        $this->assertEquals(['i-am-jmap-specific' => true], $jsContactDataAfter->getAddressBookIds());
     }
 
     /* *
