@@ -80,7 +80,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             $jsContactXAnniversary->setLabel('x-anniversary');
             $jsContactXAnniversary->setDate($date);
 
-            $jsContactAnniversariesProperty[] = $jsContactXAnniversary;
+            $jsContactAnniversariesProperty["ann" . (count($jsContactAnniversariesProperty) + 1)] = $jsContactXAnniversary;
         }
 
         // Update the card with all anniversaries

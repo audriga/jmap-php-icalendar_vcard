@@ -133,6 +133,7 @@ class JSContactVCardMapper extends AbstractMapper
 
             $jsContactCard->setAtType("Card");
             $jsContactCard->setUid($contactId);
+            $jsContactCard->setId($contactId);
 
             // Map all properties from vCard to JSContact
             $adapter->getUid($jsContactCard);

@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fb84ce63ffcf5963aa1bd15982d6403b",
+    "content-hash": "600488bc590853a8abaebbd537ba5f12",
     "packages": [
         {
             "name": "audriga/jmap-openxport",
-            "version": "dev-7676-ietf_implementation",
+            "version": "dev-7676-ietf-compatibility",
             "source": {
                 "type": "git",
                 "url": "https://github.com/audriga/openxport-jmap.git",
-                "reference": "91e245deb9f47424f0d771126c347a8126049361"
+                "reference": "3acfc09ea75143d974c116272c6edd4d06998d7a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/audriga/openxport-jmap/zipball/91e245deb9f47424f0d771126c347a8126049361",
-                "reference": "91e245deb9f47424f0d771126c347a8126049361",
+                "url": "https://api.github.com/repos/audriga/openxport-jmap/zipball/3acfc09ea75143d974c116272c6edd4d06998d7a",
+                "reference": "3acfc09ea75143d974c116272c6edd4d06998d7a",
                 "shasum": ""
             },
             "require": {
@@ -61,10 +61,10 @@
                 "migration"
             ],
             "support": {
-                "source": "https://github.com/audriga/openxport-jmap/tree/7676-ietf_implementation",
+                "source": "https://github.com/audriga/openxport-jmap/tree/7676-ietf-compatibility",
                 "issues": "https://github.com/audriga/openxport-jmap/issues"
             },
-            "time": "2026-04-15T14:05:21+00:00"
+            "time": "2026-06-02T13:03:30+00:00"
         },
         {
             "name": "psr/log",
@@ -2112,6 +2112,6 @@
     "platform": {
         "php": ">=5.6"
     },
-    "platform-dev": [],
-    "plugin-api-version": "2.2.0"
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
 }
