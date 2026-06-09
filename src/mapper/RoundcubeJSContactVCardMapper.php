@@ -39,7 +39,10 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
             try {
                 $adapter->reset();
 
-                $adapter->setAddressBookId($jsContactCard->getAddressBookIds());
+                $addressBookIds = $jsContactCard->getAddressBookIds();
+                if (is_array($addressBookIds) && !empty($addressBookIds)) {
+                    $adapter->setAddressBookId(array_key_first($addressBookIds));
+                }
                 $adapter->setUid($jsContactCard);
                 $adapter->setKind($jsContactCard);
                 $adapter->setFn($jsContactCard);
@@ -72,7 +75,15 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
                 $adapter->setMembers($jsContactCard);
                 $adapter->setMaidenName($jsContactCard);
 
-                array_push($map, array($creationId => $adapter->getVCard()));
+                $result = array(
+                    'vCard' => $adapter->getVCard(),
+                    'oxpProperties' => array(
+                        'addressBookId' => (is_array($addressBookIds) && !empty($addressBookIds))
+                            ? array_key_first($addressBookIds)
+                            : null
+                    )
+                );
+                array_push($map, array($creationId => $result));
             } catch (InvalidArgumentException $e) {
                 $this->logger = Logger::getInstance();
                 $this->logger->error($e->getMessage());
