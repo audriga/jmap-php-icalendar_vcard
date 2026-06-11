@@ -41,7 +41,7 @@ class JSContactVCardMapper extends AbstractMapper
                 // Set addressBookId from the card
                 $addressBookIds = $jsContactCard->getAddressBookIds();
                 if (is_array($addressBookIds) && !empty($addressBookIds)) {
-                    $adapter->setAddressBookId($addressBookIds[0]);
+                    $adapter->setAddressBookId(array_key_first($addressBookIds));
                 }
 
                 // Map all properties from JSContact to vCard
@@ -128,11 +128,12 @@ class JSContactVCardMapper extends AbstractMapper
                 array_key_exists("oxpProperties", $cHash) &&
                 array_key_exists("addressBookId", $cHash["oxpProperties"])
             ) {
-                $jsContactCard->setAddressBookIds([$cHash["oxpProperties"]["addressBookId"]]);
+                $jsContactCard->addAddressBookId((string)$cHash["oxpProperties"]["addressBookId"]);
             }
 
             $jsContactCard->setAtType("Card");
             $jsContactCard->setUid($contactId);
+            $jsContactCard->setId($contactId);
 
             // Map all properties from vCard to JSContact
             $adapter->getUid($jsContactCard);

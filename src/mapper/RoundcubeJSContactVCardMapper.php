@@ -39,7 +39,10 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
             try {
                 $adapter->reset();
 
-                $adapter->setAddressBookId($jsContactCard->getAddressBookIds());
+                $addressBookIds = $jsContactCard->getAddressBookIds();
+                if (is_array($addressBookIds) && !empty($addressBookIds)) {
+                    $adapter->setAddressBookId(array_key_first($addressBookIds));
+                }
                 $adapter->setUid($jsContactCard);
                 $adapter->setKind($jsContactCard);
                 $adapter->setFn($jsContactCard);
@@ -72,7 +75,15 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
                 $adapter->setMembers($jsContactCard);
                 $adapter->setMaidenName($jsContactCard);
 
-                array_push($map, array($creationId => $adapter->getVCard()));
+                $result = array(
+                    'vCard' => $adapter->getVCard(),
+                    'oxpProperties' => array(
+                        'addressBookId' => (is_array($addressBookIds) && !empty($addressBookIds))
+                            ? array_key_first($addressBookIds)
+                            : null
+                    )
+                );
+                array_push($map, array($creationId => $result));
             } catch (InvalidArgumentException $e) {
                 $this->logger = Logger::getInstance();
                 $this->logger->error($e->getMessage());
@@ -97,14 +108,19 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
     public function mapToJmap($data, $adapter)
     {
         $list = [];
-
         foreach ($data as $contactId => $vCard) {
             $adapter->reset();
+
+            // Handle both string vCard and array format {vCard, oxpProperties}
+            $vCardString = is_array($vCard) ? ($vCard['vCard'] ?? $vCard['vcard'] ?? null) : $vCard;
+            $addressBookId = is_array($vCard) && isset($vCard['oxpProperties']['addressBookId'])
+                ? $vCard['oxpProperties']['addressBookId']
+                : null;
 
             // Try setting the vCard from the received String. If it cannot be parsed, add
             // more info to the thrown ParseException.
             try {
-                $adapter->setVCard($vCard);
+                $adapter->setVCard($vCardString);
             } catch (ParseException $e) {
                 throw new ParseException(
                     $e->getMessage() . "\nNon-parseable vCard: $contactId",
@@ -112,18 +128,18 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
                     $e
                 );
             }
-
             // If the vCard Object is set to null, skip the vCard in question. This should only
             // happen if the 'vCardParsing' config option is set to 'ignoreInvalidVCards'.
             if (is_null($adapter->getVCard())) {
                 continue;
             }
-
             $jsContactCard = new ContactCard();
-
             $jsContactCard->setAtType("Card");
             $jsContactCard->setUid($contactId);
-
+            $jsContactCard->setId($contactId);
+            if ($addressBookId !== null) {
+                $jsContactCard->addAddressBookId($addressBookId);
+            }
             $adapter->getUid($jsContactCard);
             $adapter->getKind($jsContactCard);
             $adapter->getName($jsContactCard);
@@ -154,14 +170,11 @@ class RoundcubeJSContactVCardMapper extends JSContactVCardMapper
             $adapter->getCalendars($jsContactCard);
             $adapter->getMembers($jsContactCard);
             $adapter->getMaidenName($jsContactCard);
-
             // Map Roundcube-specific vCard properties to audriga-defined JSContact properties
             // Note: X-DEPARTMENT is currently mapped to "organizations"
             // See RoundcubeJSContactVCardAdapter's getOrganizations() method for more info
-
             array_push($list, $jsContactCard);
         }
-
         return $list;
     }
 }
