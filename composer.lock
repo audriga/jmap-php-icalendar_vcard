@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "600488bc590853a8abaebbd537ba5f12",
+    "content-hash": "215411a917b58c0f684f2093d729fea9",
     "packages": [
         {
             "name": "audriga/jmap-openxport",
-            "version": "dev-7676-ietf-compatibility",
+            "version": "dev-next-gen",
             "source": {
                 "type": "git",
                 "url": "https://github.com/audriga/openxport-jmap.git",
-                "reference": "12910c1039f49b1391baba1d4c8e4d64915a0d6e"
+                "reference": "ce99f10bb966c73682f986a61696ad0cb753e485"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/audriga/openxport-jmap/zipball/12910c1039f49b1391baba1d4c8e4d64915a0d6e",
-                "reference": "12910c1039f49b1391baba1d4c8e4d64915a0d6e",
+                "url": "https://api.github.com/repos/audriga/openxport-jmap/zipball/ce99f10bb966c73682f986a61696ad0cb753e485",
+                "reference": "ce99f10bb966c73682f986a61696ad0cb753e485",
                 "shasum": ""
             },
             "require": {
@@ -61,10 +61,10 @@
                 "migration"
             ],
             "support": {
-                "source": "https://github.com/audriga/openxport-jmap/tree/7676-ietf-compatibility",
+                "source": "https://github.com/audriga/openxport-jmap/tree/next-gen",
                 "issues": "https://github.com/audriga/openxport-jmap/issues"
             },
-            "time": "2026-06-03T16:45:32+00:00"
+            "time": "2026-06-11T10:54:16+00:00"
         },
         {
             "name": "psr/log",
@@ -179,16 +179,16 @@
         },
         {
             "name": "sabre/vobject",
-            "version": "4.5.8",
+            "version": "4.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sabre-io/vobject.git",
-                "reference": "d554eb24d64232922e1eab5896cc2f84b3b9ffb1"
+                "reference": "9432544fc369851fb8202c5d91159b2e669f0c88"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sabre-io/vobject/zipball/d554eb24d64232922e1eab5896cc2f84b3b9ffb1",
-                "reference": "d554eb24d64232922e1eab5896cc2f84b3b9ffb1",
+                "url": "https://api.github.com/repos/sabre-io/vobject/zipball/9432544fc369851fb8202c5d91159b2e669f0c88",
+                "reference": "9432544fc369851fb8202c5d91159b2e669f0c88",
                 "shasum": ""
             },
             "require": {
@@ -279,7 +279,7 @@
                 "issues": "https://github.com/sabre-io/vobject/issues",
                 "source": "https://github.com/fruux/sabre-vobject"
             },
-            "time": "2026-01-12T10:45:19+00:00"
+            "time": "2026-05-31T13:04:55+00:00"
         },
         {
             "name": "sabre/xml",

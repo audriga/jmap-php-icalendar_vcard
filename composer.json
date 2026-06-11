@@ -21,7 +21,7 @@
     "require": {
         "php": ">=5.6",
         "sabre/vobject": ">=4.2",
-        "audriga/jmap-openxport": "dev-7676-ietf-compatibility"
+        "audriga/jmap-openxport": "dev-next-gen"
     },
     "repositories": [
         {
