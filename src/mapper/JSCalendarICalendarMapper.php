@@ -286,7 +286,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
                 is_array($masterEvent["masterEvents"]["oxpProperties"]) &&
                 array_key_exists("calendarId", $masterEvent["masterEvents"]["oxpProperties"])
             ) {
-                $jsEvent->setCalendarIds($masterEvent["masterEvents"]["oxpProperties"]["calendarId"]);
+                $calendarId = $masterEvent["masterEvents"]["oxpProperties"]["calendarId"];
+                $jsEvent->setCalendarIds([$calendarId => true]);
             }
             $jsEvent->setId($masterEvent["eventId"]);
 

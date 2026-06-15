@@ -1987,7 +1987,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
             // Handle roles outside of the helper method to make deciding between ORGANIZER and
             // ATTENDEE easier.
-            $jmapRoles = $participant->getRoles();
+            // RFC 8984: default role is "attendee" when not specified
+            $jmapRoles = $participant->getRoles() ?? [];
+            if (empty($jmapRoles)) {
+                $jmapRoles = ["attendee" => true];
+            }
 
             if (array_key_exists("owner", $jmapRoles)) {
                 $this->iCalEvent->VEVENT->add("ORGANIZER", $propertyValue, $parameters);
