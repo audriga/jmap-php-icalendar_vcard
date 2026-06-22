@@ -8,11 +8,11 @@ This library currently aims to implement the following specifications:
 * JSCalendar: Converting from and to iCalendar [draft-ietf-calext-jscalendar-icalendar](https://datatracker.ietf.org/doc/draft-ietf-calext-jscalendar-icalendar/)
 * JSContact: Converting from and to vCard [draft-ietf-calext-jscontact-vcard](https://datatracker.ietf.org/doc/draft-ietf-calext-jscontact-vcard/)
 
-OpenXPort is built with compatibility for older systems in mind. We support all PHP versions down to 5.6 to provide data portability even for older systems.
+OpenXPort requires PHP 8.0 or higher.
 
 ## Installation
 ### Local installation
-1. Run `make` to initialize the project. It uses your local PHP version with most current dependencies (currently PHP 8.2). Use other build targets (e.g. `make php70_mode`) instead, in case you need to build for a different version.
+1. Run `make` to initialize the project.
 
 ## Usage
 ### Standalone
