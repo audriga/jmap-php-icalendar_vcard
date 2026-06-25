@@ -1827,6 +1827,14 @@ class JSContactVCardAdapter extends AbstractAdapter
                     continue;
                 }
 
+                // vCard 3.0 ENCODING=b: Sabre VObject decodes the base64 to raw binary bytes.
+                // Re-encode as a data URI so the value is valid UTF-8 and JSON-safe.
+                if (isset($prop['ENCODING']) && strtolower((string) $prop['ENCODING']) === 'b') {
+                    $typeParam = isset($prop['TYPE']) ? strtolower((string) $prop['TYPE']) : 'jpeg';
+                    $mimeType = strpos($typeParam, '/') !== false ? $typeParam : 'image/' . $typeParam;
+                    $uri = 'data:' . $mimeType . ';base64,' . base64_encode($uri);
+                }
+
                 $media = $this->makeMediaObject($uri, $kind, $prop);
                 if ($media !== null) {
                     $key = Util::getMapKeyFromPropValue($prop, $uri, 'm', $idx, $map);
