@@ -11,6 +11,7 @@ vCards:
 * `test_vcard_2.vcf` - contains an empty name (vCard "N") property
 * `test_vcard_v3.vcf` - yet another vCard
 * `ms_exchange.vcf` - a vCard exported from Microsoft Exchage
+* `google_takeout_contacts.vcf` - address book exported via Google Takeout, contains multiple concatenated VCARDs in one file
 
 iCalendars:
 
@@ -21,6 +22,8 @@ iCalendars:
 * `icalendar_in_utc.ics` - iCal file containing multiple UTC Datetime values to check for mapping between local and UTC time.
 * `icalendar_with_attach_binary.ics` - iCal file containing an attachment stored as a binary value.
 * `icalendar_with_attach_uri.ics` - iCal file containing an attachment stored as a uri value.
+* `google_takeout_calendar_custom.ics` - a custom calendar exported via Google Takeout, contains multiple VEVENTs in one file
+* `google_takeout_calendar_primary.ics` - the primary calendar exported via Google Takeout, contains multiple VEVENTs in one file
 
 JSCalendars:
 

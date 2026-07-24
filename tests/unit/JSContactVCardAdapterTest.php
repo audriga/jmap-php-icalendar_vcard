@@ -463,6 +463,49 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertEquals("SomeFullName", $this->jsContactCard->getName()->getFull());
     }
 
+    /**
+     * Map multiple vCards concatenated in a single file (e.g. a Google Takeout address
+     * book export) to jmap, mirroring JSCalendarICalendarAdapterTest::testMultipleICalEvents.
+     */
+    public function testMultipleVCards()
+    {
+        $path = __DIR__ . '/../resources/vcard_with_two_cards.vcf';
+        $raw = file_get_contents($path);
+
+        $result = $this->mapper->mapToJmap(array("contact" => array("vCard" => $raw)), $this->adapter);
+
+        $this->assertCount(2, $result);
+        $this->assertEquals("contact", $result[0]->getId());
+        $this->assertEquals("contact-1", $result[1]->getId());
+        $this->assertEquals("Forrest Gump", $result[0]->getName()->getFull());
+        $this->assertEquals("Kamala Harris", $result[1]->getName()->getFull());
+    }
+
+    /**
+     * Map a real Google Takeout address book export (multiple VCARDs concatenated
+     * in one file) to jmap.
+     */
+    public function testGoogleTakeoutContacts()
+    {
+        $path = __DIR__ . '/../resources/google_takeout_contacts.vcf';
+        $raw = file_get_contents($path);
+
+        $result = $this->mapper->mapToJmap(array("contact" => array("vCard" => $raw)), $this->adapter);
+
+        $this->assertCount(9, $result);
+
+        $names = array_map(function ($card) {
+            $name = $card->getName();
+            return $name ? $name->getFull() : null;
+        }, $result);
+
+        $this->assertContains("customLabelContact", $names);
+        $this->assertContains("customLabelContact2", $names);
+        $this->assertContains("firstName lastName", $names);
+        $this->assertContains("noLabelContact1", $names);
+        $this->assertContains("noLabelContact2", $names);
+    }
+
     /* *
      * Mapping of two cards JSContact -> vCard -> JSContact
      * TODO Once we add a mapper from stdClass to our JmapObjects we should be able to compare the whole objects

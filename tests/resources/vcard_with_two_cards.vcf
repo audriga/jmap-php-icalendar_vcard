@@ -1,0 +1,12 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Forrest Gump
+N:Gump;Forrest;;;
+EMAIL;TYPE=INTERNET:forrest@example.com
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Kamala Harris
+N:Harris;Kamala;;;
+EMAIL;TYPE=INTERNET:kamala@example.com
+END:VCARD
