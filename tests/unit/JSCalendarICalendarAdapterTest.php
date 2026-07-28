@@ -219,6 +219,43 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertEquals($this->jsCalendarAfter[0]->getTimezone(), $this->jsCalendarAfter[1]->getTimezone());
     }
 
+    /**
+     * Map a real Google Takeout calendar export (multiple VEVENTs in one file) to jmap.
+     */
+    public function testGoogleTakeoutCustomCalendar()
+    {
+        $this->mapICalendar('/../resources/google_takeout_calendar_custom.ics');
+
+        $this->assertCount(3, $this->jsCalendarAfter);
+
+        $titles = array_map(function ($event) {
+            return $event->getTitle();
+        }, $this->jsCalendarAfter);
+
+        $this->assertEquals(["appointmentTest1", "appointmentTest2", "appointmentTest3"], $titles);
+    }
+
+    /**
+     * Map a real Google Takeout primary calendar export (multiple VEVENTs in one file,
+     * including a non-appointment birthday reminder) to jmap.
+     */
+    public function testGoogleTakeoutPrimaryCalendar()
+    {
+        $this->mapICalendar('/../resources/google_takeout_calendar_primary.ics');
+
+        $this->assertCount(5, $this->jsCalendarAfter);
+
+        $titles = array_map(function ($event) {
+            return $event->getTitle();
+        }, $this->jsCalendarAfter);
+
+        $this->assertContains("appointmentTest1", $titles);
+        $this->assertContains("appointmentTest2", $titles);
+        $this->assertContains("appointmentTest3", $titles);
+        $this->assertContains("Test appointment", $titles);
+        $this->assertContains("Herzlichen Glückwunsch zum Geburtstag!", $titles);
+    }
+
 
     /* *
      * Map JSCalendar -> iCalendar -> JSCalendar
