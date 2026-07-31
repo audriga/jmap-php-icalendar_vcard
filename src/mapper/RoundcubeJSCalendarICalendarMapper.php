@@ -36,9 +36,11 @@ class RoundcubeJSCalendarICalendarMapper extends JSCalendarICalendarMapper
             $vObject = \Sabre\VObject\Reader::read($iCalString);
             $vevent = $vObject->VEVENT;
 
-            $start = $vevent->DTSTART->getDateTime();
+            // Roundcube's calendar plugin checks is_a($value, 'DateTime') before formatting date
+            // columns, and DateTimeImmutable fails that check, so convert to DateTime here.
+            $start = \DateTime::createFromImmutable($vevent->DTSTART->getDateTime());
             $end = isset($vevent->DTEND)
-                ? $vevent->DTEND->getDateTime()
+                ? \DateTime::createFromImmutable($vevent->DTEND->getDateTime())
                 : (clone $start)->modify('+1 hour');
 
             // Extract location from original JSCalendar data

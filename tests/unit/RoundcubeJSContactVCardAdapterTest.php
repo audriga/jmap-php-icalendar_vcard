@@ -225,7 +225,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         // Maiden name
         $this->assertEquals(
             'Öster',
-            $card->getProperty('audriga.eu/roundcube:maidenName')
+            $card->getProperty('audriga.eu:roundcube:maidenName')
         );
 
         // Name
@@ -452,7 +452,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertEquals($card->getUpdated(), $rtCard->getUpdated());
         $this->assertEquals(
             'Öster',
-            $rtCard->getProperty('audriga.eu/roundcube:maidenName')
+            $rtCard->getProperty('audriga.eu:roundcube:maidenName')
         );
 
         // Roundtrip checks
