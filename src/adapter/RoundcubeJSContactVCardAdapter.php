@@ -332,7 +332,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
 
     /**
      * This function maps the vCard X-MAIDENNAME (Roundcube-specific property)
-     * to the JSContact "audriga.eu/roundcube:maidenName" property
+     * to the JSContact "audriga.eu:roundcube:maidenName" property
      *
      * @param ContactCard $card The ContactCard to populate
      */
@@ -342,7 +342,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
         if (AdapterUtil::isSetAndNotNull($xMaidenName)) {
             $value = trim((string)$xMaidenName);
             if ($value !== "") {
-                $card->setProperty("audriga.eu/roundcube:maidenName", $value);
+                $card->setProperty("audriga.eu:roundcube:maidenName", $value);
             }
         }
     }
@@ -582,13 +582,13 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
     }
 
     /**
-     * This function maps the JSContact "audriga.eu/roundcube:maidenName" property to the vCard X-MAIDENNAME property
+     * This function maps the JSContact "audriga.eu:roundcube:maidenName" property to the vCard X-MAIDENNAME property
      *
      * @param ContactCard $card The ContactCard containing maiden name
      */
     public function setMaidenName(ContactCard $card)
     {
-        $jsContactMaidenName = $card->getProperty("audriga.eu/roundcube:maidenName");
+        $jsContactMaidenName = $card->getProperty("audriga.eu:roundcube:maidenName");
 
         if ($jsContactMaidenName !== null && $jsContactMaidenName !== "") {
             $value = is_string($jsContactMaidenName) ? $jsContactMaidenName : (string)$jsContactMaidenName;
