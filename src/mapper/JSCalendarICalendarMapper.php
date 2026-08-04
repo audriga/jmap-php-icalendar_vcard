@@ -387,10 +387,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
         // before it is then stored in the jsCal CalendarEvent object.
         $jmapLinks = array();
 
-        // Set attachments. Set it as a variable to make null-handling easier
-        // since the null coalescing operator (??) was only added in PHP 7.
         $attachments = $adapter->getAttachments();
-        $jmapLinks = array_merge($jmapLinks, $attachments ? $attachments : []);
+        $jmapLinks = array_merge($jmapLinks, $attachments ?? []);
 
         $url = $adapter->getUrl();
         if (!is_null($url)) {
