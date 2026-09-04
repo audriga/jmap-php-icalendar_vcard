@@ -11,6 +11,7 @@ use OpenXPort\Jmap\JSContact\EmailAddress;
 use OpenXPort\Jmap\JSContact\Phone;
 use OpenXPort\Jmap\JSContact\Note;
 use OpenXPort\Jmap\JSContact\Organization;
+use OpenXPort\Jmap\JSContact\OrgUnit;
 use OpenXPort\Jmap\JSContact\Title;
 use OpenXPort\Jmap\JSContact\Nickname;
 use OpenXPort\Jmap\JSContact\Anniversary;
@@ -421,7 +422,7 @@ final class JSContactVCardAdapterTest extends TestCase
         );
         $this->assertEquals(
             "Cleaning department",
-            array_values($jsContactDataAfter->getOrganizations())[0]->getUnits()[0]
+            array_values($jsContactDataAfter->getOrganizations())[0]->getUnits()[0]->getName()
         );
     }
 
@@ -907,7 +908,7 @@ final class JSContactVCardAdapterTest extends TestCase
         $this->assertEquals('Bubba Gump Shrimp Co.', $orgAfter->getName());
         $unitsAfter = $orgAfter->getUnits();
         $this->assertNotNull($unitsAfter, 'Org unit should survive roundtrip');
-        $this->assertContains('Cleaning department', $unitsAfter);
+        $this->assertContains('Cleaning department', array_map(fn(OrgUnit $u) => $u->getName(), $unitsAfter));
 
         $onlineAfter = $cardAfter->getOnlineServices();
         $this->assertNotEmpty($onlineAfter);

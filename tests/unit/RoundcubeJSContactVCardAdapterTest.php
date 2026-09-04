@@ -6,6 +6,7 @@ use OpenXPort\Adapter\RoundcubeJSContactVCardAdapter;
 use OpenXPort\Jmap\JSContact\ContactCard;
 use OpenXPort\Jmap\JSContact\Phone;
 use OpenXPort\Jmap\JSContact\Organization;
+use OpenXPort\Jmap\JSContact\OrgUnit;
 use OpenXPort\Jmap\JSContact\Anniversary;
 use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Jmap\JSContact\Address;
@@ -257,7 +258,7 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $this->assertEquals('Äcme GmbH', $organization->getName());
         $this->assertEquals(
             array('Forschung und Entwicklung', 'Forschung'),
-            $organization->getUnits()
+            array_map(fn(OrgUnit $u) => $u->getName(), $organization->getUnits())
         );
 
         // Title
@@ -370,7 +371,10 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $anniversary = reset($anniversaries);
         $this->assertNotFalse($anniversary);
         $this->assertEquals('birth', $anniversary->getKind());
-        $this->assertEquals('1988-04-12', $anniversary->getDate());
+        $this->assertEquals(
+            (object) array('@type' => 'PartialDate', 'year' => 1988, 'month' => 4, 'day' => 12),
+            $anniversary->getDate()
+        );
 
         // Relations
         $relatedTo = $card->getRelatedTo();
@@ -692,7 +696,10 @@ final class RoundcubeJSContactVCardAdapterTest extends TestCase
         $rtOrg = reset($rtOrganizations);
         $this->assertNotFalse($rtOrg);
         $this->assertEquals('Bubba Gump Shrimp Co.', $rtOrg->getName());
-        $this->assertEquals(array('Cleaning department'), $rtOrg->getUnits());
+        $this->assertEquals(
+            array('Cleaning department'),
+            array_map(fn(OrgUnit $u) => $u->getName(), $rtOrg->getUnits())
+        );
 
         $rtAnniversaries = $rtCard->getAnniversaries() ?: array();
         $this->assertNotEmpty($rtAnniversaries);

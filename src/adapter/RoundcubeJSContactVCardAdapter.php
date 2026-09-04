@@ -6,6 +6,7 @@ use OpenXPort\Jmap\JSContact\Anniversary;
 use OpenXPort\Jmap\JSContact\OnlineService;
 use OpenXPort\Jmap\JSContact\Relation;
 use OpenXPort\Jmap\JSContact\Organization;
+use OpenXPort\Jmap\JSContact\OrgUnit;
 use OpenXPort\Util\JSContactVCardAdapterUtil as Util;
 use OpenXPort\Jmap\JSContact\SpeakToAs;
 use OpenXPort\Jmap\JSContact\ContactCard;
@@ -314,15 +315,22 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             $units = array();
         }
 
+        $seenNames = array();
+        foreach ($units as $unit) {
+            if ($unit instanceof OrgUnit) {
+                $seenNames[$unit->getName()] = true;
+            }
+        }
+
         foreach ($departments as $dept) {
             $value = trim((string)$dept);
-            if ($value !== "") {
-                $units[] = $value;
+            if ($value !== "" && !isset($seenNames[$value])) {
+                $units[] = new OrgUnit($value);
+                $seenNames[$value] = true;
             }
         }
 
         if (!empty($units)) {
-            $units = array_values(array_unique($units, SORT_STRING));
             $firstOrg->setUnits($units);
         }
 
@@ -375,7 +383,7 @@ class RoundcubeJSContactVCardAdapter extends JSContactVCardAdapter
             $jsContactAnniversaryValue = $jsContactAnniversary->getDate();
 
             $label = strtolower(trim((string) $jsContactAnniversaryLabel));
-            $date  = trim((string) $jsContactAnniversaryValue);
+            $date  = trim((string) $this->partialDateOrTimestampToYmd($jsContactAnniversaryValue));
 
             if ($label !== 'x-anniversary' || $date === '') {
                 continue;

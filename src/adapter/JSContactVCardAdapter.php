@@ -7,6 +7,7 @@ use OpenXPort\Jmap\JSContact\Name;
 use OpenXPort\Jmap\JSContact\NameComponent;
 use OpenXPort\Jmap\JSContact\Nickname;
 use OpenXPort\Jmap\JSContact\Organization;
+use OpenXPort\Jmap\JSContact\OrgUnit;
 use OpenXPort\Jmap\JSContact\Title;
 use OpenXPort\Jmap\JSContact\Note;
 use OpenXPort\Jmap\JSContact\EmailAddress;
@@ -1176,7 +1177,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             for ($i = 1; $i < count($parts); $i++) {
                 $u = (string) $parts[$i];
                 if ($u !== '') {
-                    $units[] = $u;
+                    $units[] = new OrgUnit($u);
                 }
             }
             if (!empty($units)) {
@@ -2639,25 +2640,37 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
+     * Converts a JSContact PartialDate or Timestamp object (RFC 9553) to a "Y-m-d" string.
+     * Returns the value unchanged if it's neither shape.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    protected function partialDateOrTimestampToYmd($value)
+    {
+        if (!is_array($value) && !is_object($value)) {
+            return $value;
+        }
+
+        $value = (array) $value;
+
+        if (isset($value['year']) && isset($value['month']) && isset($value['day'])) {
+            return sprintf('%04d-%02d-%02d', $value['year'], $value['month'], $value['day']);
+        }
+
+        if (isset($value['utc'])) {
+            return substr((string) $value['utc'], 0, 10);
+        }
+
+        return $value;
+    }
+
+    /**
      * Writes a Y-m-d birthday to the vCard BDAY property.
      */
     protected function setBirthday($birthday)
     {
-        // Handle PartialDate object format from RFC 9553
-        if (is_array($birthday) || is_object($birthday)) {
-            $birthday = (array)$birthday;
-            if (
-                isset($birthday['year']) && isset($birthday['month'])
-                 && isset($birthday['day'])
-            ) {
-                $birthday = sprintf(
-                    '%04d-%02d-%02d',
-                    $birthday['year'],
-                    $birthday['month'],
-                    $birthday['day']
-                );
-            }
-        }
+        $birthday = $this->partialDateOrTimestampToYmd($birthday);
 
         $vDate = Util::parseDateToVcardDate($birthday);
         if ($vDate !== null) {
@@ -2695,21 +2708,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function setAnniversary($anniversary)
     {
-        // Handle PartialDate object format from RFC 9553
-        if (is_array($anniversary) || is_object($anniversary)) {
-            $anniversary = (array)$anniversary;
-            if (
-                isset($anniversary['year']) && isset($anniversary['month'])
-                && isset($anniversary['day'])
-            ) {
-                $anniversary = sprintf(
-                    '%04d-%02d-%02d',
-                    $anniversary['year'],
-                    $anniversary['month'],
-                    $anniversary['day']
-                );
-            }
-        }
+        $anniversary = $this->partialDateOrTimestampToYmd($anniversary);
 
         $vDate = Util::parseDateToVcardDate($anniversary);
         if ($vDate !== null) {
@@ -2761,21 +2760,7 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected function setDeathDate($deathDate)
     {
-        // Handle PartialDate object format from RFC 9553
-        if (is_array($deathDate) || is_object($deathDate)) {
-            $deathDate = (array)$deathDate;
-            if (
-                isset($deathDate['year']) && isset($deathDate['month'])
-                 && isset($deathDate['day'])
-            ) {
-                $deathDate = sprintf(
-                    '%04d-%02d-%02d',
-                    $deathDate['year'],
-                    $deathDate['month'],
-                    $deathDate['day']
-                );
-            }
-        }
+        $deathDate = $this->partialDateOrTimestampToYmd($deathDate);
 
         $vDate = Util::parseDateToVcardDate($deathDate);
         if ($vDate !== null) {
@@ -2911,6 +2896,36 @@ class JSContactVCardAdapter extends AbstractAdapter
     }
 
     /**
+     * Converts a "Y-m-d" date string to a JSContact PartialDate object.
+     * Returns null if the date is missing or unset ('0000-00-00').
+     *
+     * @param string|null $ymd
+     * @return object|null
+     */
+    private function toPartialDate($ymd)
+    {
+        if ($ymd === null || $ymd === '0000-00-00') {
+            return null;
+        }
+
+        $parts = explode('-', $ymd);
+        if (count($parts) !== 3) {
+            return null;
+        }
+
+        [$y, $m, $d] = array_map('intval', $parts);
+
+        return (object) array_filter([
+            '@type' => 'PartialDate',
+            'year'  => $y ?: null,
+            'month' => $m ?: null,
+            'day'   => $d ?: null,
+        ], function ($val) {
+            return $val !== null;
+        });
+    }
+
+    /**
      * This function maps the vCard "BDAY", "BIRTHPLACE", "DEATHDATE", "DEATHPLACE" and "ANNIVERSARY" properties
      * to the JSContact "anniversaries" property
      *
@@ -2926,7 +2941,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $a = new Anniversary();
             $a->setKind('birth');
             if ($bday !== '0000-00-00') {
-                $a->setDate($bday);
+                $a->setDate($this->toPartialDate($bday));
             }
             if ($bplace !== null) {
                 $addr = $this->placeRawToAddress($bplace);
@@ -2943,7 +2958,7 @@ class JSContactVCardAdapter extends AbstractAdapter
             $a = new Anniversary();
             $a->setKind('death');
             if ($ddate !== '0000-00-00') {
-                $a->setDate($ddate);
+                $a->setDate($this->toPartialDate($ddate));
             }
             if ($dplace !== null) {
                 $addr = $this->placeRawToAddress($dplace);
@@ -2960,7 +2975,7 @@ class JSContactVCardAdapter extends AbstractAdapter
                 $a = new Anniversary();
                 $a->setKind('wedding');
                 $a->setLabel('anniversary');
-                $a->setDate($anniv);
+                $a->setDate($this->toPartialDate($anniv));
                 $anns["ann" . (count($anns) + 1)] = $a;
             }
         }
@@ -3043,8 +3058,10 @@ class JSContactVCardAdapter extends AbstractAdapter
                 }
             }
 
+            // PHP serializes an empty array as a JSON array ([]), but JSContact expects the
+            // "relation" property to always be a map/object, even when there's no known type.
             $relationObj = new Relation();
-            $relationObj->setRelation($relationTypes);
+            $relationObj->setRelation(empty($relationTypes) ? (object) [] : $relationTypes);
             $relatedMap[$key] = $relationObj;
         }
 
