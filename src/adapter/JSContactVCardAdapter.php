@@ -1823,7 +1823,15 @@ class JSContactVCardAdapter extends AbstractAdapter
             }
 
             foreach ($items as $prop) {
-                $uri = trim((string) $prop);
+                if ($prop instanceof Property\Binary) {
+                    // Legacy vCard 3.0-style inline binary (e.g. PHOTO;ENCODING=b:...). Sabre decodes this to
+                    // raw bytes internally, so (string) $prop would yield raw binary instead of a data: URI.
+                    $mediaType = $this->guessBinaryMediaType($prop);
+                    $uri = 'data:' . $mediaType . ';base64,' . base64_encode($prop->getValue());
+                } else {
+                    $uri = trim((string) $prop);
+                }
+
                 if ($uri === '') {
                     continue;
                 }
@@ -1839,6 +1847,45 @@ class JSContactVCardAdapter extends AbstractAdapter
         if (!empty($map)) {
             $card->setMedia($map);
         }
+    }
+
+    /**
+     * Determines the MIME media type for a legacy inline binary vCard property (e.g. PHOTO;ENCODING=b),
+     * using the MEDIATYPE parameter if present, falling back to the legacy TYPE parameter
+     * (e.g. TYPE=PNG, TYPE=JPEG), and finally a generic binary type if neither is set or recognized.
+     *
+     * @param Property\Binary $prop
+     * @return string
+     */
+    protected function guessBinaryMediaType($prop)
+    {
+        if (isset($prop['MEDIATYPE'])) {
+            $mediaType = trim((string) $prop['MEDIATYPE']);
+            if ($mediaType !== '') {
+                return $mediaType;
+            }
+        }
+
+        $legacyImageTypes = array(
+            'JPEG' => 'image/jpeg',
+            'JPG'  => 'image/jpeg',
+            'PNG'  => 'image/png',
+            'GIF'  => 'image/gif',
+            'BMP'  => 'image/bmp',
+            'TIFF' => 'image/tiff',
+            'TIF'  => 'image/tiff',
+        );
+
+        if (isset($prop['TYPE'])) {
+            foreach ($prop['TYPE']->getParts() as $type) {
+                $type = strtoupper(trim($type));
+                if (isset($legacyImageTypes[$type])) {
+                    return $legacyImageTypes[$type];
+                }
+            }
+        }
+
+        return 'application/octet-stream';
     }
 
     /**
