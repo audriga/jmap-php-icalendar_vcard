@@ -434,6 +434,23 @@ final class JSCalendarICalendarAdapterTest extends TestCase
         $this->assertIsArray($this->jsCalendarAfter->getRecurrenceRules()[1]->getByDay());
     }
 
+    /**
+     * count and until are mutually exclusive per RFC 5545, an RRULE must not
+     * have both. If a client sends both anyway (as jscalendar_with_count_and_until.json
+     * does), the resulting RRULE must keep until and drop count rather than
+     * emit an invalid RRULE that can break calendar clients trying to expand it
+     * (this happened to a Nextcloud calendar in Mantis 0006295).
+     */
+    public function testRecurrenceRuleWithCountAndUntilDropsCount()
+    {
+        $this->mapJSCalendar(__DIR__ . '/../resources/jscalendar_with_count_and_until.json');
+
+        $rRuleValue = $this->iCalendar->VEVENT->RRULE->getValue();
+
+        $this->assertStringContainsString('UNTIL=', $rRuleValue);
+        $this->assertStringNotContainsString('COUNT=', $rRuleValue);
+    }
+
     public function testMultipleEventsRoundtrip()
     {
         $PATH = __DIR__ . '/../resources/jscalendar_two_events.json';

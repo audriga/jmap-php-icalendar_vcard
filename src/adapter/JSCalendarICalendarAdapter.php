@@ -1471,19 +1471,35 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
                 array_push($iCalRRule, "BYSETPOS=" . $iCalValue);
             }
 
-            $jsCalValue = $rec->getCount();
-            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            // count and until are mutually exclusive per RFC 5545, an RRULE
+            // must not have both. If a client sends both anyway, prefer
+            // until and drop count, rather than emitting an invalid RRULE
+            // that can break clients trying to expand it (e.g. an infinite
+            // loading calendar in Nextcloud).
+            $jsCalCount = $rec->getCount();
+            $jsCalUntil = $rec->getUntil();
+            $hasCount = AdapterUtil::isSetNotNullAndNotEmpty($jsCalCount);
+            $hasUntil = AdapterUtil::isSetNotNullAndNotEmpty($jsCalUntil);
+
+            if ($hasCount && $hasUntil) {
+                $this->logger->warning(
+                    "RecurrenceRule has both count and until, which is invalid per RFC 5545. "
+                    . "Dropping count and keeping until for event " . $this->getUid()
+                );
+                $hasCount = false;
+            }
+
+            if ($hasCount) {
                 $iCalValue = JSCalendarICalendarAdapterUtil::
-                    convertFromJmapCountToICalCount($jsCalValue);
+                    convertFromJmapCountToICalCount($jsCalCount);
 
                 array_push($iCalRRule, "COUNT=" . $iCalValue);
             }
 
-            $jsCalValue = $rec->getUntil();
-            if (AdapterUtil::isSetNotNullAndNotEmpty($jsCalValue)) {
+            if ($hasUntil) {
                 $dtStart = $this->iCalEvent->VEVENT->DTSTART;
                 $iCalValue = JSCalendarICalendarAdapterUtil::
-                    convertFromJmapUntilToICalUntil($jsCalValue, $dtStart);
+                    convertFromJmapUntilToICalUntil($jsCalUntil, $dtStart);
 
                 array_push($iCalRRule, "UNTIL=" . $iCalValue);
             }

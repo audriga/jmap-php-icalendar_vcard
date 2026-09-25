@@ -1,0 +1,15 @@
+{
+    "@type": "Event",
+    "uid": "1234-count-and-until-OpenXPort-TestFiles",
+    "prodId": "-//audriga//OpenXPort",
+    "title": "Weekly Meeting",
+    "start": "2023-04-28T14:00:00",
+    "timeZone": "Europe/Berlin",
+    "duration": "PT1H",
+    "recurrenceRules": [{
+        "@type": "RecurrenceRule",
+        "frequency": "weekly",
+        "count": "5",
+        "until": "2023-12-31T23:59:59"
+    }]
+}
