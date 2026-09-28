@@ -19,7 +19,7 @@
         }
     ],
     "require": {
-        "php": ">=5.6",
+        "php": ">=8.0",
         "sabre/vobject": ">=4.2",
         "audriga/jmap-openxport": "dev-next-gen"
     },
