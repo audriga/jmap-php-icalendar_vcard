@@ -375,9 +375,16 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
     {
         $start = $this->iCalEvent->VEVENT->DTSTART;
         $end = $this->iCalEvent->VEVENT->DTEND;
+        $duration = $this->iCalEvent->VEVENT->DURATION;
 
         if (!AdapterUtil::isSetNotNullAndNotEmpty($start)) {
             return null;
+        }
+
+        // DTEND and DURATION are mutually exclusive in iCalendar (RFC 5545). If DURATION
+        // was used instead of DTEND, its value is already in the same format JMAP uses.
+        if (!AdapterUtil::isSetNotNullAndNotEmpty($end) && AdapterUtil::isSetNotNullAndNotEmpty($duration)) {
+            return (string) $duration;
         }
 
         // Default value in jmap is 'PT0S'.
