@@ -445,7 +445,7 @@ class JSCalendarICalendarAdapterUtil
         if (
             AdapterUtil::isSetNotNullAndNotEmpty($dtStart)
             && (
-                str_contains($dtStart->getValue(), "Z")
+                strpos($dtStart->getValue(), "Z") !== false
                 || AdapterUtil::isSetNotNullAndNotEmpty($dtStart->getDateTime()->getTimeZone())
             )
         ) {
@@ -758,14 +758,14 @@ class JSCalendarICalendarAdapterUtil
         // According to the Data URL RFC, this should be the only occurence
         // of a "/" in the meta data part of the value.
         // https://datatracker.ietf.org/doc/html/rfc2397#section-3
-        if ($metaData == "" || !str_contains($metaData, ";")) {
+        if ($metaData == "" || strpos($metaData, ";") === false) {
             return false;
         }
 
         $splitMetaData = explode(";", $metaData);
 
         foreach ($splitMetaData as $part) {
-            if (str_contains($part, "/")) {
+            if (strpos($part, "/") !== false) {
                 return $part;
             }
         }
