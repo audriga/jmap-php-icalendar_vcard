@@ -383,7 +383,7 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
         // JSCalendar start properties may not be UTC values ("Z" at the end of the Datetime). Instead, the timeZone
         // property should be set to "Etc/UTC".
-        if (str_contains($dtStart->getValue(), "Z")) {
+        if (strpos($dtStart->getValue(), "Z") !== false) {
             return "Etc/UTC";
         } else {
             $timeZone = $dtStart->getDateTime()->getTimezone();
