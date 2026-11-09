@@ -2632,7 +2632,7 @@ class JSContactVCardAdapter extends AbstractAdapter
     {
         $vAddrs = $this->vCard->ADR;
         if (!AdapterUtil::isSetAndNotNull($vAddrs) || empty($vAddrs)) {
-            return;
+            $vAddrs = [];
         }
 
         $map = array();
@@ -2742,6 +2742,18 @@ class JSContactVCardAdapter extends AbstractAdapter
             if ($tzValue !== '') {
                 $a = new Address();
                 $a->setTimeZone($tzValue);
+                $map['a' . $i++] = $a;
+            }
+        }
+
+        // A standalone GEO property (not attached to an ADR) has no dedicated JSContact field,
+        // so it is stored on a synthetic Address the same way a standalone TZ is above.
+        $standaloneGeo = $this->vCard->__get('GEO');
+        if (AdapterUtil::isSetAndNotNull($standaloneGeo)) {
+            $geoValue = trim((string) $standaloneGeo);
+            if ($geoValue !== '') {
+                $a = new Address();
+                $a->setCoordinates($geoValue);
                 $map['a' . $i++] = $a;
             }
         }
