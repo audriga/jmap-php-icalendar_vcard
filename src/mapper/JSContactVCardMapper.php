@@ -76,6 +76,7 @@ class JSContactVCardMapper extends AbstractMapper
                 $adapter->setSchedulingAddresses($jsContactCard);
                 $adapter->setCalendars($jsContactCard);
                 $adapter->setMembers($jsContactCard);
+                $adapter->setUnmappedProperties($jsContactCard);
 
                 // Get the serialized vCard and build result
                 $backendContact = $adapter->getVCard();
@@ -180,6 +181,7 @@ class JSContactVCardMapper extends AbstractMapper
                 $adapter->getSchedulingAddresses($jsContactCard);
                 $adapter->getCalendars($jsContactCard);
                 $adapter->getMembers($jsContactCard);
+                $adapter->getUnmappedProperties($jsContactCard);
 
                 array_push($list, $jsContactCard);
                 $index++;

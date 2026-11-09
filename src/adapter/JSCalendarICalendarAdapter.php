@@ -32,10 +32,107 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
 
     private $oxpProperties = [];
 
+    /**
+     * Base (non-"X-"-prefixed) names of VEVENT properties already consumed by one of this
+     * adapter's other getX()/setX() methods. Anything on the VEVENT whose name (after
+     * stripping a leading "X-") is not in this list is unmapped by this adapter and is instead
+     * preserved verbatim via getUnmappedProperties()/setUnmappedProperties(), so that custom
+     * properties added by 3rd-party CalDAV clients are not silently dropped on JMAP read.
+     *
+     * @var string[]
+     */
+    private const KNOWN_ICAL_PROPERTIES = [
+        'SUMMARY', 'DESCRIPTION', 'CREATED', 'LAST-MODIFIED', 'DTSTAMP', 'UID', 'SEQUENCE',
+        'STATUS', 'COLOR', 'LOCALE', 'CATEGORIES', 'LOCATION', 'VLOCATION', 'GEO', 'TRANSP',
+        'CLASS', 'VALARM', 'RRULE', 'DTSTART', 'DTEND', 'DURATION', 'RECURRENCE-ID', 'EXDATE',
+        'RDATE', 'ORGANIZER', 'ATTENDEE', 'PRIORITY', 'REPLY-URL', 'REQUEST-STATUS', 'URL',
+        'RELATED-TO', 'ATTACH', 'CONFERENCE', 'SHOW-WITHOUT-TIME', 'PRODID', 'METHOD',
+    ];
+
     public function __construct()
     {
         $this->iCalEvent = new VCalendar(['VEVENT' => []]);
         $this->logger = Logger::getInstance();
+    }
+
+    /**
+     * Preserve any VEVENT property that none of this adapter's other getX() methods understand
+     * (e.g. a fully custom property added by a 3rd-party CalDAV client, like
+     * "X-RANDOMCLIENT-CUSTOMFIELD" or "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR") by stashing it,
+     * verbatim, as a generic custom property on the JMAP CalendarEvent. Without this, such
+     * properties are silently dropped during the iCal -> JSCalendar conversion, even though the
+     * raw CalDAV data on the server still has them.
+     *
+     * @param mixed $jmapEvent CalendarEvent or PatchObject
+     */
+    public function getUnmappedProperties($jmapEvent)
+    {
+        if (!method_exists($jmapEvent, 'addCustomProperty') || is_null($this->iCalEvent->VEVENT)) {
+            return;
+        }
+
+        $unmapped = [];
+
+        foreach ($this->iCalEvent->VEVENT->children() as $prop) {
+            $name = $prop->name;
+            $baseName = strpos($name, 'X-') === 0 ? substr($name, 2) : $name;
+
+            if (in_array($baseName, self::KNOWN_ICAL_PROPERTIES, true)) {
+                continue;
+            }
+
+            $parameters = [];
+            foreach ($prop->parameters() as $param) {
+                $parameters[$param->name] = (string) $param->getValue();
+            }
+
+            $unmapped[] = [
+                'name' => $name,
+                'parameters' => $parameters,
+                'value' => (string) $prop,
+            ];
+        }
+
+        if (!empty($unmapped)) {
+            $jmapEvent->addCustomProperty('com.audriga:icalProps', $unmapped);
+        }
+    }
+
+    /**
+     * Writes back any VEVENT properties that were preserved by getUnmappedProperties() on read,
+     * so that fully custom 3rd-party CalDAV properties survive a JMAP round-trip.
+     *
+     * @param mixed $jsEvent CalendarEvent or PatchObject
+     */
+    public function setUnmappedProperties($jsEvent)
+    {
+        if (!method_exists($jsEvent, 'getCustomProperties')) {
+            return;
+        }
+
+        $customProperties = $jsEvent->getCustomProperties();
+        if (!is_array($customProperties) || !isset($customProperties['com.audriga:icalProps'])) {
+            return;
+        }
+
+        $unmapped = $customProperties['com.audriga:icalProps'];
+        if (!is_array($unmapped)) {
+            return;
+        }
+
+        foreach ($unmapped as $entry) {
+            // Custom/vendor properties round-trip through generic JSON decoding, so nested
+            // entries may arrive as stdClass instead of an associative array.
+            $entry = (array) $entry;
+
+            if (!isset($entry['name'])) {
+                continue;
+            }
+
+            $parameters = isset($entry['parameters']) ? (array) $entry['parameters'] : [];
+
+            $this->iCalEvent->VEVENT->add($entry['name'], $entry['value'] ?? '', $parameters);
+        }
     }
 
     public function getAsHash()

@@ -183,6 +183,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
 
         $adapter->setRequestStatus($jsEvent->getRequestStatus());
 
+        $adapter->setUnmappedProperties($jsEvent);
+
         // Map any properties that are only found in the event itself.
         if (is_null($masterEvent)) {
             $adapter->setUid($jsEvent->getUid());
@@ -403,6 +405,8 @@ class JSCalendarICalendarMapper extends AbstractMapper
         }
         $jmapEvent->setReplyTo($adapter->getReplyTo());
         $jmapEvent->setRequestStatus($adapter->getRequestStatus());
+
+        $adapter->getUnmappedProperties($jmapEvent);
 
         // Create indices for the JMAP link map. Otherwise, the objects would be
         // stored in an array.

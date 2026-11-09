@@ -61,6 +61,24 @@ class JSContactVCardAdapter extends AbstractAdapter
      */
     protected $oxpProperties = [];
 
+    /**
+     * Base (non-"X-"-prefixed) names of vCard properties already consumed by one of this
+     * adapter's other getX()/setX() methods. Anything on the vCard whose name (after
+     * stripping a leading "X-") is not in this list is unmapped by this adapter and is instead
+     * preserved verbatim via getUnmappedProperties()/setUnmappedProperties(), so that custom
+     * properties added by 3rd-party CardDAV clients are not silently dropped on JMAP read.
+     *
+     * @var string[]
+     */
+    protected const KNOWN_VCARD_PROPERTIES = [
+        'VERSION', 'N', 'FN', 'UID', 'REV', 'KIND', 'NICKNAME', 'ORG', 'TITLE', 'ROLE', 'NOTE',
+        'EMAIL', 'TEL', 'LANG', 'LANGUAGE', 'KEY', 'ADR', 'BDAY', 'RELATED', 'CATEGORIES',
+        'PHOTO', 'LOGO', 'SOUND', 'URL', 'CALURI', 'CALADRURI', 'FBURL', 'MEMBER', 'GENDER',
+        'GRAMGENDER', 'ANNIVERSARY', 'SOURCE', 'IMPP', 'GEO', 'CONTACT-URI', 'SOCIALPROFILE',
+        'ORG-DIRECTORY', 'PRODID', 'TZ', 'DEATHDATE', 'DEATHPLACE', 'BIRTHPLACE', 'AUTHOR',
+        'AUTHOR-NAME', 'JSCOMPS', 'PRONOUNS', 'HOBBY', 'INTEREST', 'EXPERTISE',
+    ];
+
     /** @var bool When true, plain text birth/death places are kept as a full address string. */
     protected $placeTextAsFullAddress = true;
 
@@ -201,6 +219,78 @@ class JSContactVCardAdapter extends AbstractAdapter
 
         foreach ($this->vCard->children() as $vCardChild) {
             $this->vCardChildren[] = $vCardChild->name;
+        }
+    }
+
+    /**
+     * Preserve any vCard property that none of this adapter's other getX() methods understand
+     * (e.g. a fully custom property added by a 3rd-party CardDAV client, like
+     * "X-RANDOMCLIENT-CUSTOMFIELD") by stashing it, verbatim, as a generic custom property on
+     * the JMAP ContactCard under the "vCardProps" key. Without this, such properties are
+     * silently dropped during the vCard -> JSContact conversion, even though the raw CardDAV
+     * data on the server still has them.
+     *
+     * @param ContactCard $card
+     */
+    public function getUnmappedProperties(ContactCard $card)
+    {
+        if (is_null($this->vCard)) {
+            return;
+        }
+
+        $unmapped = [];
+
+        foreach ($this->vCard->children() as $prop) {
+            $name = $prop->name;
+            $baseName = strpos($name, 'X-') === 0 ? substr($name, 2) : $name;
+
+            if (in_array($baseName, self::KNOWN_VCARD_PROPERTIES, true)) {
+                continue;
+            }
+
+            $parameters = [];
+            foreach ($prop->parameters() as $param) {
+                $parameters[$param->name] = (string) $param->getValue();
+            }
+
+            $unmapped[] = [
+                'name' => $name,
+                'parameters' => $parameters,
+                'value' => (string) $prop,
+            ];
+        }
+
+        if (!empty($unmapped)) {
+            $card->setProperty('vCardProps', $unmapped);
+        }
+    }
+
+    /**
+     * Writes back any vCard properties that were preserved by getUnmappedProperties() on read,
+     * so that fully custom 3rd-party CardDAV properties survive a JMAP round-trip.
+     *
+     * @param ContactCard $card
+     */
+    public function setUnmappedProperties(ContactCard $card)
+    {
+        $unmapped = $card->getProperty('vCardProps');
+
+        if (!is_array($unmapped)) {
+            return;
+        }
+
+        foreach ($unmapped as $entry) {
+            // Custom/vendor properties round-trip through generic JSON decoding, so nested
+            // entries may arrive as stdClass instead of an associative array.
+            $entry = (array) $entry;
+
+            if (!isset($entry['name'])) {
+                continue;
+            }
+
+            $parameters = isset($entry['parameters']) ? (array) $entry['parameters'] : [];
+
+            $this->vCard->add($entry['name'], $entry['value'] ?? '', $parameters);
         }
     }
 
