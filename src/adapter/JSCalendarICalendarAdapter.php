@@ -329,6 +329,11 @@ class JSCalendarICalendarAdapter extends AbstractAdapter
             return;
         }
 
+        // A JMAP LocalDate/UTCDate value may include fractional seconds (e.g. a client
+        // using Java's LocalDateTime.now() produces "2026-11-10T11:20:00.933307602").
+        // iCalendar DTSTART has no sub-second precision, and the "Y-m-d\TH:i:s" format
+        // below can't parse a trailing fraction, so strip it before parsing.
+        $start = preg_replace('/\.\d+$/', '', $start);
 
         // The following checks for the right DateTime Format and creates a new DateTime in the jmap format..
         // JSCal start properties should not be UTC Date Time values and instead have the timeZone property
