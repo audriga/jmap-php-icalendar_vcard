@@ -14,20 +14,6 @@ class RoundcubeJSCalendarICalendarAdapter extends JSCalendarICalendarAdapter
     private $storedValarmsMap = [];
 
     /**
-     * Override setCalendarId to store as JMAP calendarIds map {"id": true}.
-     * The parent mapper passes oxpProperties["calendarId"] directly to
-     * $jsEvent->setCalendarIds(), so it must already be in map format.
-     */
-    public function setCalendarId($calendarId)
-    {
-        $map = new \stdClass();
-        $map->$calendarId = true;
-        $oxp = $this->getOXPProperties();
-        $oxp["calendarId"] = $map;
-        $this->setOXPProperties($oxp);
-    }
-
-    /**
      * Get Roundcube event as hash (iCalendar string + oxpProperties).
      * Overrides parent to also include calendarId from Roundcube event.
      */
